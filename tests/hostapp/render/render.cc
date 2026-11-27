@@ -3792,7 +3792,7 @@ static void nolock_scenario(const char *out)
 }
 
 // T164 D10a: every page of the host app in every mode. The canvas is the one trx_canvas_for names (960 x 540 at a whole factor, or the mode's own size below 960
-// wide: 576p PAL 720 x 576, 480p NTSC 640 x 480, 800 x 600), the pages are laid out for it, and every visible object lies inside the canvas and is not cut by its
+// wide: 576p PAL 720 x 540 (T259 D16), 480p NTSC 640 x 480, 800 x 600), the pages are laid out for it, and every visible object lies inside the canvas and is not cut by its
 // parent. The pictures (the mode's frame, the canvas at its place) go to the output directory.
 #define MCHECK(c) do { checks++; if (!(c)) { printf("FAIL MODES %s:%d %s\n", __FILE__, __LINE__, #c); fails++; } } while (0)
 extern void hostui_test_mode(int sys, int hdmi);

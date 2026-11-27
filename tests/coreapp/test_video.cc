@@ -35,7 +35,7 @@ static void monolith_menu()
 {
     CHECK_EQ(trx_canvas_factor(1920, 1080, 960, 540), 2);         // 1080p: 960 x 540 at x2
     CHECK_EQ(trx_canvas_factor(960, 540, 960, 540), 1);           // 720p (and 1024 x 768, 1280 x 1024): x1
-    CHECK_EQ(trx_canvas_factor(720, 576, 720, 576), 1);           // 576p: the compact canvas is the frame
+    CHECK_EQ(trx_canvas_factor(720, 540, 720, 540), 1);           // 576p: the compact canvas, 720 x 540 (T259 D16)
     CHECK_EQ(trx_canvas_factor(2880, 1620, 960, 540), 3);
     CHECK_EQ(trx_canvas_factor(3840, 2160, 960, 540), 3);         // b5:4 holds 3 at most
     CHECK_EQ(trx_canvas_factor(1920, 540, 960, 540), 1);          // not the same multiple in both axes: the largest that fits
@@ -68,7 +68,7 @@ static void monolith_menu()
     static const M ms[] = {
         { VID_HDMI_1080P,   VID_SYS_PAL50,  960, 540,   0,  0, 1920, 1080 },
         { VID_HDMI_720P,    VID_SYS_PAL50,  960, 540, 160, 90,  960,  540 },
-        { VID_HDMI_480_576, VID_SYS_PAL50,  720, 576,   0,  0,  720,  576 },
+        { VID_HDMI_480_576, VID_SYS_PAL50,  720, 540,   0, 18,  720,  540 },
         { VID_HDMI_480_576, VID_SYS_NTSC60, 640, 480,   0,  0,  640,  480 },
         { VID_HDMI_800x600, VID_SYS_NTSC60, 800, 600,   0,  0,  800,  600 },
         { VID_HDMI_1080P,   VID_SYS_NTSC60, 960, 540,   0,  0, 1920, 1080 },

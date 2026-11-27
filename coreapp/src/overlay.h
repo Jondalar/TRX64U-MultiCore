@@ -47,7 +47,7 @@ typedef bool (*OvPalette)(uint8_t rgb[16][3]);
 const char *ovl_anchor_name(int anchor);   // "top_left", ...; null for a number outside OVA_*
 int ovl_anchor_of(const char *name);       // the number of the name, -1 when it is none
 bool ovl_name_ok(const char *name);
-// The place of a row on a canvas of cw x ch (the active one: 640 x 480 at 480p, 720 x 576 at 576p, 800 x 600, 960 x 540 above): the anchor and the offset count from that canvas's edges, the size is
+// The place of a row on a canvas of cw x ch (the active one: 640 x 480 at 480p, 720 x 540 at 576p (T259 D16), 800 x 600, 960 x 540 above): the anchor and the offset count from that canvas's edges, the size is
 // the row's. The rectangle may reach beyond a smaller canvas (the layer clips it); the TOML check below is always made against the canvas of 960 x 540.
 OvRect ovl_place_on(const UiElementRow &r, int cw, int ch);
 // The place of a row on the canvas of 960 x 540. False when the row has no size, or its rectangle is not inside the canvas (the TOML check refuses such a row).
