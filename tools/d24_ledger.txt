@@ -14,6 +14,7 @@ file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
 file coreapp/cores/cores.h 6
 file coreapp/cores/drive_rom_pick.h 98
+file coreapp/cores/hk_defaults.h 23
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
 file coreapp/src/t64.cc 79
