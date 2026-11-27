@@ -24,6 +24,33 @@ DRIVE_LO, DRIVE_HI = 0x10020000, 0x10024000
 SEL_RE = re.compile(r"^(\w*off\w*|a_off|offs?)(?:\s*\[\s*(\d+)\s*:\s*(\d+)\s*\])?$", re.I)
 
 
+CONST_V = re.compile(r"\blocalparam\s*(?:\[[^\]]*\])?\s*(R_\w+)\s*=\s*(%s)\s*;" % r"\d*'[hHdD][0-9a-fA-F_]+")
+CONST_VHDL = re.compile(r"\bconstant\s+(R_\w+)\s*:\s*integer\s*:=\s*(16#[0-9a-fA-F_]+#)\s*;", re.I)
+
+
+def resolve_names(body, vhdl):
+    """T264 P2: the generated constants (`R_<block>_<prop>`, `R_x + 3`, `(R_x + 4) >> 2`) read as the literals they hold, so the decode that uses them is compared like one that spells the numbers."""
+    consts = {m.group(1): num(m.group(2)) for m in (CONST_VHDL if vhdl else CONST_V).finditer(body)}
+    if not consts:
+        return body
+    lit = (lambda v: "16#%03X#" % v) if vhdl else (lambda v: "12'h%03X" % v)
+    names = "|".join(sorted(map(re.escape, consts), key=len, reverse=True))
+    add = r"(?:\s*\+\s*(?:\d+'d)?(\d+))?"
+    val = lambda m, g=1: consts[m.group(g)] + (int(m.group(g + 1)) if m.group(g + 1) else 0)
+    shifted = re.compile(r"(?:\(\s*(%s)%s\s*\)|\b(%s)%s)\s*>>\s*(\d+)" % (names, add, names, add))
+    plain = re.compile(r"\b(%s)\b%s" % (names, add))
+    def conv(t):
+        t = shifted.sub(lambda m: lit((val(m) if m.group(1) else val(m, 3)) >> int(m.group(5))), t)
+        return plain.sub(lambda m: lit(val(m)), t)
+    parts, last = [], 0
+    for m in (CONST_VHDL if vhdl else CONST_V).finditer(body):      # the declarations themselves stay as they are
+        parts.append(conv(body[last:m.start()]))
+        parts.append(m.group())
+        last = m.end()
+    parts.append(conv(body[last:]))
+    return "".join(parts)
+
+
 def strip_comments(t, vhdl):
     t = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group().count("\n"), t, flags=re.S)
     return re.sub(r"--[^\n]*" if vhdl else r"//[^\n]*", "", t)
@@ -39,6 +66,9 @@ def num(s):
             return int(m.group(2).replace("_", ""), b)
         except ValueError:
             return None
+    m = re.fullmatch(r"16#([0-9a-fA-F_]+)#", s)          # VHDL based literal 16#010#
+    if m:
+        return int(m.group(1).replace("_", ""), 16)
     m = re.fullmatch(r'[xX]"([0-9a-fA-F_]+)"', s)
     if m:
         return int(m.group(1).replace("_", ""), 16)
@@ -49,7 +79,7 @@ def num(s):
     return int(s) if m else None
 
 
-LIT = r"""(?:\d*'[hHdDbBoO][0-9a-fA-F_]+|[xX]"[0-9a-fA-F_]+"|"[01_]+")"""
+LIT = r"""(?:\d*'[hHdDbBoO][0-9a-fA-F_]+|16#[0-9a-fA-F_]+#|[xX]"[0-9a-fA-F_]+"|"[01_]+")"""
 PAGE_RE = re.compile(r"(?:\bpage\s*(?:==|=)\s*(%s)|addr\w*\s*\[\s*15\s*:\s*12\s*\]\s*(?:==|=)\s*(%s))" % (LIT, LIT))
 
 
@@ -110,7 +140,7 @@ def case_blocks_v(body):
                 break
         seg = body[m.end():end]
         # choices: `lit:` or `lit, lit:` at the start of a statement, not inside a nested case
-        ch = []
+        ch, toks = [], []
         nest = 0
         for ln in re.finditer(r"[^\n]*\n?", seg):
             s = ln.group()
@@ -118,11 +148,13 @@ def case_blocks_v(body):
             if nest > 0 and not re.search(r"\bcase[xz]?\s*\(", s):
                 continue
             for cm in re.finditer(r"(?:^|;|\bbegin\b|\bend\b)\s*((?:%s\s*,\s*)*%s)\s*:(?!:)" % (LIT, LIT), s):
-                for lit in re.findall(LIT, cm.group(1)):
-                    v = num(lit)
+                for lm in re.finditer(LIT, cm.group(1)):
+                    v = num(lm.group())
                     if v is not None:
                         ch.append((v, m.start() + 0))
-        out.append((m.group(1), sh, ch, m.start()))
+                        a = m.end() + ln.start() + cm.start(1) + lm.start()
+                        toks.append((v, a, a + len(lm.group())))
+        out.append((m.group(1), sh, ch, m.start(), toks))
     return out
 
 
@@ -139,18 +171,24 @@ def case_blocks_vhdl(body):
                 end = m.end() + k.start()
                 break
         seg = body[m.end():end]
-        ch, nest = [], 0
+        ch, nest, toks = [], 0, []
         for ln in re.finditer(r"[^\n]*\n?", seg):
             s = ln.group()
             nest += len(re.findall(r"\bcase\s+[^\n]*?\s+is\b", s, re.I)) - len(re.findall(r"\bend\s+case\b", s, re.I))
             if nest > 0 and not re.search(r"\bcase\s+[^\n]*?\s+is\b", s, re.I):
                 continue
-            for wm in re.finditer(r"\bwhen\s+((?:%s\s*\|\s*)*%s)\s*=>" % (LIT, LIT), s, re.I):
-                for lit in re.findall(LIT, wm.group(1)):
-                    v = num(lit)
+            alt = r"%s(?:\s+to\s+%s)?" % (LIT, LIT)       # a choice is `lit` or `lit to lit` (a range)
+            for wm in re.finditer(r"\bwhen\s+((?:%s\s*\|\s*)*%s)\s*=>" % (alt, alt), s, re.I):
+                for a in re.split(r"\s*\|\s*", wm.group(1)):
+                    lits = [num(x) for x in re.findall(LIT, a)]
+                    if None not in lits and lits:
+                        ch.extend((v, 0) for v in range(lits[0], lits[-1] + 1))
+                for lm in re.finditer(LIT, wm.group(1)):
+                    v = num(lm.group())
                     if v is not None:
-                        ch.append((v, 0))
-        out.append((m.group(1), sh, ch, m.start()))
+                        a0 = m.end() + ln.start() + wm.start(1) + lm.start()
+                        toks.append((v, a0, a0 + len(lm.group())))
+        out.append((m.group(1), sh, ch, m.start(), toks))
     return out
 
 
@@ -161,7 +199,12 @@ def decoded(path):
     """{absolute offset in the window: [where]} for one source file: the bytes its offset decode names."""
     vhdl = path.endswith((".vhd", ".vhdl"))
     raw = open(path, errors="replace").read()
-    body = strip_comments(raw, vhdl)
+    body = resolve_names(strip_comments(raw, vhdl), vhdl)
+    if vhdl:
+        for m in re.finditer(r"\b(\w+)\s*:=\s*to_integer\s*\(\s*unsigned\s*\(\s*\w*off\w*\s*\)\s*\)", body, re.I):
+            if not SEL_RE.match(m.group(1)):
+                body = re.sub(r"\b%s\b" % re.escape(m.group(1)), "off", body)
+        body = re.sub(r"to_integer\s*\(\s*unsigned\s*\(\s*(\w*off\w*)\s*\)\s*\)", r"\1", body, flags=re.I)        # `o := to_integer(unsigned(off))`: the variable o is the offset, read it as off
     al = aliases(body)
     lines_before = lambda pos: body.count("\n", 0, pos) + 1
     pages = [p for p in (page_of(m.group()) for m in PAGE_RE.finditer(body)) if p is not None]
@@ -173,7 +216,7 @@ def decoded(path):
     for n, p in al.items():
         if p != 6 and p != 0 and re.search(r"\b%s\b" % re.escape(n), body):
             default = p
-    for sel, sh, ch, at in cases:
+    for sel, sh, ch, at, _toks in cases:
         pg = guard_page(body[max(0, at - 400):at], al, default)
         for v, _ in ch:
             for b in range(1 << sh):

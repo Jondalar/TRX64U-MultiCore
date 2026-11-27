@@ -1,7 +1,7 @@
 // T201 S2: every knob register of the A/V encoder (diag_regs.v 050-05F) changes the words as specified, live (no reset is ever applied, the registers are written through the
 // register bus while the picture runs). Units 0-7 are one diag_regs + diag_avout each, written once at clock 50 and measured over the first picture lines: unit 0 is the reset
 // state (PAL, the C128's levels), 1 V sign, 2 burst amplitude, 3 chroma gain, 4 sync level, 5 blank level, 6 white level, 7 burst window, 9 the freeze bit (053 bit 1). Unit 8 walks standard, group order, bit order and
-// trim while it runs: line and frame length of all four standards, the subcarrier constants, the six group orders against the encoder words, the eight bit orders, the trim in 31 Hz steps.
+// trim while it runs: line and frame length of all four standards, the subcarrier constants, the six group orders against the encoder words, the eight bit orders, the trim in 3.9 Hz steps.
 `timescale 1ns / 1ps
 module unit (input clk, input we, input re, input [11:0] a, input [7:0] d, output [7:0] q, output [7:0] ga, gb, gc);
     wire [92:0] cfg;
@@ -181,9 +181,9 @@ module tb_avregs;
         // trim
         wr(10'b0100000000, 12'h050, 8'd0);
         wr(10'b0100000000, 12'h054, 8'd5); repeat (5) @(posedge clk);
-        check(u[8].un.o.inc == 26'h900035 + 26'd320, "trim +5 adds 5 x 64");
+        check(u[8].un.o.inc == 26'h900035 + 26'd40, "trim +5 adds 5 x 8");
         wr(10'b0100000000, 12'h054, 8'hFD); repeat (5) @(posedge clk);
-        check(u[8].un.o.inc == 26'h900035 - 26'd192, "trim -3 subtracts 3 x 64");
+        check(u[8].un.o.inc == 26'h900035 - 26'd24, "trim -3 subtracts 3 x 8");
         wr(10'b0100000000, 12'h054, 8'd0);
         // group orders, bit orders
         for (k = 0; k < 6; k = k + 1) begin

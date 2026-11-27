@@ -106,6 +106,55 @@ module amiga_regs #(
     output reg         dlog_pop = 1'b0,
     output reg  [1:0]  wb_idx = 2'd0               // the buffer for the next frame (registered, quasi static)
 );
+    // >>> generated from cores/amiga/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_CORE_VER = 12'h006;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_AM_FEAT_FEATURES = 12'h00C;
+    localparam [11:0] R_AM_IRQ_IRQ_EN = 12'h010;
+    localparam [11:0] R_AM_IRQ_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_AM_DDR_CAL_DDR_CAL0 = 12'h020;
+    localparam [11:0] R_AM_DDR_CAL_DDR_CAL1 = 12'h024;
+    localparam [11:0] R_AM_MACHINE_CTRL = 12'h0A0;
+    localparam [11:0] R_AM_MACHINE_MEM_CFG = 12'h0A1;
+    localparam [11:0] R_AM_MACHINE_FAST_CFG = 12'h0A2;
+    localparam [11:0] R_AM_MACHINE_CPU_CFG = 12'h0A3;
+    localparam [11:0] R_AM_MACHINE_CHIPSET_CFG = 12'h0A4;
+    localparam [11:0] R_AM_MACHINE_FLOPPY_CFG = 12'h0A5;
+    localparam [11:0] R_AM_MACHINE_IDE_CFG = 12'h0A6;
+    localparam [11:0] R_AM_MACHINE_JOY_CFG = 12'h0A7;
+    localparam [11:0] R_AM_MACHINE_STATUS = 12'h0A8;
+    localparam [11:0] R_AM_MACHINE_FRAMES = 12'h0AA;
+    localparam [11:0] R_AM_VIDEO_FB_LATEST = 12'h0AC;
+    localparam [11:0] R_AM_VIDEO_FB_SHOWN = 12'h0AD;
+    localparam [11:0] R_AM_VIDEO_FB_WRITING = 12'h0AE;
+    localparam [11:0] R_AM_VIDEO_FRAME_SEQ = 12'h0AF;
+    localparam [11:0] R_AM_VIDEO_FB_OVERRUNS = 12'h0B0;
+    localparam [11:0] R_AM_STAT_STAT_SEL = 12'h0B8;
+    localparam [11:0] R_AM_STAT_STAT_VAL = 12'h0BC;
+    localparam [11:0] R_AM_RTC_RTC_EN = 12'h0E0;
+    localparam [11:0] R_AM_RTC_RTC_VAL = 12'h0E1;
+    localparam [11:0] R_AM_RTC_RTC_IDX = 12'h0E2;
+    localparam [11:0] R_AM_RTC_RTC_STAT = 12'h0E3;
+    localparam [11:0] R_AM_FLOPPY_MOUNT = 12'h100;
+    localparam [11:0] R_AM_HDF_MOUNT = 12'h180;
+    localparam [11:0] R_AM_HDF_SIZE = 12'h184;
+    localparam [11:0] R_AM_MBOX_STATUS = 12'h1A0;
+    localparam [11:0] R_AM_MBOX_LBA = 12'h1A4;
+    localparam [11:0] R_AM_MBOX_DONE = 12'h1A8;
+    localparam [11:0] R_AM_MOUSE_DX = 12'h1C0;
+    localparam [11:0] R_AM_MOUSE_DY = 12'h1C1;
+    localparam [11:0] R_AM_MOUSE_BTN = 12'h1C2;
+    localparam [11:0] R_AM_RAWKEY_RAWKEY = 12'h1C4;
+    localparam [11:0] R_AM_PAD2_WORD = 12'h1D0;
+    localparam [11:0] R_AM_PAD2_MODE = 12'h1D2;
+    localparam [11:0] R_AM_DLOG_STATUS = 12'h1F0;
+    localparam [11:0] R_AM_DLOG_TRACK = 12'h1F1;
+    localparam [11:0] R_AM_DLOG_DRIVE = 12'h1F2;
+    localparam [11:0] R_AM_DLOG_POP = 12'h1F3;
+    // <<< generated
     wire win  = addr[16];
     wire [3:0]  page = addr[15:12];
     wire [11:0] off  = addr[11:0];
@@ -197,39 +246,39 @@ module amiga_regs #(
 
         if (we && p0) begin
             case (off)
-            12'h010: irq_en <= wdata;
-            12'h014: cause <= (cause & ~wdata) | {ev_flip, ev_vsync, 3'b000, mb_ev, (dne_d & ~de_s[1]), fd_ev};
-            12'h0A0: begin ctrl <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A1: begin mem_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A2: begin fast_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A3: begin cpu_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A4: begin chipset_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A5: begin floppy_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A6: begin ide_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
-            12'h0A7: joy_cfg <= wdata;
-            12'h0E0: rtc_en <= wdata[0];
-            12'h0E1: rtc_ld[3:0] <= wdata[3:0];
-            12'h0E2: begin rtc_ld[7:4] <= wdata[3:0]; rtc_ld[8] <= ~rtc_ld[8]; end
-            12'h0B8: stat_sel <= wdata[3:0];
-            12'h100, 12'h110, 12'h120, 12'h130: begin
+            R_AM_IRQ_IRQ_EN: irq_en <= wdata;
+            R_AM_IRQ_IRQ_CAUSE: cause <= (cause & ~wdata) | {ev_flip, ev_vsync, 3'b000, mb_ev, (dne_d & ~de_s[1]), fd_ev};
+            R_AM_MACHINE_CTRL: begin ctrl <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_MEM_CFG: begin mem_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_FAST_CFG: begin fast_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_CPU_CFG: begin cpu_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_CHIPSET_CFG: begin chipset_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_FLOPPY_CFG: begin floppy_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_IDE_CFG: begin ide_cfg <= wdata; cfg_tgl <= ~cfg_tgl; end
+            R_AM_MACHINE_JOY_CFG: joy_cfg <= wdata;
+            R_AM_RTC_RTC_EN: rtc_en <= wdata[0];
+            R_AM_RTC_RTC_VAL: rtc_ld[3:0] <= wdata[3:0];
+            R_AM_RTC_RTC_IDX: begin rtc_ld[7:4] <= wdata[3:0]; rtc_ld[8] <= ~rtc_ld[8]; end
+            R_AM_STAT_STAT_SEL: stat_sel <= wdata[3:0];
+            R_AM_FLOPPY_MOUNT, R_AM_FLOPPY_MOUNT + 12'd16, R_AM_FLOPPY_MOUNT + 12'd32, R_AM_FLOPPY_MOUNT + 12'd48: begin
                 adf_present[off[5:4]] <= wdata[0]; adf_mount_tgl[off[5:4]] <= ~adf_mount_tgl[off[5:4]]; cfg_tgl <= ~cfg_tgl;
             end
-            12'h180: begin hdf_present[0] <= wdata[0]; hdf_mount_tgl[0] <= ~hdf_mount_tgl[0]; cfg_tgl <= ~cfg_tgl; end
-            12'h188: begin hdf_present[1] <= wdata[0]; hdf_mount_tgl[1] <= ~hdf_mount_tgl[1]; cfg_tgl <= ~cfg_tgl; end
-            12'h184: hdf_size0[7:0] <= wdata;   12'h185: hdf_size0[15:8] <= wdata;
-            12'h186: hdf_size0[23:16] <= wdata; 12'h187: hdf_size0[31:24] <= wdata;
-            12'h18C: hdf_size1[7:0] <= wdata;   12'h18D: hdf_size1[15:8] <= wdata;
-            12'h18E: hdf_size1[23:16] <= wdata; 12'h18F: hdf_size1[31:24] <= wdata;
-            12'h1A8: mb_done_tgl <= ~mb_done_tgl;
-            12'h1C0: mouse_dx <= wdata;
-            12'h1C1: begin mouse_dy <= wdata; mouse_tgl <= ~mouse_tgl; end
-            12'h1C2: mouse_btn <= wdata[2:0];
-            12'h1C4: begin rk_data <= wdata; rk_tgl <= ~rk_tgl; end
-            12'h1D0: pad_stage <= wdata;
-            12'h1D1: pad_word <= {wdata[2:0], pad_stage};
-            12'h1D2: pad_mode <= wdata[1:0];
-            12'h1F0: if (wdata[1]) dlog_ovf_clr_tgl <= ~dlog_ovf_clr_tgl;
-            12'h1F3: dlog_pop <= 1'b1;
+            R_AM_HDF_MOUNT: begin hdf_present[0] <= wdata[0]; hdf_mount_tgl[0] <= ~hdf_mount_tgl[0]; cfg_tgl <= ~cfg_tgl; end
+            R_AM_HDF_MOUNT + 12'd8: begin hdf_present[1] <= wdata[0]; hdf_mount_tgl[1] <= ~hdf_mount_tgl[1]; cfg_tgl <= ~cfg_tgl; end
+            R_AM_HDF_SIZE: hdf_size0[7:0] <= wdata;   R_AM_HDF_SIZE + 12'd1: hdf_size0[15:8] <= wdata;
+            R_AM_HDF_SIZE + 12'd2: hdf_size0[23:16] <= wdata; R_AM_HDF_SIZE + 12'd3: hdf_size0[31:24] <= wdata;
+            R_AM_HDF_SIZE + 12'd8: hdf_size1[7:0] <= wdata;   R_AM_HDF_SIZE + 12'd9: hdf_size1[15:8] <= wdata;
+            R_AM_HDF_SIZE + 12'd10: hdf_size1[23:16] <= wdata; R_AM_HDF_SIZE + 12'd11: hdf_size1[31:24] <= wdata;
+            R_AM_MBOX_DONE: mb_done_tgl <= ~mb_done_tgl;
+            R_AM_MOUSE_DX: mouse_dx <= wdata;
+            R_AM_MOUSE_DY: begin mouse_dy <= wdata; mouse_tgl <= ~mouse_tgl; end
+            R_AM_MOUSE_BTN: mouse_btn <= wdata[2:0];
+            R_AM_RAWKEY_RAWKEY: begin rk_data <= wdata; rk_tgl <= ~rk_tgl; end
+            R_AM_PAD2_WORD: pad_stage <= wdata;
+            R_AM_PAD2_WORD + 12'd1: pad_word <= {wdata[2:0], pad_stage};
+            R_AM_PAD2_MODE: pad_mode <= wdata[1:0];
+            R_AM_DLOG_STATUS: if (wdata[1]) dlog_ovf_clr_tgl <= ~dlog_ovf_clr_tgl;
+            R_AM_DLOG_POP: dlog_pop <= 1'b1;
             default: ;
             endcase
         end
@@ -242,33 +291,33 @@ module amiga_regs #(
         wq <= 32'h0;
         if (p0) begin
             case (off[11:2])
-            10'h000: wq <= {"G", "I", "M", "A"};
-            10'h001: wq <= {8'h00, 8'h01, 8'h02, 8'hC0};
-            10'h002: wq <= build;
-            10'h003: wq <= {26'd0, 1'b1, 1'b1, 1'b0, 1'b1, 1'b1, HDF_SECT != 0};   // b5: PAD2 (1D0, T225), b4: RAWKEY (1C4)
-            10'h004: wq <= {24'd0, irq_en};
-            10'h005: wq <= {24'd0, cause};
-            10'h008: wq <= ddr_cal[31:0];
-            10'h009: wq <= ddr_cal[63:32];
-            10'h028: wq <= {cpu_cfg, fast_cfg, mem_cfg, ctrl};
-            10'h029: wq <= {joy_cfg, ide_cfg, floppy_cfg, chipset_cfg};
-            10'h02A: wq <= {fr_q[15:8], fr_q[7:0], 8'h00, st_q};
-            10'h02B: wq <= {seq, 6'd0, writing, 6'd0, shown, latest_valid, 5'd0, latest};
-            10'h02C: wq <= {16'd0, ov_q[15:8], ov_q[7:0]};
-            10'h02E: wq <= {28'd0, stat_sel};
-            10'h038: wq <= {7'd0, rtc_loaded, 4'd0, rtc_ld[7:4], 4'd0, rtc_ld[3:0], 7'd0, rtc_en};
-            10'h02F: wq <= sv_q;
-            10'h040: wq <= {24'd0, 7'd0, adf_present[0]};
-            10'h044: wq <= {24'd0, 7'd0, adf_present[1]};
-            10'h048: wq <= {24'd0, 7'd0, adf_present[2]};
-            10'h04C: wq <= {24'd0, 7'd0, adf_present[3]};
-            10'h060: wq <= {24'd0, 7'd0, hdf_present[0]};
-            10'h062: wq <= {24'd0, 7'd0, hdf_present[1]};
-            10'h068: wq <= {24'd0, 5'd0, dr_q, wr_q, mb_pend};
-            10'h069: wq <= l_q;
-            10'h071: wq <= {31'd0, rr_s[1]};
-            10'h070: wq <= {8'd0, 5'd0, mouse_btn, 16'd0};
-            10'h07C: wq <= {8'd0, 6'd0, d_hd[9:8], d_hd[7:0], 6'd0, o_q, ~de_s[1]};
+            R_IDENT_ID >> 2: wq <= {"G", "I", "M", "A"};
+            R_IDENT_CAPS >> 2: wq <= {8'h00, 8'h01, 8'h02, 8'hC0};
+            R_IDENT_BUILD >> 2: wq <= build;
+            R_AM_FEAT_FEATURES >> 2: wq <= {26'd0, 1'b1, 1'b1, 1'b0, 1'b1, 1'b1, HDF_SECT != 0};   // b5: PAD2 (1D0, T225), b4: RAWKEY (1C4)
+            R_AM_IRQ_IRQ_EN >> 2: wq <= {24'd0, irq_en};
+            R_AM_IRQ_IRQ_CAUSE >> 2: wq <= {24'd0, cause};
+            R_AM_DDR_CAL_DDR_CAL0 >> 2: wq <= ddr_cal[31:0];
+            R_AM_DDR_CAL_DDR_CAL1 >> 2: wq <= ddr_cal[63:32];
+            R_AM_MACHINE_CTRL >> 2: wq <= {cpu_cfg, fast_cfg, mem_cfg, ctrl};
+            R_AM_MACHINE_CHIPSET_CFG >> 2: wq <= {joy_cfg, ide_cfg, floppy_cfg, chipset_cfg};
+            R_AM_MACHINE_STATUS >> 2: wq <= {fr_q[15:8], fr_q[7:0], 8'h00, st_q};
+            R_AM_VIDEO_FB_LATEST >> 2: wq <= {seq, 6'd0, writing, 6'd0, shown, latest_valid, 5'd0, latest};
+            R_AM_VIDEO_FB_OVERRUNS >> 2: wq <= {16'd0, ov_q[15:8], ov_q[7:0]};
+            R_AM_STAT_STAT_SEL >> 2: wq <= {28'd0, stat_sel};
+            R_AM_RTC_RTC_EN >> 2: wq <= {7'd0, rtc_loaded, 4'd0, rtc_ld[7:4], 4'd0, rtc_ld[3:0], 7'd0, rtc_en};
+            R_AM_STAT_STAT_VAL >> 2: wq <= sv_q;
+            R_AM_FLOPPY_MOUNT >> 2: wq <= {24'd0, 7'd0, adf_present[0]};
+            (R_AM_FLOPPY_MOUNT + 16) >> 2: wq <= {24'd0, 7'd0, adf_present[1]};
+            (R_AM_FLOPPY_MOUNT + 32) >> 2: wq <= {24'd0, 7'd0, adf_present[2]};
+            (R_AM_FLOPPY_MOUNT + 48) >> 2: wq <= {24'd0, 7'd0, adf_present[3]};
+            R_AM_HDF_MOUNT >> 2: wq <= {24'd0, 7'd0, hdf_present[0]};
+            (R_AM_HDF_MOUNT + 8) >> 2: wq <= {24'd0, 7'd0, hdf_present[1]};
+            R_AM_MBOX_STATUS >> 2: wq <= {24'd0, 5'd0, dr_q, wr_q, mb_pend};
+            R_AM_MBOX_LBA >> 2: wq <= l_q;
+            R_AM_RAWKEY_RAWKEY >> 2: wq <= {31'd0, rr_s[1]};
+            R_AM_MOUSE_DX >> 2: wq <= {8'd0, 5'd0, mouse_btn, 16'd0};
+            R_AM_DLOG_STATUS >> 2: wq <= {8'd0, 6'd0, d_hd[9:8], d_hd[7:0], 6'd0, o_q, ~de_s[1]};
             default: ;
             endcase
         end

@@ -1,0 +1,37 @@
+# TOML B of the SNES's app (T239.3 D55, T239.3 D61): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh); nothing else is in its
+# link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it on the link map). The
+# base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures) and tools/core_toml.py (the switch desc_record).
+[app]
+name = "snes"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library snes below defines it); the core table of this app holds this core only
+desc = "snes_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/toml_a_list.py) and the blocks of the host's TOML A (gateware/host.toml: the SNES is a flat core on the host's pieces) that the
+# shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader, the partition block and audio_master (the host's master volume and tone). The core has no 1541
+# and no IEC bus, so no block of the drive window or of iec_status is named.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init with the S-SMP boot ROM and the DSP-n firmware, the operations of the cartridge, the battery RAM's write-back, the sound check and the settings) and the
+# cartridge image's header and mapper reader (snes_rom.cc). Its files are in cores/snes/app/lib; hk_defaults.h is a copy of coreapp/cores/hk_defaults.h (the original stays: the VIC-20's and the Amiga 1200's libraries include it).
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: snesapp, the group snes): unit = 2 unit tests (snes_rom the header reader, snes the descriptor, the
+# save and the flush against a model of the register block), service = 8 mock bitstream -> service (snes_descgen the record compiled from desc.toml against the descriptor, snes_mounts the cartridge kept in the .cfg
+# and restored before the release), ui = 9 service -> UI (snes_desc the checks every descriptor passes and its menu's golden, snes_hotkeys its default hotkey map, snes_pad the pad service on its register
+# words, snes_xinput the XInput pads, snes_padmenu the mapping wizard, snes_keywalk every key of its menu against its golden), api = 10 service -> API (snes_uicover the reach of its declaration over the UI service).
+# T239.3 D61: these are the SNES's cases of the shared tests (TEST_APP_SNES).
+[[library]]
+name = "snes"
+sources = ["snes.cc", "snes_rom.cc"]
+headers = ["hk_defaults.h", "snes_regs.h", "snes_rom.h"]
+needs = ["pad"]
+tests = { unit = ["snes_rom", "snes"], service = ["snes_descgen", "snes_mounts"], ui = ["snes_desc", "snes_hotkeys", "snes_pad", "snes_xinput", "snes_padmenu", "snes_keywalk"], api = ["snes_uicover"] }
+
+[[library]]
+name = "pad"
+sources = ["pad.cc", "hidpad.cc", "pad_ops.cc", "padwiz.cc", "xinput.cc", "usb_xinput.cc", "pad_exports.cc", "pad_board.cc"]
+headers = ["pad.h", "hidpad.h", "xinput.h", "usb_xinput.h", "pad_api.h"]
+exports = [{ name = "pad", major = 1, table = "pad_table" }]
+init = "pad_lib_init"
+core = "pad_lib_core"

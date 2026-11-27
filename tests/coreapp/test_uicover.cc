@@ -69,8 +69,11 @@ const CoreDesc *const core_table[] = { &ddt_novic_desc, 0 };
 #elif defined(TEST_APP_ZX)                      // the ZX Spectrum's app (run.sh zxapp, the unit zx_uicover): its table is its core only
 extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores; the ZX Spectrum is its own app (cores/zx/app/lib)
 const CoreDesc *const core_table[] = { &zx_desc, 0 };
-#else                                           // the shared app: the cores of its table
-extern const CoreDesc *const core_table[];
+#elif defined(TEST_APP_SNES)                    // the SNES's app (run.sh snesapp, the unit snes_uicover): its table is its core only
+extern const CoreDesc snes_desc;                // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
+const CoreDesc *const core_table[] = { &snes_desc, 0 };
+#else
+#error "test_uicover walks the table of an app: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif
 
 static bool g_ui = false;

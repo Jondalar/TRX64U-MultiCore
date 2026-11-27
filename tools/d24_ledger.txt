@@ -12,13 +12,9 @@ file coreapp/cores/cbm1541.h 16
 file coreapp/cores/cbm1541_desc.h 79
 file coreapp/cores/cbm_run.cc 503
 file coreapp/cores/cbm_run.h 50
-file coreapp/cores/cores.h 8
+file coreapp/cores/cores.h 6
 file coreapp/cores/drive_rom_pick.h 98
 file coreapp/cores/hk_defaults.h 23
-file coreapp/cores/snes.cc 558
-file coreapp/cores/snes_regs.h 44
-file coreapp/cores/snes_rom.cc 222
-file coreapp/cores/snes_rom.h 26
 file coreapp/src/amiga_ffs.cc 337
 file coreapp/src/amiga_ffs.h 87
 file coreapp/src/t64.cc 79

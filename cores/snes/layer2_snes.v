@@ -281,7 +281,7 @@ module layer2_snes #(
     assign c64_leds = {4'b0000, n_running};
 
     // The application's RAM window (dma_*, port_*) reaches no memory of this machine: the cartridge is in the DDR2, which the application writes and reads
-    // itself (CoreIo::ddr_write / ddr_read), and the rest of the machine is not a window (coreapp/cores/snes.cc says so in its MemMap). The window answers
+    // itself (CoreIo::ddr_write / ddr_read), and the rest of the machine is not a window (cores/snes/app/lib/snes.cc says so in its MemMap). The window answers
     // at once with 0 so that nothing waits for it, and never asks the host for its second port.
     (* ASYNC_REG = "TRUE" *) reg [2:0] dreq_s = 3'b000;
     reg dma_done_r = 1'b0;

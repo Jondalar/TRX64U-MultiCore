@@ -1,0 +1,338 @@
+# TOML A of the SNES core (T239.3 D55, D61): the gateware's registers as capabilities, written by hand from what cores/snes/trx/snes_regs.v decodes (tools/toml_a_list.py check snes compares it with the RTL's address decode).
+# The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the core's cw_* ports, the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of
+# the window). Page 6 (0x101A6000-0x101A6FFF) is forwarded by snes_regs to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The core has no drive and no IEC bus.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the core are named sn_* (except ident, irq, ddr_cal).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "SNES"
+block = "ident"
+
+# 000-003: the ID "SNES" (snes_regs.v: a build with ID_TRX2 = 1 answers "TRX2", this core's layer2 sets it 0), 004 caps 0xC0 (b6 page 6, b7 RGB565 pixel layer: the host's), 005 caps2 0x02 (b1 BUILD is there), 008-00B the build word. Bytes 006 and 007 read 0
+[[block]]
+name = "ident"
+module = "snes_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b7 page flip done, b6 video frame start, b5 a picture is complete
+[[block]]
+name = "irq"
+module = "snes_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+
+# 020-027: the DDR2 controller's calibration result, read only
+[[block]]
+name = "ddr_cal"
+module = "snes_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "cal"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "cal_hi"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0 CTRL b0 reset hold, b1 halt (Freeze); 0A1 SYSTEM b0 PAL, b1 BLEND off, b2 S-DSP frequency; 0A2 ROM_TYPE the mapper byte. SYSTEM and ROM_TYPE are set while the reset is held
+[[block]]
+name = "sn_ctrl"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x3
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "system"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "rom_type"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+
+# 0A4 STATUS: b0 machine in reset, b1 held (Freeze)
+[[block]]
+name = "sn_status"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00A4
+size = 0x1
+  [[block.property]]
+  name = "status"
+  offset = 0x0
+  width = 8
+  dir = "r"
+
+# 0A8-0A9 S-PPU frame counter (low 16 bits)
+[[block]]
+name = "sn_frames"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00A8
+size = 0x2
+  [[block.property]]
+  name = "frames"
+  offset = 0x0
+  width = 16
+  dir = "r"
+
+# 0AC-0AD the cartridge address bus (a sample, low 16 bits)
+[[block]]
+name = "sn_romaddr"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00AC
+size = 0x2
+  [[block.property]]
+  name = "romaddr"
+  offset = 0x0
+  width = 16
+  dir = "r"
+
+# 0B0-0BF line fetches of the ROM, WRAM and battery RAM caches, clocks the machine was held (32 bit each)
+[[block]]
+name = "sn_stats"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x10
+  [[block.property]]
+  name = "miss_rom"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "miss_wram"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "miss_bs"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "stall"
+  offset = 0xC
+  width = 32
+  dir = "r"
+
+# 0C0 FB_LATEST (b7 valid, b1:0 the newest buffer), 0C1 FRAME_SEQ, 0C2-0C3 FB_OVERRUNS, 0C4 FB_BASE and 0C8 FB_STRIDE (DDR2 byte addresses; defaults 0x01900000 and 0x00080000)
+[[block]]
+name = "sn_fb"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+
+# 0D0 CART_BASE (DDR2 byte address of the image, default 0x01000000), 0D8 ROM_MASK and 0DC RAM_MASK (24 bit each, as a 16 bit and an 8 bit property: size minus one; set while the reset is held)
+[[block]]
+name = "sn_cart"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0xF
+  [[block.property]]
+  name = "cart_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "rom_mask"
+  offset = 0x8
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "rom_mask_hi"
+  offset = 0xA
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "ram_mask"
+  offset = 0xC
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "ram_mask_hi"
+  offset = 0xE
+  width = 8
+  dir = "rw"
+
+# 0E0-0E7 the S-RTC's clock in SNES_MiSTer's order: seconds, minutes, hours, day, month, year, weekday (BCD), byte 7 unused; 0E8 b0 the toggle that makes the chip take the time
+[[block]]
+name = "sn_rtc"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00E0
+size = 0x9
+  [[block.property]]
+  name = "time"
+  offset = 0x0
+  width = 8
+  count = 8
+    stride = 1
+  dir = "rw"
+  [[block.property]]
+  name = "tgl"
+  offset = 0x8
+  width = 8
+  dir = "rw"
+
+# 0F0-0F3 write-throughs queued to the DDR2
+[[block]]
+name = "sn_wr"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00F0
+size = 0x4
+  [[block.property]]
+  name = "writes"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+# 0F4-0F5 PAD1, 0F6-0F7 PAD2: the USB pad as a 16 bit word, bit n = serial bit n (B Y Select Start Up Down Left Right A X L R). The low byte is written first and waits; the high byte's write commits the pair
+[[block]]
+name = "sn_pad"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00F4
+size = 0x4
+  [[block.property]]
+  name = "pad1"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "pad2"
+  offset = 0x2
+  width = 16
+  dir = "rw"
+
+# 0F8 PEAK_DSP (largest |sample| of the S-DSP since the last write here; a write clears it and PEAK_OUT), 0FA PEAK_OUT (what is handed to the host's audio path), 0FC HANDS (pairs handed over, free running)
+[[block]]
+name = "sn_peak"
+module = "snes_regs"
+owner = "core"
+address = 0x101A00F8
+size = 0x6
+  [[block.property]]
+  name = "peak_dsp"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "peak_out"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "hands"
+  offset = 0x4
+  width = 16
+  dir = "r"
+
+# 100-13F the S-SMP's 64 byte boot ROM, byte n at 100+n, written while the reset is held
+[[block]]
+name = "sn_ipl"
+module = "snes_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x40
+  [[block.property]]
+  name = "ipl"
+  offset = 0x0
+  width = 8
+  count = 64
+    stride = 1
+  dir = "w"
+
+# 140 any write rewinds the DSP-n firmware stream, 141 the next byte of the 8192 byte firmware, written while the reset is held
+[[block]]
+name = "sn_dspfw"
+module = "snes_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x2
+  [[block.property]]
+  name = "rewind"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "data"
+  offset = 0x1
+  width = 8
+  dir = "w"

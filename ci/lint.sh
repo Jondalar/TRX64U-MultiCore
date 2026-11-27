@@ -91,6 +91,8 @@ check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py
 # T239.1 D1, S9: workflow rules (risky triggers with a secret or environment, the builds guard, permissions, SHA and digest pins, no self-hosted, no private repository name); the selftest plants one fault per rule
 check "workflow rules (T239.1 D1)" bash -c 'python3 -I tools/check_workflows.py --selftest >/dev/null && python3 -I tools/check_workflows.py'
 gcheck tree "toml_a_list fixtures (T264 S1: a Verilog and a VHDL decoder, a moved offset, a removed and an extra register)" python3 -I tests/toml_a_list/test_toml_a_list.py
+gcheck tree "toml_a_gen fixtures (T264 S2: a decode without the block, a stale block, an unused constant; a Verilog and a VHDL decoder)" python3 -I tests/toml_a_gen/test_toml_a_gen.py
+gcheck tree "generated register constants current and used, every lane core (T264 S2: tools/toml_a_gen.py)" python3 -I tools/toml_a_gen.py check --all
 gcheck sdk "cor_pack test" python3 tools/test_cor_pack.py
 gcheck rtlchk "rtl_check test (T239.3 D30; T264 S3: an optional tool, its group runs only when tools/rtl_check.py or tests/rtl_check change; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
 gcheck sdk "reverse lint: no literal I/O address in a library or base source (T239.3 D30, P2-6)" python3 -I tools/rtl_check.py lint-src app/lib app/sdkpkg/example coreapp/src --allow wsproto.cc:0x10325476u   # P2-6: coreapp/src too; the one literal is a hash initial word

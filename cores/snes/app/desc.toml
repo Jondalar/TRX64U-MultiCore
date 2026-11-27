@@ -1,7 +1,8 @@
-# The Super Nintendo's data description (T239.3 D17): what coreapp/cores/snes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Super Nintendo's data description (T239.3 D17): what cores/snes/app/lib/snes.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the operations
 # of register_ops, the cartridge image's header and mapper handling (snes_rom.cc), the battery RAM's write-back and the three functions of the mount slot.
-# The core has no ROM file: the S-SMP's 64 byte boot ROM is embedded. Register numbers are cores/snes/trx/snes_regs.v (coreapp/cores/snes_regs.h).
+# The core has no ROM file: the S-SMP's 64 byte boot ROM is embedded. The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the name of its property, "block.property" (tools/descrec.py makes the numbers of them, api.md 6.14.20).
+toml_a = "gateware.toml"
 
 [core]
 id = "SNES"
@@ -28,13 +29,13 @@ y0 = 92
 fb_base = 0x01900000
 fb_stride = 0x00080000
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "sn_fb.latest"
+reg_seq = "sn_fb.seq"
+reg_fb_base = "sn_fb.base"
+reg_fb_stride = "sn_fb.stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "sn_status.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -121,6 +122,6 @@ names = ["Cartridge"]
 # the USB pads: bit n of the register word is the controller's serial bit n
 [pad]
 output = "registers"
-regs = [0x0F4, 0x0F6]
+regs = ["sn_pad.pad1", "sn_pad.pad2"]
 buttons = ["B", "Y", "Select", "Start", "Up", "Down", "Left", "Right", "A", "X", "L", "R"]
 default = ["face_bottom", "face_left", "select", "start", "up", "down", "left", "right", "face_right", "face_top", "l", "r"]

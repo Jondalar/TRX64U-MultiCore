@@ -147,3 +147,48 @@ PROVENANCE/NOTICE agree, and are only the second witness.)
 
 **Open:** the red cores are fixed (above); P2 conversion of our own decodes (Alex's go on the table); apple2's decode, c64scpu and snes have no TOML A yet
 (their moves, T239.3 D61, take `--toml-a`); the matrix proof of S3 and S4 needs a push.
+
+### P2 built (2026-11-27, branch t264-p2 on core-moves; D3, D4)
+
+**List check, VHDL gap:** `tools/toml_a_list.py` reads `16#010#` literals, `when a to b` range choices, `o := to_integer(unsigned(off))` variable selectors and the `>= and <` fallback of
+`a2_regs.vhd`; fixture `vhdl variable selector, 16#..# literals, 'to' range` in `tests/toml_a_list`. apple2 was 0 decoded bytes, now 159/159; one real gap: byte 0x07 (constant 0x0F) was decoded and not named,
+`ident.rsvd7` added to `cores/apple2/app/gateware.toml`. It also resolves the generated constants (`R_x`, `R_x + 3`, `R_x >> 2`) to their numbers, so a converted decode is compared like any other.
+
+**Generator (S2):** `tools/toml_a_gen.py gen|check|convert CORE`. Deviation from the spec text (`<core>_regs.vh` / `<core>_regs_pkg.vhd`): the constants are a block of `localparam [11:0] R_<BLOCK>_<PROP> = 12'h...;`
+(Verilog) / `constant R_... : integer := 16#...#;` (VHDL) **inside the decode module itself**, between `>>> generated` / `<<< generated` marker lines. Reason: an include file needs `-include_dirs` in every flow that reads the
+module (13 mono scripts, core_sources.tcl, rtl_check_sources.tcl, every sim script; Vivado runs in host/ and does not search the including file's directory, the A1200 case of 2026-11-17), and a VHDL package
+needs a file-order entry in each; the block in the module is read by every flow already, nothing to find, nothing a same-named file can shadow. Not built as files: Alex to say if he wants the file form instead.
+Byte k of a register is `R_X + k` (array element: `R_X + i*stride + k` as a number); the page stays the literal of the guard; a word-granular choice is `R_X >> 2`. VHDL selectors became `to_integer(unsigned(off))`
+(vc20, atari800). Constants only for modules whose decode is this repository's (not cores/c64u, cores/common) and that have an offset decode.
+
+**Lint (S2):** `ci/lint.sh` (group tree): `tests/toml_a_gen/test_toml_a_gen.py` (10 lines ok: no block, stale block, unused constant, Verilog and VHDL) and `tools/toml_a_gen.py check --all` (16 PASS); `ci/lane.sh` step 4 runs
+`toml_a_gen.py check <id>` after the list check. Red: block missing, block differs from what `gen` writes (generate and compare), constant not used in the decode (a constant inside a word unit or inside an
+`off >= R_a && off < R_b` range is covered by that decode).
+
+| core | decode (generated block) | list check | gen check | proof it is the same decode |
+|---|---|---|---|---|
+| c264 | `cores/c264/rtl/trx/c264_regs.v` (61) | PASS 44/44 | PASS | yosys equiv, `c264_glue` bench PASS (66 s) |
+| pet | `cores/pet/rtl/trx/pet_regs.v` (155) | PASS 96/96 | PASS | yosys equiv |
+| zx | `cores/zx/trx/zx_regs.v` (113, ranges and `off - base` too) | PASS 116/116 | PASS | yosys equiv |
+| nes | `cores/nes/trx/nes_regs.v` (81) | PASS 75/75 | PASS | yosys equiv |
+| ddt_novic | `cores/ddt_mandel/trx/ddt_regs.v` (54) | PASS 43/43 | PASS | yosys equiv |
+| cpc | `cores/cpc/trx/cpc_regs.v` (137) | PASS 108/108 | PASS | yosys equiv |
+| diag | `cores/diag/rtl/diag_regs.v` (111) | PASS 187/187 | PASS | yosys equiv |
+| zxnext | `cores/zxnext/trx/zxn_regs.v` (129) | PASS 99/99 | PASS | yosys equiv |
+| neogeo | `cores/neogeo/trx/neo_regs.v` (232) | PASS 196/196 | PASS | yosys equiv |
+| amiga, amiga1200 | `cores/amiga/rtl/trx/amiga_regs.v`, `cores/amiga1200/rtl/amiga_regs.v` (65 / 73; word units) | PASS 79 / 93 | PASS | yosys equiv |
+| c128 | `cores/c128/c128_regs.v` page E (101); `c64u_io.v` page 0 is the sibling repository's copy, not converted | PASS 103/103 | PASS | yosys equiv, `c128_regs` bench PASS |
+| c64scpu | `cores/c64scpu/c64scpu_regs.v` page E (76); same `c64u_io.v` | PASS 93/93 | PASS | yosys equiv |
+| vc20 | `cores/vc20/rtl/trx/vc20_regs.vhd` (55) | PASS 41/41 | PASS | text equivalence (below) |
+| atari800 | `cores/atari800/trx/a8_regs.vhd` (77; `off(11 downto 4) = x"0F"` by hand as a range) | PASS 70/70 | PASS | text equivalence, the one hand edit |
+| apple2 | `cores/apple2/rtl/trx/a2_regs.vhd` (139; variable `o` renamed `off_i`) | PASS 159/159 | PASS | text equivalence |
+
+Proof of "same offsets": Verilog files: `yosys` `equiv_make` / `equiv_simple -seq 5` / `equiv_induct` / `equiv_status -assert` between the file before and after (a mutant with one offset moved is DIFF). VHDL: no
+GHDL (no container runtime on this Mac, nothing run): the file before and after, comments stripped, constants resolved to numbers, `x"010"` written `16#010#`, compared as token streams: identical. VHDL is therefore
+**not elaborated** (GHDL `--std=93c -fsynopsys -fexplicit -frelaxed-rules` in `debian:trixie-slim` is the next step); the new constructs are `case to_integer(unsigned(off)) is` with `when R_X + 1 =>` / `when R_A to R_B + 3 =>`.
+yosys `read_verilog -noautowire` + `check -assert` on all converted Verilog files: no implicit net (diag: nine pre-existing "rom_q has no driver", the ROM is another module).
+Not run: the long benches (diag_probe 900 s, diag_co 2400 s, diag_avregs/avmap 1500 s), no Vivado.
+
+**snes (coordinator, 2026-11-27, after core-snes merged into core-moves):** `toml_a_gen.py convert snes` replaced 129 literals, 0 left; `toml_a_list: snes: PASS (155 TOML A bytes, 155 decoded bytes)`, `toml_a_gen: snes: PASS`; yosys `equiv_status -assert` against the file before: "Proved 422 previously unproven $equiv cells", none left.
+**Left as literal, on purpose:** page 6 (the host's pixel layer): the `off == 12'h088..08B` staging compares in both `amiga_regs.v`; the page guards (`page == 4'hE`). **Open:** the c128/c64scpu page 0 in `c64u_io.v` (a copy of TRX64-Ultimate's file: Alex decides), the matrix proof of the lint lines (no push), GHDL for the three VHDL cores.
+

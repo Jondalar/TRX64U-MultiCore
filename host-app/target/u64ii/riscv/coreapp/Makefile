@@ -186,8 +186,6 @@ SRCS_CC	 =  u64ii_init.cc \
 			lineedit.cc \
 			boot.cc \
 			d1541_fs.cc \
-			snes.cc \
-			snes_rom.cc \
 			diag.cc \
 			bugreport.cc \
 			corereport.cc \

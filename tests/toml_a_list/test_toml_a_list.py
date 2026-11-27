@@ -77,4 +77,20 @@ try:
 finally:
     shutil.rmtree(d)
 
+# the VHDL form of a2_regs: a variable o := to_integer(unsigned(off)), based literals 16#010#, a `to` range choice and a `>= and <` fallback
+d = tempfile.mkdtemp(prefix="tal.")
+try:
+    p = os.path.join(d, "r.vhd")
+    open(p, "w").write("entity r is end;\narchitecture a of r is begin process begin\n  if win = '0' and page = x\"0\" then\n    o := to_integer(unsigned(off));\n"
+                       "    case o is\n      when 16#010# => q <= a;\n      when 16#020# to 16#023# => q <= b;\n      when 16#030# | 16#032# => q <= c;\n"
+                       "      when others => if o >= 16#100# and o < 16#104# then q <= d; end if;\n    end case;\n  end if;\nend process; end architecture;\n")
+    got, _ = T.decoded(p)
+    want = {0x10} | set(range(0x20, 0x24)) | {0x30, 0x32} | set(range(0x100, 0x104))
+    ok = set(got) == want
+    print("%s vhdl variable selector, 16#..# literals, `to` range" % ("ok  " if ok else "FAIL got %s" % sorted(got)))
+    if not ok:
+        fails.append("vhdl-var")
+finally:
+    shutil.rmtree(d)
+
 sys.exit(1 if fails else 0)

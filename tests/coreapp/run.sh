@@ -111,6 +111,8 @@ NEOLIB="$ROOT/cores/neogeo/app/lib"   # T239.5 D15: the Neo Geo's library lives 
 ZXNLIB="$ROOT/cores/zxnext/app/lib"   # T239.5 D15: the ZX Spectrum Next's library lives in its own repository part (cores/zxnext/app/lib), not in coreapp/cores
 C264LIB="$ROOT/cores/c264/app/lib"   # T239.5 D15: the Commodore 264's library lives in its own repository part (cores/c264/app/lib), not in coreapp/cores
 NESLIB="$ROOT/cores/nes/app/lib"   # T239.5 D15: the NES's library lives in its own repository part (cores/nes/app/lib), not in coreapp/cores
+own_drv_dir snes "$T/snestab" || { echo "coreapp: the SNES's driver table was not generated" >&2; exit 1; }   # snes_regs.h names the registers through it
+SNESLIB="$ROOT/cores/snes/app/lib"   # T239.3 D61: the SNES's library lives in its own repository part (cores/snes/app/lib), not in coreapp/cores
 own_drv_dir apple2 "$T/a2tab" || { echo "coreapp: the Apple IIe's driver table was not generated" >&2; exit 1; }   # apple2_regs.h names the registers through it
 A2LIB="$ROOT/cores/apple2/app/lib"   # T239.3 D61: the Apple IIe's library lives in its own repository part (cores/apple2/app/lib), not in coreapp/cores
 A8LIB="$ROOT/cores/atari800/app/lib"   # T239.5 D15: the Atari 800 XL's library lives in its own repository part (cores/atari800/app/lib), not in coreapp/cores
@@ -142,6 +144,9 @@ for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A8+=("$i"); done
 # The NES is its own app as well (T239.5 D15: cores/nes/app). nesapp CMD... builds like a8app, with the NES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_NES: its units are in the group nes.
 INC_NES=(-DTEST_APP_NES=1 -I"$NESLIB" -I"$T/nestab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_NES+=("$i"); done
+# The SNES is its own app as well (T239.3 D61: cores/snes/app). snesapp CMD... builds like a8app, with the SNES's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_SNES: its units are in the group snes.
+INC_SNES=(-DTEST_APP_SNES=1 -I"$SNESLIB" -I"$T/snestab/drv")
+for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_SNES+=("$i"); done
 # The Apple IIe is its own app as well (T239.3 D61: cores/apple2/app). apple2app CMD... builds like a8app, with the Apple's library (APPLIB: first in the lookup, copied over the controls' tree), its table and TEST_APP_APPLE2: its units are in the group apple2.
 INC_A2=(-DTEST_APP_APPLE2=1 -I"$A2LIB" -I"$T/a2tab/drv")
 for i in "${INC[@]}"; do [ "$i" = "-I$T/drv" ] || INC_A2+=("$i"); done
@@ -165,6 +170,7 @@ zxnextapp() { local INC=("${INC_ZXNEXT[@]}") CA_APP=zxnext APPLIB="$ZXNLIB"; "$@
 c264app() { local INC=("${INC_C264[@]}") CA_APP=c264 APPLIB="$C264LIB"; "$@"; }
 nesapp() { local INC=("${INC_NES[@]}") CA_APP=nes APPLIB="$NESLIB"; "$@"; }
 a8app() { local INC=("${INC_A8[@]}") CA_APP=atari800 APPLIB="$A8LIB"; "$@"; }
+snesapp() { local INC=("${INC_SNES[@]}") CA_APP=snes APPLIB="$SNESLIB"; "$@"; }
 apple2app() { local INC=("${INC_A2[@]}") CA_APP=apple2 APPLIB="$A2LIB"; "$@"; }
 # DDT Look Ma, No VIC is its own app too (cores/ddt_novic/app): ddtapp CMD... builds like vc20app, with its library, its table and TEST_APP_DDT.
 INC_DDT=(-DTEST_APP_DDT=1 -I"$DDTLIB" -I"$T/ddttab/drv")
@@ -284,7 +290,6 @@ for ln in open(sys.argv[1]):
             if own.setdefault(f, core.strip()) != core.strip():
                 sys.exit("cores.txt: %s belongs to %s and %s" % (f, own[f], core.strip()))
 PY
-  printf '%s\n' "$CORES/snes.cc $CORES/snes_regs.h $CORES/c64_go.cc" | ca_check snes probe || { echo "groups: the group's own files were refused" >&2; exit 1; }
 fi
 run handover test_handover.cc handover.cc
 control handover_cfgext handover.cc 's/strcasecmp(cor_path + l - 4, ".cor") != 0 || //' test_handover.cc handover.cc
@@ -305,15 +310,6 @@ neogeoapp control neo_save_load neogeo.cc 's/    c->io->ddr_write(NEO_W_BACKUP, 
 neogeoapp control neo_own_save neogeo.cc 's/bool own = corefolder_save_path(c->cor_path, file, out, outlen);/bool own = false;/' test_neogeo.cc $NEOG
 neogeoapp control neo_old_save neogeo.cc 's/        if (n < 0 \&\& st->old_save_path\[0\]) {/        if (false) {/' test_neogeo.cc $NEOG
 
-# T142: the SNES application
-run snes_rom test_snes_rom.cc snes_rom.cc
-SNES="snes.cc snes_rom.cc $BASEL"
-run snes test_snes.cc $SNES
-control snes_load snes.cc 's/int n = st->save_path\[0\] ? c->fs->load(st->save_path, st->shadow, info.ram_bytes) : -1;/int n = -1;/' test_snes.cc $SNES
-control snes_changed snes.cc 's/    if (!force \&\& !memcmp(cur, st->shadow, n)) {/    if (false) {/' test_snes.cc $SNES
-control snes_flush_init snes.cc 's/    flush_save(c, false, msg, msglen);                        \/\/ what the game wrote/    (void)0;                                                  \/\/ what the game wrote/' test_snes.cc $SNES
-control snes_retry snes.cc 's/    if (!c->fs->save(st->save_path, cur, n)) {/    if (!c->fs->save(st->save_path, cur, n) \&\& (memcpy(st->shadow, cur, n), true)) {/' test_snes.cc $SNES
-control snes_dir snes.cc 's|snprintf(dir, len, "%s/saves", parent);|snprintf(dir, len, "%s/save", parent);|' test_snes.cc $SNES
 
 ROMF="romfind.cc corefolder.cc sha256_cc.cc"
 run romfind test_romfind.cc $ROMF
@@ -369,12 +365,12 @@ control guard_write_in_begin libguard.cc 's/    out->armed = false;             
 WAITSRC="libscan.cc overlay.cc libload.cc libmenu.cc descrec.cc ops.cc libtab_native.cc"   # libtab_native.cc: the slot table libload.cc reads (base 4.0)
 run libwait test_libwait.cc $WAITSRC
 
-RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
+RARGS="$T/bundles/desc_own.bin" run desc test_desc.cc desc_check.cc menutree.cc $BASEL xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T104.1 D14: the checker refuses by name what the registry cannot serve
 # T157: the "Joystick ports" setting of every core that has the swap: there once, applied to the core's register, kept in the .cfg
 # T181: the hotkeys while a core runs (hotkeys.h): the mask registers, S1 within 100 ms, S2 a non-hotkey changes nothing, S3 held = once (volume repeats), the USB keyboard's filter,
 # S5 the default of every core is no key use of that core
-run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
+run hotkeys test_hotkeys.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $BASEL xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc
 # T181 D4: a hotkey action while the menu is closed draws nothing (no ui_show, no toast, no layer)
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py"
 ca_in shared && python3 "$ROOT/tools/check_hotkey_nooverlay.py" --selftest
@@ -518,7 +514,7 @@ c264app run c264 test_c264.cc $C264
 
 # T104 5 (the Amiga and the A1200 on the generic application): the engines the records are served by, each against a model of the core
 AM="amiga.cc $BASEL"
-DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCL="test_desc.cc desc_check.cc menutree.cc $BASEL xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 # Atari: a sync the medium refuses leaves the drive dirty and the disk in the drive
 a8app control a8_flush_ignored atari_media.cc 's/if (!st->sio.flush_drive(drive, msg, msglen)) {/if (!st->sio.flush_drive(drive, msg, msglen) \&\& false) {/' test_atari_media.cc $ATARI
 a8app control a8_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_atari_media.cc $ATARI
@@ -529,9 +525,6 @@ vc20app control drv_failed_forgotten d1541_drive.cc 's/            failed_tr_ |=
 vc20app control drv_unlinked_stops d1541_drive.cc 's/state_ != DS_NONE \&\& state_ != DS_CLOSED \&\& unsaved_/state_ != DS_NONE \&\& unsaved_/' test_cbm1541.cc $VC20
 vc20app control drv_unsaved_ignored d1541_drive.cc 's/ \&\& !(state_ != DS_NONE \&\& state_ != DS_CLOSED \&\& unsaved_);/;/' test_cbm1541.cc $VC20
 vc20app control drv_hook_engine engines.cc 's/if (d \&\& d->media_flush \&\& d->media_flush(c, m, sizeof(m)) \&\& !bad++) {/if (false) {/' test_cbm1541.cc $VC20
-# the saves of the SNES and the Neo Geo: in the file before the game is let go, the game stays when it cannot be written
-control snes_replace_flush snes.cc '/T180 D1, D4: the old game/s/if (snes_media_flush(c, msg, msglen))/if (false)/' test_snes.cc $SNES
-control snes_flush_fails snes.cc '/^static int snes_media_flush/,/^}/s/if (flush_save(c, false, msg, msglen)) {/if (flush_save(c, false, msg, msglen) \&\& false) {/' test_snes.cc $SNES
 neogeoapp control neo_leaving_flush neogeo.cc 's/    if (neo_media_flush(c, msg, msglen)) {            \/\/ T180 D1, D4/    if (false) {                                      \/\/ T180 D1, D4/' test_neogeo.cc $NEOG
 neogeoapp control neo_failed_forgotten neogeo.cc 's/st->save_failed = true;/(void)0;/' test_neogeo.cc $NEOG
 neogeoapp control neo_unchanged_stops neogeo.cc 's/return st->loaded \&\& st->save_path\[0\] \&\& (st->save_failed || st->dirty_seen || (c->io->rd(NEO_STATUS) \& NEO_ST_DIRTY));/return st->loaded \&\& st->save_path[0];/' test_neogeo.cc $NEOG
@@ -544,12 +537,9 @@ MMEL="${DESCL#test_desc.cc }"
 MME="test_media_mounts_engines.cc $MMEL start.cc handover.cc"
 run media_mounts_engines $MME
 control mme_c64_cart c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2$/    (void)0;/' $MME
-control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $MME
 control mme_c64_giveup c64_cart.cc 's/^    mount_notify_name(c, "Cartridge"); *\/\/ T180 D2: told by the name of the slot.*$/    (void)0;/' $MME
-control mme_snes_fail snes.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $MME
 control mme_engine_spec mediamounts.cc 's/    return ms->spec(c, idx - nwin(c) - nsec(c));/    return 0;/' $MME
 control mme_engine_mount mediamounts.cc 's/        return c->desc->mount_slots->mount(c, idx - nwin(c) - nsec(c), spec, msg, msglen);/        return 1;/' $MME
-control mme_engine_eject mediamounts.cc 's/        return c->desc->mount_slots->eject(c, idx - nwin(c) - nsec(c), msg, msglen);/        return 1;/' $MME
 control mme_engine_changed mediamounts.cc 's/    changed_idx(c, nwin(c) + nsec(c) + n);/    (void)n;/' $MME
 control mme_writeback mediamounts.cc 's/    if (media_writeback(c, WB_WHY_RESET, msg, msglen)) {/    if (false) {/' $MME
 control mme_not_ready mediamounts.cc 's/^    c->mounts_ready = true;$/    (void)0;/' $MME
@@ -587,7 +577,7 @@ PASS=$((PASS + 1))
 amigaapp run amiga_romset test_romset.cc $AM
 
 # the descriptor checks of the new records
-DESCS="desc_check.cc menutree.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
+DESCS="desc_check.cc menutree.cc $BASEL xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc"
 
 # T104 5.15: the Amiga 500 runs the generic application; its record against the register decode of the A500 gateware
 amigaapp run amiga500 test_amiga500.cc $AM
@@ -700,10 +690,8 @@ control instfiles_superseded instfiles.cc 's/(dir || !is_earlier_version(fs, pat
 run firststart test_firststart.cc ${BUNSRC/appindex_stub.cc/appindex.cc}   # TRX64-Ultimate finding: a sub-app that record 8 installs is listed at the first start
 # T239.3 D17: the data description of every core that has one (cores/*/app/desc.toml, found by gen_bundle.py's glob) compiled by the real tool, made into a descriptor by the generic
 # reader (from the record and from a bundle by start_identify), and compared field by field with the compiled-in descriptor of the same core; a damaged record or an unknown section
-# is refused by name. It links every core, as the uicover walk does, and the application's real table under another name (compiled_table.cc) next to an empty one for the start.
-ALLCORES="$BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64"
-CARGS="$BUN/app" RARGS="$CARGS"
-run descgen test_descgen.cc compiled_table.cc $ALLCORES freeze.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc overlay.cc descrec.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc desc_check.cc
+# is refused by name. It is each core's unit <core>_descgen, built as that core's app (the application's real table under another name, compiled_table.cc, next to an empty one for the start);
+# the shared app has no core left (T239.3 D61: the shared table is empty), so it has no unit of it.
 # T239.3 D17 part 2: the tables of the sections 7 .. 17 (the Amiga 1200's, from golden/desc_sections.toml, and what no descriptor has together, golden/desc_sections_extra.toml)
 CARGS="$BUN/desc_sections.bin $BUN/desc_sections_extra.bin" RARGS="$CARGS"
 run descsec test_descsec.cc $C64 $BASEL overlay.cc descrec.cc
@@ -725,14 +713,10 @@ RESTSRC="$SVC $PICSRC"
 unset CARGS RARGS
 run rest test_rest.cc $RESTSRC
 # T192.1 MVP: the UI service on the real menu - ids, intents through the key path, questions, the token on the routes
-# T192.1 D21: the API is generated from the declaration; this walks the declaration of every core of the shared table and asserts every row, setting value and operation is reachable
-# (T239.5 D13: each moved core's walk is its app's unit <core>_uicover)
-run uicover test_uicover.cc uiapp.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 overlay.cc descrec.cc $SVC
-# T192.3 S6 / S15: every key of the menu on every core of the shared table: one hash per (core, tab, start state), the golden made before the intent cut; the controller as a client of the key table
-# reproduces it (T239.5 D13: each moved core's walk is its app's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt)
-run keywalk test_keywalk.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc instfiles.cc instcore.cc cbm_run.cc $C64 overlay.cc descrec.cc
+# T192.1 D21: the API is generated from the declaration; the walk of every row, setting value and operation of a core's declaration is its app's unit <core>_uicover (T239.5 D13, T239.3 D61: the shared table is empty, the shared unit is gone)
+# T192.3 S6 / S15: every key of the menu of a core, one hash per (tab, start state) against a golden made before the intent cut: each core's unit <core>_keywalk with its goldens keywalk_<core>.txt and ids_<core>.txt (T239.5 D13, T239.3 D61: the shared unit is gone with the shared table's last core)
 # T192.3: the file manager module on its own, DEL deletes nothing, the neighbour takes a vanished row's place, the table is whole (the record menu's Timewarp and monitor keys: the NES's unit nes_cut)
-run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL snes.cc snes_rom.cc xinput.cc cbm_run.cc $C64 descrec.cc
+run cut test_cut.cc overlay.cc libload.cc libmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc libfiles.cc table.cc $BASEL xinput.cc cbm_run.cc $C64 descrec.cc
 
 # T162: the core application's bug report - sections, the descriptor's named registers (and no others), the file, GET /v1/report, no secrets
 CRSRC="$RESTSRC corereport.cc bugreport.cc overlay.cc descrec.cc"   # descrec.cc: T228 R8
@@ -746,15 +730,8 @@ unset CARGS RARGS
 
 # T156: USB gamepads. The HID parser on descriptors written to the spec (none of them is the 8BitDo SN30 Pro's: its bytes are not known yet), the pad
 # service on the real NES and SNES descriptors, the mapping wizard in the real menu. Controls: one defect each, the same test built against it must fail.
-PADSRC="snes.cc snes_rom.cc $BASEL"
 run hidpad test_hidpad.cc hidpad.cc
-run pad test_pad.cc $PADSRC overlay.cc descrec.cc                   # T228 R10, the menu record's pad (golden/desc_own.toml) over the NES's descriptor, is the NES's unit nes_pad
-run xinput test_xinput.cc xinput.cc $PADSRC     # T196: XInput pads (claim, 360 and GIP reports through the pad service, start sequences)
-control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $PADSRC overlay.cc descrec.cc
-run padmenu test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 # T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it
-control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
-control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $PADSRC
 
 # T142 (board, 2026-10-29): the board's printf (small_printf.cc) has no precision: "%.*s" / "%.8s" print wrong text, and the Mac's printf is
 # fine with them, so no test sees it. No format string of the application may carry one (textcopy.h nf_copy copies instead).
@@ -1490,6 +1467,51 @@ PY
   return 0
 }
 if ca_in c64scpu && ca_unit c64scpu_romreq; then t_romreq_c64scpu; PASS=$((PASS + 1)); fi
+
+# T239.3 D61: the SNES's units, built as its app (snesapp: its library cores/snes/app/lib with its own copy of hk_defaults.h, its own table, the group snes) - the units its TOML B (cores/snes/app/sdk.toml)
+# names for the steps 2, 8, 9 and 10 of its lane. The sources are the app's own: snes.cc with the cartridge reader snes_rom.cc and the base's (the pad library is in $BASEL). These are
+# the SNES's cases of the shared tests (T239.5 D13, D17): the shared units name no SNES any more.
+SNESS="snes.cc snes_rom.cc $BASEL"
+SNESA="menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS"
+SNESD="desc_check.cc overlay.cc descrec.cc xinput.cc $SNESA"
+CARGS="" RARGS=""
+snesapp run snes_rom test_snes_rom.cc snes_rom.cc
+snesapp run snes test_snes.cc $SNESS
+snesapp control snes_load snes.cc 's/int n = st->save_path\[0\] ? c->fs->load(st->save_path, st->shadow, info.ram_bytes) : -1;/int n = -1;/' test_snes.cc $SNESS
+snesapp control snes_changed snes.cc 's/    if (!force \&\& !memcmp(cur, st->shadow, n)) {/    if (false) {/' test_snes.cc $SNESS
+snesapp control snes_flush_init snes.cc 's/    flush_save(c, false, msg, msglen);                        \/\/ what the game wrote/    (void)0;                                                  \/\/ what the game wrote/' test_snes.cc $SNESS
+snesapp control snes_retry snes.cc 's/    if (!c->fs->save(st->save_path, cur, n)) {/    if (!c->fs->save(st->save_path, cur, n) \&\& (memcpy(st->shadow, cur, n), true)) {/' test_snes.cc $SNESS
+snesapp control snes_dir snes.cc 's|snprintf(dir, len, "%s/saves", parent);|snprintf(dir, len, "%s/save", parent);|' test_snes.cc $SNESS
+snesapp control snes_replace_flush snes.cc '/T180 D1, D4: the old game/s/if (snes_media_flush(c, msg, msglen))/if (false)/' test_snes.cc $SNESS
+snesapp control snes_flush_fails snes.cc '/^static int snes_media_flush/,/^}/s/if (flush_save(c, false, msg, msglen)) {/if (flush_save(c, false, msg, msglen) \&\& false) {/' test_snes.cc $SNESS
+RARGS="$T/bundles/desc_own.bin" snesapp run snes_desc test_desc.cc $SNESD
+RARGS="$BUN/app" snesapp run snes_descgen test_descgen.cc compiled_table.cc libfiles.cc libmenu.cc bundle.cc mediumwait.cc libload.cc libscan.cc instfiles.cc instcore.cc start.cc handover.cc $SNESD
+snesapp run snes_hotkeys test_hotkeys.cc $SNESD
+# T156, T196: the pad service, the XInput pads and the mapping wizard on the SNES's descriptor and a model of its register block (the NES's: nes_pad, nes_xinput, nes_padmenu); a control is one defect, the same test built against it must fail
+snesapp run snes_pad test_pad.cc $SNESS overlay.cc descrec.cc
+snesapp run snes_xinput test_xinput.cc xinput.cc $SNESS
+snesapp control pad_cfgkeys settings.cc 's/if (!strncasecmp(key, "Pad ", 4)) {/if (false) {/' test_pad.cc $SNESS overlay.cc descrec.cc
+snesapp run snes_padmenu test_padmenu.cc $SNESA
+# T192.3 leak 1 (persistence): the wizard module saves the map through pad_save_map and tells the truth about it
+snesapp control pad_wiz_not_saved padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = false;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS
+snesapp control pad_wiz_saved_lie padwiz.cc 's/bool saved = c->settings \&\& pad_save_map(c->settings, g_player);/bool saved = true;/' test_padmenu.cc menuctl.cc picklist.cc filemgr.cc menukeytab.cc menuflows.cc menuvlist.cc lineedit.cc menutree.cc $SNESS
+# T180 D2/D5: the game cartridge keeps its mount in the .cfg, is restored before the release, a missing medium stays empty with a note, a set goes in and out with one reset (the SNES's profile of test_media_mounts_engines.cc)
+SNESM="test_media_mounts_engines.cc $SNESD start.cc handover.cc"
+snesapp run snes_mounts $SNESM
+snesapp control mme_snes_eject snes.cc 's/^    mount_notify(c, 0);$/    (void)0;/' $SNESM
+snesapp control mme_snes_fail snes.cc 's/^        mount_notify(c, 0); *\/\/ the old game is gone and the slot is empty (T180 D2)$/        (void)0;/' $SNESM
+# the engine's eject (mediamounts.cc) is reached through a game slot's key only (the cartridge port's profile of the shared unit calls the slot directly): the control stands on the SNES's profile
+snesapp control mme_engine_eject mediamounts.cc 's/        return c->desc->mount_slots->eject(c, idx - nwin(c) - nsec(c), msg, msglen);/        return 1;/' $SNESM
+# T192.3 S6 / S15: every key of its menu against its golden (golden/keywalk_snes.txt, ids_snes.txt) and its declaration over the API
+snesapp run snes_keywalk test_keywalk.cc libfiles.cc instfiles.cc instcore.cc $SNESD
+snesapp run snes_uicover test_uicover.cc uiapp.cc libfiles.cc $SVC $SNESD
+
 # T239 D17: the units of every core whose tests live in its own folder (cores/<id>/app/tests/units.sh, tools/tests_to_core.py): its app's wrapper, include path, driver table and
 # units, sourced here, after every variable of the shared units is set
 for f in "$ROOT"/cores/*/app/tests/units.sh; do if [ -f "$f" ]; then source "$f"; fi; done
+pjob_drain
+[ ! -e "$T/ca_bad" ] || { echo "tests/coreapp: a unit lists a file of a core outside its group (above)" >&2; exit 1; }
+for u in $CA_UNITS; do
+  grep -qx "$u" "$T/ca_units_done" 2>/dev/null || { echo "tests/coreapp: $u (CA_UNITS) is no unit of this harness in the group $CA_GROUP" >&2; exit 1; }
+done
+echo "tests/coreapp: $PASS test programs passed, $PJ_N parallel controls (JOBS=$JOBS), every negative control failed as it must"

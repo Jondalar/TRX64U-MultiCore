@@ -17,8 +17,11 @@ extern const CoreDesc neogeo_desc;       // cores.h lists the shared app's cores
 #ifdef TEST_APP_NES                      // the NES's app (run.sh nesapp) has its own core only
 #include "nes_regs.h"
 extern const CoreDesc nes_desc;          // cores.h lists the shared app's cores; the NES is its own app (cores/nes/app/lib)
-#else
+#elif defined(TEST_APP_SNES)             // the SNES's app (run.sh snesapp, the unit snes_pad) has its own core only
 #include "snes_regs.h"
+extern const CoreDesc snes_desc;         // cores.h lists the shared app's cores; the SNES is its own app (cores/snes/app/lib)
+#else
+#error "test_pad runs on a core's pad: build it as a core's app (run.sh <core>app, TEST_APP_<CORE>); the shared app has no core of its own left (T239.3 D61)"
 #endif
 #else
 extern const CoreDesc atari800_desc;     // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
