@@ -159,6 +159,8 @@ question of every child is answered (T239.1 D1-D20, T239.2 D1-D5, T239.3 D1-D5, 
   pattern (its tests in `cores/c64scpu/app/tests`, the harness from the SDK, a lint red for a core name in a shared file, the proof
   = the core folder plus the SDK package build and test outside this repository), then every other core the same way, all before
   the full build (T264 D4).
+  The shared render bench still walked the A1200 and the VC-20; Alex (2026-11-27, translated): "Every core has its lane. Viable on its
+  own." So they get render builds of their own like the other 15, and the shared bench walks only the made-up test core.
 ## §4 Out
 
 Nothing decided yet.
