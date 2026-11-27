@@ -35,7 +35,11 @@ static void monolith_menu()
 {
     CHECK_EQ(trx_canvas_factor(1920, 1080, 960, 540), 2);         // 1080p: 960 x 540 at x2
     CHECK_EQ(trx_canvas_factor(960, 540, 960, 540), 1);           // 720p (and 1024 x 768, 1280 x 1024): x1
-    CHECK_EQ(trx_canvas_factor(720, 540, 720, 540), 1);           // 576p: the compact canvas, 720 x 540 (T259 D16)
+    {
+        const TrxCanvas c = trx_canvas_for(720, 576);                 // 576p: the compact canvas 720 x 540, 18 lines down (T259 D16: PAL overscan)
+        CHECK(c.w == 720 && c.h == 540 && c.factor == 1 && c.x0 == 0 && c.y0 == 18);
+        CHECK_EQ(trx_canvas_factor(720, 576, c.w, c.h), 1);          // the frame over its canvas: x1
+    }
     CHECK_EQ(trx_canvas_factor(2880, 1620, 960, 540), 3);
     CHECK_EQ(trx_canvas_factor(3840, 2160, 960, 540), 3);         // b5:4 holds 3 at most
     CHECK_EQ(trx_canvas_factor(1920, 540, 960, 540), 1);          // not the same multiple in both axes: the largest that fits
