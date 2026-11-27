@@ -44,8 +44,8 @@ vfmt 00
 right Sony-PAL / V sign -> Normal
 w 053 00
 vfmt 00
-right Sony-PAL / Subcarrier trim -> +30 Hz
-w 054 01
+right Sony-PAL / Subcarrier trim -> +10 Hz
+w 054 03
 vfmt 00
 right Sony-PAL / Burst start -> 30
 w 055 1E
@@ -106,7 +106,7 @@ w 052 00
 w 052 00
 w 052 04
 w 053 00
-w 054 02
+w 054 0F
 w 055 10
 w 056 5A
 w 057 00
@@ -144,8 +144,8 @@ vfmt 01
 right NTSC-50.rix01 / V sign -> Inverted
 w 053 01
 vfmt 01
-right NTSC-50.rix01 / Subcarrier trim -> +90 Hz
-w 054 03
+right NTSC-50.rix01 / Subcarrier trim -> +70 Hz
+w 054 12
 vfmt 01
 right NTSC-50.rix01 / Burst start -> 18
 w 055 12
@@ -206,7 +206,7 @@ w 052 00
 w 052 00
 w 052 04
 w 053 00
-w 054 04
+w 054 1F
 w 055 10
 w 056 5A
 w 057 00
@@ -244,8 +244,8 @@ vfmt 2B
 right NTSC-60.rix02 / V sign -> Inverted
 w 053 01
 vfmt 2B
-right NTSC-60.rix02 / Subcarrier trim -> +150 Hz
-w 054 05
+right NTSC-60.rix02 / Subcarrier trim -> +130 Hz
+w 054 21
 vfmt 2B
 right NTSC-60.rix02 / Burst start -> 18
 w 055 12
