@@ -41,6 +41,8 @@ int stub_hv_init_calls, stub_hv_start_calls, stub_hv_tick_calls;
 HvState stub_hv_state_data;
 const HvState *hv_state(void) { return &stub_hv_state_data; }
 void hv_init(const HostVideoIo *) { stub_hv_init_calls++; }
+int stub_av_applied = -1;
+void hv_av_apply(int on) { stub_av_applied = on; }
 void hv_start(bool, int *sys, int *hdmi) { stub_hv_start_calls++; *sys = 0; *hdmi = 1; }
 HvEvent hv_tick(void) { stub_hv_tick_calls++; return HV_NONE; }
 

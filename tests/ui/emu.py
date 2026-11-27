@@ -2,7 +2,7 @@
 
 The control protocol is the emulator's (one command per line, the answer ends in a line `ok` or `error ...`): key, wait, png, button. The state is
 `GET /v1/ui/state` of the application, the snapshot of the UI service (T192.1 contract 2, built by coreapp/src/uiapp.cc): JSON, read-only. The TRX64U run has no core
-folder, so the service asks for no token (uiapp.cc token_path); the Amiga 1200 run has one on the stick and fetches the token with the first login (`_grant`).
+folder, so the service asks for no token (uiapp.cc token_path); a core with a folder on the stick (every core of CORES) fetches the token with the first login (`_grant`).
 """
 import json
 import os
@@ -19,15 +19,30 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 EMU = os.environ.get("UE2EMU", os.path.expanduser("~/Development/u64-emulator/target/release/ue2emu"))
 ROMS = os.environ.get("UE2EMU_ROMS", os.path.expanduser("~/Development/u64-emulator/firmware/1541ultimate/roms"))
 APP = os.environ.get("COREAPP", os.path.join(HERE, "build", "coreapp.app"))
-# T228 R25: trx64u has a core app image of its own (coreapp_trx64u.app, beside the shared one); the other cores run the shared image
-APP_TRX64U = os.environ.get("COREAPP_TRX64U", os.path.join(os.path.dirname(APP), "coreapp_trx64u.app"))
+
+
+def own_app(core):
+    """T239.5 D13: True when the core has left the shared image for an app of its own (cores/<core>/app/sdk.toml names its descriptor, [app] desc)."""
+    r = subprocess.run(["python3", "-I", os.path.join(ROOT, "tools", "core_toml.py"), "sdk", core, "desc"], capture_output=True, text=True)
+    return r.returncode == 0 and r.stdout.strip() != ""
+
+
+def app_of(core):
+    """The image a core runs: COREAPP_<core> for a core with an app of its own (the shared image has no record of it), else COREAPP."""
+    own = os.environ.get("COREAPP_" + core)
+    if own:
+        return own
+    if own_app(core):
+        raise EmuError('the core "%s" has an app of its own (cores/%s/app/sdk.toml; the shared image has no record of it): give its image as COREAPP_%s'
+                       % (core, core, core))
+    return APP
 CTL_PORT = int(os.environ.get("UI_CTL_PORT", "47411"))
 REST_PORT = int(os.environ.get("UI_REST_PORT", "47480"))
 WORK = os.path.join(HERE, "work")
 OUT = os.path.join(HERE, "out")
 
 
-CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu", "diag", "cpc")      # the cores with a profile in tests/coreapp/emu/profiles (no C64 in the machine)
+CORES = ("amiga1200", "nes", "snes", "neogeo", "vc20", "c128", "atari800", "pet", "c64scpu", "diag", "cpc")      # the cores with a test stick (fixtures.make_stick) and a profile cores/<core>/app/ue2emu.toml (no C64 in the machine)
 
 
 class EmuError(Exception):
@@ -35,8 +50,10 @@ class EmuError(Exception):
 
 
 class Emu:
-    def __init__(self, log=None, core="trx64u"):
-        self.core = core                     # "trx64u" (the C64 record), "amiga1200" or "nes" (the profiles of tests/coreapp/emu/profiles)
+    def __init__(self, log=None, core="amiga1200"):
+        core, _, flags = core.partition("+")  # T256, T239.5 D19: "vc20+ovtest" is the vc20 profile with the SDK example's app linked with the overlay test library and the .cor of its element (tests/ui/ovtest, fixtures.make_ovtest_cor)
+        self.ovtest = "ovtest" in flags.split("+")
+        self.core = core                     # "amiga1200" or "nes" ... (the profiles cores/<core>/app/ue2emu.toml)
         self.token = None
         self.proc = None
         self.sock = None
@@ -46,16 +63,18 @@ class Emu:
 
     # ---- life -------------------------------------------------------------------------------------------------------------------------
     def start(self):
-        app = APP_TRX64U if self.core == "trx64u" else APP     # T228 R25: the shared image has no TRX64U C64; trx64u runs its own image
+        app = fixtures.ovtest_app(self.core) if self.ovtest else app_of(self.core)     # T256, D19: the test library is linked into the SDK example's app (tests/ui/ovtest/build.sh)
+        if self.core not in CORES:
+            raise EmuError("no profile for the core \"%s\" (cores/<core>/app/ue2emu.toml, emu.CORES)" % self.core)
         if not os.path.exists(app):
-            raise EmuError("no core app image %s (tools/dev.sh riscv builds both)" % app)
-        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the coreapp image (COREAPP, tests/ui/build.sh)")):
+            raise EmuError("no core app image %s (%s)" % (app, "tests/ui/ovtest/build.sh, or OVTEST_APP=" if self.ovtest else "tools/dev.sh riscv builds both"))
+        for need, what in ((EMU, "ue2emu (UE2EMU)"), (ROMS, "the emulator's ROM folder (UE2EMU_ROMS)"), (app, "the core app image (COREAPP, or COREAPP_%s for a core with an app of its own)" % self.core)):
             if not os.path.exists(need):
                 raise EmuError("%s not found: %s" % (what, need))
         shutil.rmtree(WORK, ignore_errors=True)
         os.makedirs(WORK)
         stick = os.path.join(WORK, "stick")
-        fixtures.make_stick(stick, ROMS, self.core)
+        fixtures.make_stick(stick, ROMS, self.core, self.ovtest)
         # the SD card: the emulator builds a FAT volume from a directory for a USB stick; the same volume is the SD card's image
         sd_dir = os.path.join(WORK, "sd_src")
         fixtures.make_sd_dir(sd_dir)
@@ -75,9 +94,9 @@ class Emu:
                "--flash", os.path.join(WORK, "flash.bin"), "--c64-roms", ROMS, "--usb-dir", stick, "--usb-dir-work", os.path.join(WORK, "usbwork"), "--sd", sd_img,
                "--headless", "--speed", "max", "--control", "127.0.0.1:%d" % CTL_PORT, "--net", "user",
                "--hostfwd", "tcp:127.0.0.1:%d:80" % REST_PORT]
-        if self.core in CORES:         # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
-            cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
-            cmd += ["--core", os.path.join(ROOT, "tests", "coreapp", "emu", "profiles", self.core + ".toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
+        # no C64 in the machine; the core folder is on the stick (fixtures.make_stick), the profile answers the gateware's registers
+        cmd[cmd.index("--c64-roms"):cmd.index("--c64-roms") + 2] = ["--c64", "none"]
+        cmd += ["--core", os.path.join(ROOT, "cores", self.core, "app", "ue2emu.toml"), "--handover", "video=" + os.environ.get("UI_VIDEO", "720p")]
         cmd += os.environ.get("UI_EMU_ARGS", "").split()      # e.g. UI_EMU_ARGS="--log io" (T210: the register writes of the first frames)
         self.log = open(self.logpath, "w")
         self.proc = subprocess.Popen(cmd, stdout=self.log, stderr=subprocess.STDOUT, cwd=WORK)
@@ -145,6 +164,12 @@ class Emu:
         req = urllib.request.Request("http://127.0.0.1:%d/v1/ui/grant" % REST_PORT, data=b"", method="POST")
         with urllib.request.urlopen(req, timeout=10) as r:
             self.token = json.loads(r.read().decode("utf-8")).get("token")
+
+    def op(self, name):
+        """T256: an operation of the application over REST (POST /v1/ops/NAME), as the person's tools call it."""
+        url = "http://127.0.0.1:%d/v1/ops/%s" % (REST_PORT, name) + ("?t=" + self.token if self.token else "")
+        with urllib.request.urlopen(urllib.request.Request(url, data=b"", method="POST"), timeout=10) as r:
+            return r.read().decode("utf-8")
 
     def state(self, tries=40):
         last = None

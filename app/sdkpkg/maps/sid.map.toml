@@ -1,0 +1,75 @@
+# The reSID8 filter control of the SID library (coreapp/src/resid8.cc resid8_filter and resid8_bypass; the registers are TRX_RS8_* of host-app/software/io/c64/trx_io.h, decoded in cores/common/trx_io.v, offsets 0x040 .. 0x04D
+# of the page). The plan the registers get from the menu is coreapp/src/resid8_filter.h; sidfile.cc reads a SID file and drives no register. Offsets are bytes from the block's address (the block of that register range, D34).
+# Two engines, u = 0 and 1: where an engine's registers are consecutive they are one run (element u); the curve base and offset of an engine are two 16 bit registers, and the engines' pairs follow each other (base, offset, base, offset), so each is a
+# run of two elements with the stride 4.
+map = "sid"
+
+[[property]]
+name = "fcsel"
+offset = 0x00
+width = 8
+count = 2
+dir = "rw"
+  [[property.field]]
+  name = "source"
+  shift = 0
+  bits = 2
+    [[property.field.state]]
+    name = "chip_model"
+    value = 0
+    [[property.field.state]]
+    name = "curve_6581"
+    value = 1
+    [[property.field.state]]
+    name = "curve_8580"
+    value = 2
+
+[[property]]
+name = "auto"
+offset = 0x02
+width = 8
+count = 2
+dir = "rw"
+  [[property.field]]
+  name = "resonance"
+  shift = 0
+  bits = 1
+  [[property.field]]
+  name = "digis"
+  shift = 1
+  bits = 1
+
+[[property]]
+name = "curve_base"
+offset = 0x04
+width = 16
+count = 2
+stride = 4
+dir = "rw"
+  [[property.field]]
+  name = "base"
+  shift = 0
+  bits = 9
+
+[[property]]
+name = "curve_offset"
+offset = 0x06
+width = 16
+count = 2
+stride = 4
+dir = "rw"
+  [[property.field]]
+  name = "offset"
+  shift = 0
+  bits = 11
+
+[[property]]
+name = "bypass"
+offset = 0x0C
+width = 8
+count = 2
+dir = "rw"
+  [[property.field]]
+  name = "filter_off"
+  shift = 0
+  bits = 1

@@ -32,9 +32,9 @@ class OrderTest(unittest.TestCase):
     def tearDown(self):
         self.gh.stop()
 
-    def run_order(self, children=None, cors=None, plan=None, expect_rc=0):
+    def run_order(self, children=None, cors=None, plan=None, expect_rc=0, fillers=""):
         env = {"PATH": os.environ["PATH"], "PLAN_JSON_FILE": plan or self.plan, "WORK_ORDER_OUT": os.path.join(self.tmp, "wo.json"), "GITHUB_OUTPUT": os.path.join(self.tmp, "out"),
-               "ORDER_KEYS": self.keys, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "GH_TOKEN": "tok"}
+               "ORDER_KEYS": self.keys, "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base, "ORDER_SHA": "a" * 40, "ORDER_FILLERS": fillers, "GH_TOKEN": "tok"}
         if children is not None:
             env["CHILDREN"] = json.dumps(children)
         if cors is not None:
@@ -76,6 +76,13 @@ class OrderTest(unittest.TestCase):
         wo, _ = self.run_order(children=["apptests", "images", "cor"], cors=["core:vc20", "large:amiga1200"])
         self.assertEqual(wo["entries"], [NAMES[0], NAMES[2], NAMES[3], NAMES[5]])
         self.assertEqual(wo["lanes"], ["host", "core:vc20", "large:amiga1200"])
+
+    def test_host_target(self):                                                           # T265 P5: host, aux, the reference core and the flash filler
+        wo, _ = self.run_order(children=["cor"], cors=["host"], fillers="zx_next")
+        self.assertEqual(wo["entries"], [NAMES[0], NAMES[1], NAMES[2], NAMES[4]])
+        self.assertEqual(wo["lanes"], ["host", "core:zx_next"])
+        wo, _ = self.run_order(children=["cor"], cors=["host", "core:vc20"], fillers="zx_next")
+        self.assertEqual(wo["entries"], NAMES[:5])
 
     def test_unknown_children_order_everything(self):
         wo, _ = self.run_order()

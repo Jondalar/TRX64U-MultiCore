@@ -1,0 +1,6 @@
+# A core's choice row whose list the application fills at run time (T239.3 D32, QC of wave 2): one value, a pick.
+[[core_setting]]
+key = "Scheme"
+values = ["Blue"]
+pick = "hotkeys.keys"
+apply = "test.scheme"

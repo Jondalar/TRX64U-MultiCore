@@ -1,0 +1,245 @@
+# The Amstrad CPC's data description (T239.3 D17): what cores/cpc/app/lib/cpc.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record of the .cor; the generic application builds the descriptor from it. What stays in the core's C++ is code: init, release, the
+# operations of register_ops, the media write-back (the FDC's dirty chunks) and the three functions of the mount slots. The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the
+# name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
+machine_info = "Model"
+
+[core]
+id = "CPC_"
+name = "Amstrad CPC 464 / 664 / 6128"
+title = "Amstrad CPC"
+short_title = "CPC"
+folder = "cpc"
+store = "Amstrad CPC Settings"
+min_contract = 1
+reset_ms = 10
+service_op = "cpc.service"
+service_period_ms = 50
+poll_when_frozen = true
+caps = ["floppy", "tape"]
+
+# 720 x 540 at scale 2 is 1440 x 1080 on the 1920 x 1080 output; three buffers of 1 MB from the core's reset value of FB_BASE
+[video]
+w = 720
+h = 540
+scale = 2
+x0 = 240
+y0 = 0
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
+nbuf = 3
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
+
+[freeze]
+reg_status = "machine.status"
+mask = 0x02
+timeout_ms = 200
+
+# One complete set is enough: the 464 (set 1), the 664 (set 2) or the 6128 (set 4); the AMSDOS ROM belongs to the 664 and the 6128 (set 6).
+# set = bit n is a member of set n + 1.
+[[rom]]
+role = "CPC 464 OS"
+names = ["os464.rom"]
+sizes = [16384]
+put_op = "cpc.put_os464"
+set = 1
+
+[[rom]]
+role = "CPC 464 BASIC"
+names = ["basic464.rom"]
+sizes = [16384]
+put_op = "cpc.put_basic464"
+set = 1
+
+[[rom]]
+role = "CPC 664 OS"
+names = ["os664.rom"]
+sizes = [16384]
+put_op = "cpc.put_os664"
+set = 2
+
+[[rom]]
+role = "CPC 664 BASIC"
+names = ["basic664.rom"]
+sizes = [16384]
+put_op = "cpc.put_basic664"
+set = 2
+
+[[rom]]
+role = "CPC 6128 OS"
+names = ["os6128.rom"]
+sizes = [16384]
+put_op = "cpc.put_os6128"
+set = 4
+
+[[rom]]
+role = "CPC 6128 BASIC"
+names = ["basic6128.rom"]
+sizes = [16384]
+put_op = "cpc.put_basic6128"
+set = 4
+
+[[rom]]
+role = "AMSDOS"
+names = ["amsdos.rom"]
+sizes = [16384]
+put_op = "cpc.put_amsdos"
+set = 6
+
+[[core_setting]]
+key = "Model"
+values = ["CPC 464", "CPC 664", "CPC 6128"]
+default = 2
+when = "reset"
+apply = "cpc.set_model"
+
+[[core_setting]]
+key = "CRTC type"
+values = ["Type 0 (HD6845S, UM6845)", "Type 1 (UM6845R)"]
+default = 1
+when = "reset"
+apply = "cpc.set_crtc"
+
+[[core_setting]]
+key = "Joystick ports"
+values = ["Normal", "Swapped"]
+apply = "cpc.set_joy"
+
+[[core_setting]]
+key = "Disks write protected"
+values = ["No", "Yes"]
+apply = "cpc.set_wp"
+
+[[core_setting]]
+key = "LED Load Indicator"
+values = ["On", "Off"]
+apply = "led.load"
+
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Tape: Play"
+op = "cpc.tape_play"
+closes_menu = true
+
+[[task]]
+label = "Tape: Stop"
+op = "cpc.tape_stop"
+
+[[task]]
+label = "Tape: Rewind"
+op = "cpc.tape_rewind"
+
+[[task]]
+label = "Tape: Previous block"
+op = "cpc.tape_prev"
+
+[[task]]
+label = "Tape: Next block"
+op = "cpc.tape_next"
+
+[[task]]
+label = "Tape: Eject"
+op = "cpc.tape_eject"
+
+[[task]]
+label = "Eject A:"
+op = "cpc.eject"
+bind = [ { arg = "drive", int = 0 } ]
+
+[[task]]
+label = "Eject B:"
+op = "cpc.eject"
+bind = [ { arg = "drive", int = 1 } ]
+
+[[task]]
+label = "Create blank DSK"
+op = "disk.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "cpc_dsk" }, { arg = "name", str = "" } ]
+ask = "Name of the new DSK"
+ask_state = "disk.suggest.cpc_dsk"
+pick_dir = true
+
+[[media]]
+name = "A:"
+state = "cpc.a.image"
+eject_op = "cpc.eject"
+eject_bind = [ { arg = "drive", int = 0 } ]
+exts = ".dsk"
+mount = "Mount A: and reset"
+empty_tasks = "Create blank DSK"
+replace = "Mount A:"
+
+[[media]]
+name = "B:"
+state = "cpc.b.image"
+eject_op = "cpc.eject"
+eject_bind = [ { arg = "drive", int = 1 } ]
+exts = ".dsk"
+mount = "Mount B: and reset"
+empty_tasks = "Create blank DSK"
+replace = "Mount B:"
+
+[[media]]
+name = "Tape"
+state = "cpc.tape.image"
+eject_op = "cpc.tape_eject"
+exts = ".cdt"
+mount = "Insert tape"
+mounted_tasks = "Tape: Play,Tape: Stop,Tape: Rewind,Tape: Previous block,Tape: Next block"
+
+# boot = 1 ends the mount in a cold start (the CPC runs RUN"DISC or |CPM from the drive the person types); without it the disk is only swapped in
+[[filetype]]
+ext = ".dsk"
+  [[filetype.action]]
+  label = "Mount A: and reset"
+  op = "cpc.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount A:"
+  op = "cpc.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 0 }, { arg = "boot", int = 0 } ]
+  [[filetype.action]]
+  label = "Mount B: and reset"
+  op = "cpc.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 1 } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount B:"
+  op = "cpc.mount"
+  bind = [ { arg = "path", file = true }, { arg = "drive", int = 1 }, { arg = "boot", int = 0 } ]
+
+# the machine has to be at RUN" or |TAPE before the tape runs: the first action only inserts, "Tape: Play" starts it from the menu
+[[filetype]]
+ext = ".cdt"
+  [[filetype.action]]
+  label = "Insert tape"
+  op = "cpc.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 0 } ]
+  [[filetype.action]]
+  label = "Insert tape and play"
+  op = "cpc.tape_insert"
+  bind = [ { arg = "path", file = true }, { arg = "play", int = 1 } ]
+  closes_menu = true
+
+# hotkeys: C= + CTRL as the modifier (the keyboard computers where CTRL is a typing key); keys as hotkeys.h
+[hotkeys]
+mod = [61, 58]
+actions = [64, 40, 43, 17, 34, 41, 255]
+pc_keys = true
+
+[mount]
+names = ["A", "B", "Tape"]

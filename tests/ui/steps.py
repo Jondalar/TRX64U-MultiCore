@@ -62,7 +62,7 @@ def plain(label):
 
 
 class Ctx:
-    def __init__(self, with_emulator=True, core="trx64u"):
+    def __init__(self, with_emulator=True, core="amiga1200"):
         self.with_emulator = with_emulator
         self.core = core
         self.noted = None
@@ -238,6 +238,11 @@ def i_press_return_during(c, name):
 
 def _png_bright(path, x0, y0, x1, y1, lum=140):
     """The count of bright pixels in a rectangle of an 8-bit RGB/RGBA PNG (standard library only)."""
+    return _png_rect(path, x0, y0, x1, y1, lambda r, g, b: max(r, g, b) >= lum)[0]
+
+
+def _png_rect(path, x0, y0, x1, y1, pred):
+    """(count of the pixels of the rectangle for which pred(r, g, b) holds, the sum of their brightness, the pixels in all, the width of the picture); the rectangle in picture pixels."""
     d = open(path, "rb").read()
     pos, idat, w, h, ct = 8, b"", 0, 0, 2
     while pos < len(d):
@@ -270,13 +275,23 @@ def _png_bright(path, x0, y0, x1, y1, lum=140):
                 cur[i] = (cur[i] + (a if pa <= pb and pa <= pc else (b if pb <= pc else c))) & 255
         rows.append(cur)
         prev = cur
-    n = 0
+    n = tot = allp = 0
     for y in range(y0, min(y1, h)):
         r = rows[y]
         for x in range(x0, min(x1, w)):
-            if max(r[x * bpp], r[x * bpp + 1], r[x * bpp + 2]) >= lum:
+            allp += 1
+            px = (r[x * bpp], r[x * bpp + 1], r[x * bpp + 2])
+            tot += px[0] + px[1] + px[2]
+            if pred(*px):
                 n += 1
-    return n
+    return n, tot, allp, w
+
+
+def _canvas_rect(path, cx0, cy0, cx1, cy1, pred):
+    """The same for a rectangle of the 960 x 540 canvas: the picture is scaled by its width over 960."""
+    w = struct.unpack(">I", open(path, "rb").read()[16:20])[0]
+    k = w / 960.0
+    return _png_rect(path, int(cx0 * k), int(cy0 * k), int(cx1 * k), int(cy1 * k), pred)
 
 
 @step(r'the picture "([^"]+)" has text in the box')
@@ -764,3 +779,215 @@ def then_exports(c, path):
     if want != got:
         diff = [l for l in difflib.unified_diff(want, got, "golden", "build", lineterm="", n=0) if not l.startswith(("---", "+++", "@@"))]
         raise AssertionFailed("%s is not what the build exports (%d lines against %d); first differences: %s" % (path, len(want), len(got), " | ".join(diff[:6])))
+
+
+# ---- T256: the overlay service: the PAUSED tag, the still behind it, the open menu over the still, an element of a library (tests/ui/features*/overlay*.feature) -------------------
+@step(r'the machine is paused with the menu closed')
+def machine_paused(c):
+    """The pause is set while the menu is open (machine.pause_toggle) and takes hold when the menu closes: the tag and the still come up."""
+    c.open_menu()
+    c.emu.op("machine.pause_toggle")
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the machine runs again')
+def machine_resumes(c):
+    c.open_menu()
+    c.emu.op("machine.pause_toggle")
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the picture "([^"]+)" shows the PAUSED tag at its place')
+def picture_tag(c, name):
+    """The tag is the base UI TOML's element "paused": 126 x 30 canvas pixels from the top right corner, 14 pixels in, 14 down; its text is bright on the dark box."""
+    n = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 820, 14, 946, 44, lambda r, g, b: max(r, g, b) >= 200)[0]
+    if n < 80:
+        raise AssertionFailed("the tag's place shows %d bright pixels: the text PAUSED is not drawn there" % n)
+
+
+@step(r'the picture "([^"]+)" shows the machine\'s last frame behind the tag, not black')
+def picture_still(c, name):
+    """The still is the whole canvas (the base UI TOML's element "still"): below the tag the picture holds colour, not the black of a halted machine."""
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 0, 120, 800, 500, lambda r, g, b: max(r, g, b) > 24)
+    if allp == 0 or n * 10 < allp * 3:
+        raise AssertionFailed("only %d of %d pixels behind the tag are not black: the still is not there" % (n, allp))
+
+
+@step(r'the picture "([^"]+)" shows no tag')
+def picture_no_tag(c, name):
+    """With the menu closed: no bright pixel at the tag's place. With the menu open the top bar draws its own text there, so that picture is checked against a picture of the tag
+    (the step below)."""
+    n = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), 820, 14, 946, 44, lambda r, g, b: max(r, g, b) >= 200)[0]
+    if n >= 80:
+        raise AssertionFailed("the tag's place shows %d bright pixels: a tag is drawn" % n)
+
+
+@step(r'the picture "([^"]+)" does not hold the tag of "([^"]+)"')
+def picture_not_tag_of(c, name, tagpic):
+    """The text of the tag (bright pixels of PAUSED in `tagpic`, the picture of the tag with the menu closed) is not at the same pixels of `name`: the tag alone makes that text, a menu
+    bar's own text does not land on it."""
+    def pixels(pic):
+        px = []
+        _canvas_rect(os.path.join(emu_mod.OUT, pic + ".png"), 820, 14, 946, 44, lambda r, g, b: px.append((r, g, b)) or False)
+        return px
+    a, t = pixels(name), pixels(tagpic)
+    if len(a) != len(t) or not t:
+        raise AssertionFailed("%s and %s are not pictures of one size" % (name, tagpic))
+    text = [i for i, (r, g, b) in enumerate(t) if max(r, g, b) >= 200]
+    if len(text) < 80:
+        raise AssertionFailed("%s shows no tag text at its place: it is no reference" % tagpic)
+    same = sum(1 for i in text if max(a[i]) >= 200)
+    if same * 10 >= len(text) * 6:
+        raise AssertionFailed("%d of the %d pixels of the tag's text are bright in %s too: the tag is drawn over the open menu" % (same, len(text), name))
+
+
+# ---- T256 S3, S5, S10: a library of our own (tests/ui/ovtest) calls the service through the SDK group; the emulator runs the SDK example's app it is linked into, on the profile vc20 (`# core: vc20+ovtest`) ------------------
+def _lib_op(c, name):
+    """The test library's operation over REST. A 404 is an app that did not link the library: the log of the emulator says why."""
+    import urllib.error
+    try:
+        return c.emu.op("ovtest." + name)
+    except urllib.error.HTTPError as e:
+        raise StepError("ovtest.%s answered %s %s: the library is not linked (the emulator log, [lib] lines; tests/ui/ovtest/build.sh) or the call was refused" % (name, e.code, e.read().decode("utf-8", "replace")[:200]))
+
+
+@step(r'the test library shows its element')
+def lib_shows(c):
+    _lib_op(c, "show")
+    c.emu.wait(600)
+
+
+@step(r'the test library takes its element away')
+def lib_removes(c):
+    _lib_op(c, "remove")
+    c.emu.wait(600)
+
+
+def _lib_pause(c, name):
+    """Pause is a flag the menu's close turns into the stop (api.md 4.14.4): the library sets it while the menu is open, then the menu closes."""
+    c.open_menu()
+    _lib_op(c, name)
+    c.press("RUN/STOP")
+    expect_eq("menu_open", False, c.refresh()['menu_open'])
+    c.emu.wait(600)
+
+
+@step(r'the test library paints the machine\'s picture')
+def lib_paints(c):
+    _lib_op(c, "paint")
+    c.emu.wait(600)
+
+
+@step(r'the test library pauses the machine')
+def lib_pauses(c):
+    _lib_pause(c, "pause")
+
+
+@step(r'the test library resumes the machine')
+def lib_resumes(c):
+    _lib_pause(c, "resume")
+
+
+@step(r'the test library hides the menu')
+def lib_hides(c):
+    _lib_op(c, "hide")
+    c.emu.wait(900)
+
+
+@step(r'the test library shows the menu')
+def lib_shows_menu(c):
+    _lib_op(c, "show_menu")
+    c.emu.wait(900)
+
+
+# the element of tests/ui/ovtest/ovtest.toml: 160 x 40, bottom_mid, 40 above the bottom edge of the 960 x 540 canvas; the library paints it red with a white frame
+OV_BOX = (400, 460, 560, 500)
+
+
+def _ov_red(r, g, b):
+    return r >= 200 and g <= 60 and b <= 60
+
+
+@step(r'the picture "([^"]+)" shows the library\'s element at its place')
+def picture_ov_element(c, name):
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), OV_BOX[0], OV_BOX[1], OV_BOX[2], OV_BOX[3], _ov_red)
+    if allp == 0 or n * 2 < allp:
+        raise AssertionFailed("%d of the %d pixels at the element's place are the element's red: it is not on the screen" % (n, allp))
+
+
+@step(r'the picture "([^"]+)" shows no element of the library')
+def picture_no_ov_element(c, name):
+    n, tot, allp, w = _canvas_rect(os.path.join(emu_mod.OUT, name + ".png"), OV_BOX[0], OV_BOX[1], OV_BOX[2], OV_BOX[3], _ov_red)
+    if n * 10 >= allp:
+        raise AssertionFailed("%d of the %d pixels at the element's place are the element's red: it is on the screen" % (n, allp))
+
+
+def _pixels(path, box):
+    px = []
+    _canvas_rect(path, box[0], box[1], box[2], box[3], lambda r, g, b: px.append((r, g, b)) or False)
+    return px
+
+
+def _moved(a, b):
+    """The count of pixels above the element that differ between two saved pictures; the pictures have to be of one size."""
+    box = (0, 100, 960, 440)
+    pa, pb = _pixels(os.path.join(emu_mod.OUT, a + ".png"), box), _pixels(os.path.join(emu_mod.OUT, b + ".png"), box)
+    if len(pa) != len(pb) or not pa:
+        raise AssertionFailed("%s and %s are not pictures of one size" % (a, b))
+    return sum(1 for x, y in zip(pa, pb) if abs(x[0] - y[0]) + abs(x[1] - y[1]) + abs(x[2] - y[2]) > 48)
+
+
+@step(r'the picture "([^"]+)" shows another running picture than "([^"]+)"(?: or than "([^"]+)")? above the element')
+def picture_moves(c, a, b, c2=None):
+    """S3: the machine's picture runs under the element (the cursor of the C64's screen blinks about every 333 ms, so two looks 400 ms apart differ unless two toggles fall between
+    them; with a third look the pair of the two gaps cannot both hold two). Only the area above the element is compared; one pair that differs is enough."""
+    diffs = [_moved(a, b)] + ([_moved(b, c2)] if c2 else [])
+    if max(diffs) < 40:
+        raise AssertionFailed("%s pixels above the element differ between the pictures: the picture under the element does not move" % "/".join(str(d) for d in diffs))
+
+
+def _blocks(path):
+    """The picture as the canvas of 960 x 540 in blocks of 40 x 30 canvas pixels: {(bx, by): the mean (r, g, b)}."""
+    w = struct.unpack(">I", open(path, "rb").read()[16:20])[0]
+    k = w / 960.0
+    px = _pixels(path, (0, 0, 960, 540))
+    W = int(960 * k)
+    out = {}
+    for by in range(18):
+        for bx in range(24):
+            acc, n = [0, 0, 0], 0
+            for y in range(int(by * 30 * k), int((by + 1) * 30 * k)):
+                row = y * W
+                for x in range(int(bx * 40 * k), int((bx + 1) * 40 * k)):
+                    p = px[row + x]
+                    acc[0] += p[0]; acc[1] += p[1]; acc[2] += p[2]
+                    n += 1
+            out[(bx, by)] = tuple(a / n for a in acc) if n else (0, 0, 0)
+    return out
+
+
+@step(r'the picture "([^"]+)" is the picture "([^"]+)" outside the library\'s element and the tag')
+def picture_same_outside(c, still, before):
+    """S5: the picture behind the element is the one the machine showed before it stopped: the blocks of 40 x 30 canvas pixels agree (the still is sampled from the frame buffer,
+    the running picture is scaled by the layer, so a block mean has a tolerance), the blocks of the element and of the tag left out; and it is a picture, not black."""
+    a, b = _blocks(os.path.join(emu_mod.OUT, still + ".png")), _blocks(os.path.join(emu_mod.OUT, before + ".png"))
+    skip = lambda bx, by: (bx * 40 < OV_BOX[2] and (bx + 1) * 40 > OV_BOX[0] and by * 30 < OV_BOX[3] and (by + 1) * 30 > OV_BOX[1]) or (bx * 40 < 946 and (bx + 1) * 40 > 820 and by * 30 < 44 and (by + 1) * 30 > 14)
+    keys = [k for k in a if not skip(*k)]
+    bright = sum(1 for k in keys if max(b[k]) > 24)
+    if bright * 4 < len(keys):
+        raise AssertionFailed("only %d of %d blocks of %s are not black: the machine showed no picture to keep" % (bright, len(keys), before))
+    bad = [k for k in keys if sum(abs(x - y) for x, y in zip(a[k], b[k])) > 90]
+    if len(bad) * 10 > len(keys):
+        raise AssertionFailed("%d of %d blocks of %s differ from %s (first at block %s): the still is not the picture that stopped" % (len(bad), len(keys), still, before, bad[0]))
+
+
+@step(r'the emulator log has no line with "([^"]+)"')
+def log_has_no(c, text):
+    """S5: the base took the stopped machine's picture (a failed grab logs `no still`)."""
+    lines = [l.rstrip() for l in open(c.emu.logpath, errors="replace") if text in l]
+    if lines:
+        raise AssertionFailed("the emulator log says: %s" % lines[0][:200])

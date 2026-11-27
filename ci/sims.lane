@@ -32,6 +32,7 @@ mig_arb: host
 drive_mem: host
 flash_gate: host
 flash_boot: host
+avrgb: host
 dma_bus: host
 vc20: core:vc20
 vc20_pixw: core:vc20
@@ -214,6 +215,7 @@ diag_pins: large:diag
 diag_co: large:diag
 diag_avenc: large:diag
 diag_avregs: large:diag
+diag_avmap: large:diag
 c1541leds_c128: large:c128
 c1541leds_c264: large:c264
 c1541leds_vc20: core:vc20

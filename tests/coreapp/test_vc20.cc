@@ -1,4 +1,4 @@
-// T83 on the generic application: the VIC-20 descriptor (coreapp/cores/vc20.cc) against a model of the register block and the ROM aperture of
+// T83 on the generic application: the VIC-20 descriptor (cores/vc20/app/lib/vc20.cc) against a model of the register block and the ROM aperture of
 // cores/vc20/rtl/trx/vc20_regs.vhd / vc20_glue.vhd. The three ROMs at the C64's aperture offsets, the memory expansion as two register settings
 // written only while the machine is held, Reset and Reload ROMs, a .prg run (reset, READY, relink to the start of BASIC the machine states,
 // RUN or SYS typed) and loaded without a reset, Freeze's PAUSED bit. The descriptor and its operations are the real ones.
@@ -65,6 +65,13 @@ struct Vc20Io : CbmIo {
         for (uint32_t i = 0; i < n; i++) { uint8_t *x = cell(off + i); ((uint8_t *)p)[i] = x ? *x : 0; }
     }
 };
+
+static int count_prefix(const std::vector<std::string> &ev, const char *p)
+{
+    int n = 0;
+    for (auto &e : ev) n += e.compare(0, strlen(p), p) == 0;
+    return n;
+}
 
 static Bytes pattern(int role, size_t n)
 {
@@ -507,6 +514,59 @@ int main()
             back.load();
             CHECK_EQ(back.value(back.find("JiffyDOS")), 1);
         }
+    }
+    // ---- base 3.3 (svc_board.h): a library puts one ROM role back (machine.put_builtin_rom, by the put operation of the role) and has the media written back first
+    // (media.flush_for_core); neither holds nor releases the machine. (T239.3 P1-8: these checks were made on the trx64u descriptor; boot.cc is the base's.)
+    {
+        Rig r;
+        r.roms();
+        CHECK(r.boot());
+        r.io.events.clear();
+        OpIn in = in_str("put_op", "vc20.put_kernal");
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 1);                // the KERNAL only, not BASIC and not the character ROM
+        CHECK_EQ(count_prefix(r.io.events, "mode_reset"), 0);
+        r.io.events.clear();
+        in = in_str("put_op", "vc20.put_nothing");                          // no role of the core is put by it
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_FAILED);
+        CHECK(strstr(res.msg, "vc20.put_nothing") != 0);
+        CHECK(r.io.events.empty());
+        r.fs.remove("/usb0/roms/vc20/kernal.bin");                          // the file of the role is gone: the same refusal as the reload gives, the machine untouched
+        in = in_str("put_op", "vc20.put_kernal");
+        CHECK_EQ(ops_call(&r.c, "machine.put_builtin_rom", &in, 1, &res), OPE_FAILED);
+        CHECK(r.io.events.empty());
+        CHECK_EQ(ops_call(&r.c, "media.flush_for_core", 0, 0, &res), OPE_OK);   // nothing mounted: nothing to write
+    }
+    // ---- T216 D16: a descriptor with a rom_key loads the ROMs again at the Reset that follows a change of the key, and only then
+    {
+        static uint32_t key;
+        struct K { static uint32_t get(CoreCtx *) { return key; } };
+        CoreDesc d = vc20_desc;
+        d.rom_key = K::get;
+        Rig r;
+        r.c.desc = &d;
+        r.roms();
+        key = 1;
+        CHECK(r.boot());
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);        // the key is the one the ROMs were put for
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 0);
+        key = 2;                                                                    // the model changed
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 3);
+        CHECK_STR(ev_last(r.io.events), "mode_unreset");
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);        // the next one has nothing to load
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 0);
+        key = 3;                                                                    // a file gone: the Reset refuses like the reload, the machine keeps running
+        r.fs.remove("/usb0/roms/vc20/char.bin");
+        r.io.events.clear();
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_FAILED);
+        CHECK(r.io.events.empty());
+        r.fs.put("/usb0/roms/vc20/char.bin", pattern(3, 4096));                     // still not loaded for key 3: the next Reset loads
+        CHECK_EQ(ops_call(&r.c, "machine.cold_reset", 0, 0, &res), OPE_OK);
+        CHECK_EQ(count_prefix(r.io.events, "rom_write"), 3);
     }
     DONE("test_vc20");
 }

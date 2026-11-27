@@ -1,0 +1,104 @@
+# TOML A (record version 7, T239.3 P1-1, D30, D34): the fixture of tests/coreapp/test_desctoml.cc and tools/test_descrec.py. The maps of the shared drivers come from
+# app/sdkpkg/maps (gen_bundle.py passes that directory); the addresses are the fixture's own.
+[io]
+iobase = 0x04000000
+u2p_io_base = 0xA0000000
+
+[identity]
+id = "TSTA"
+build = 0x1234ABCD
+block = "ident"
+
+[[block]]
+name = "ident"
+module = "trx_io"
+owner = "base"
+address = 0xA0000800
+size = 0x100
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x04
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x08
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "statebus"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "debug"
+    shift = 3
+    bits = 1
+
+[[block]]
+name = "cart_flash"
+module = "trx_io"
+owner = "base"
+address = 0xA0004000
+size = 0x100
+map = "c64cart"
+
+[[block]]
+name = "cmd_if"
+module = "uci"
+owner = "base"
+address = 0x04044000
+size = 0x10
+map = "uci"
+
+[[block]]
+name = "mixer"
+module = "audio_mixer"
+owner = "core"
+address = 0xA0000500
+size = 0x14
+  [[block.property]]
+  name = "mode"
+  offset = 0x01
+  width = 8
+  dir = "w"
+    [[block.property.field]]
+    name = "filter"
+    shift = 0
+    bits = 2
+      [[block.property.field.state]]
+      name = "off"
+      value = 0
+      [[block.property.field.state]]
+      name = "lowpass"
+      value = 1
+    [[block.property.field]]
+    name = "mute"
+    shift = 7
+    bits = 1
+  [[block.property.state]]
+  name = "reset"
+  value = 0
+  [[block.property]]
+  name = "status"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "lvl"
+  offset = 0x04
+  width = 16
+  count = 4
+  stride = 4
+  dir = "w"
+  [[block.property]]
+  name = "pan"
+  offset = 0x06
+  width = 16
+  count = 4
+  stride = 4
+  dir = "w"

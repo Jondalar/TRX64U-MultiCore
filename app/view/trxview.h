@@ -197,6 +197,8 @@ struct TrxStatusRow {
     bool selected, dim;
 };
 lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow &r, int *next_y);
+// T262 P9: new texts and colours for a row built by trx_status_row, in place; false: the row has to be built again (its meta word came or went).
+bool trx_status_row_retext(lv_obj_t *row, const TrxStatusRow &r, int w);
 int trx_status_row_h(void);
 
 // setting_row.xml with its control: a switch (`toggle`, on/off) or the value as text. Returns the row.
@@ -207,6 +209,7 @@ struct TrxSettingRow {
     TrxTone tone;                    // the switch's colour when on (violet; amber for a risky setting)
 };
 lv_obj_t *trx_setting_row(lv_obj_t *par, int x, int y, int w, const TrxSettingRow &r, int *next_y);
+bool trx_setting_row_retext(lv_obj_t *row, const TrxSettingRow &r, int w);   // T262 P9: in place; false: built again (a ring, or another kind of control)
 int trx_setting_row_h(void);                  // the height without the 1 px gap
 
 // A label at the left, a value at the right (the MACHINE panel of the C64 screen). Returns the y of the next one.

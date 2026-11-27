@@ -1,0 +1,17 @@
+# The Amiga 500 core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/amiga1200/app/ue2emu.toml). Registers from
+# cores/amiga/rtl/trx/amiga_regs.v (cores/amiga/app/gateware.toml); the large build's top passes layer2_amiga no parameter, so HDF_SECT is 0.
+name = "amiga"
+id = "AMIG"                  # amiga_regs.v:245, the gateware's one ID word, shared with the A1200
+board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
+
+[ro]
+0x00C = 0x36                 # FEATURES (amiga_regs.v:248): b1 audio KPIs, b2 catch-up KPI, b4 RAWKEY, b5 PAD2; b0 HDF_SECT and b3 FBWIN are 0 (the A500)
+
+[regs]
+0x0A0 = 0x01                 # CTRL (amiga_regs.v:62, reset 0x01): b0 HOLD, the machine in reset after power-up
+
+[handover]
+core = "Amiga (OCS/ECS, 68000)"   # the manifest's name
+id = "amiga"                      # core.toml id
+path = "/Usb0/cores/amiga.cor"    # the core folder is next to it: give --usb-dir
+video = "1080p"

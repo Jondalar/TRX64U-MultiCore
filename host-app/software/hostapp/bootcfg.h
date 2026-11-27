@@ -6,8 +6,9 @@
 //   direct=1               T135: the default starts at power-on without the menu (a held C= or port-1 fire, or a return from a core, shows
 //                          it); 0 = the menu with the countdown. Absent = 1.
 //   default=0              index of the default entry, -1 = none
-//   video=<system>,<hdmi>  the picture: system 0 PAL / 1 NTSC, hdmi 0 576p/480p, 1 720p, 2 1080p,
-//                          3 800x600, 4 1024x768, 5 1280x1024. Missing or -1 = ask the screen (T105).
+//   video=<system>,<hdmi>,<av>  the picture: system 0 PAL / 1 NTSC, hdmi 0 576p/480p, 1 720p, 2 1080p,
+//                          3 800x600, 4 1024x768, 5 1280x1024. Missing or -1 = ask the screen (T105). av (T265 P4, D9): the A/V port,
+//                          0 off, 1 RGB; absent or anything else = 1 (RGB on at power-on). An older host reads the first two and drops the third.
 //   lib_attempt=1          written by a core application (coreapp/src/libguard.h): a start that loads libraries is under way and has not
 //                          finished; absent when 0. The host keeps it across its own saves.
 //   core=<path>|<name>|<sha256 of the partial>[|<file size>[|<mtime>[|<header digest hex>]]]
@@ -42,6 +43,7 @@ struct BootCfg {
     int def;
     int vid_sys;              // -1 = not chosen
     int vid_hdmi;             // -1 = not chosen: the screen is asked
+    int vid_av;               // T265 P4: the A/V port, 1 = RGB (default), 0 = off
     int lib_attempt;          // 0 = none under way
     int n;
     BootEntry e[BOOT_MAX];

@@ -10,7 +10,7 @@
 | `trx64host_update_<version>.cfw` | The same installer, with a pre-header. For a board whose file browser takes a `.cfw` |
 | `trx64host_update_<version>.txu` | The update of a host that runs already (2.1.4) |
 | `<core>.cor` | One file per core |
-| `unzip.u2a`, `miniz.u2a` | The applications that unpack a `.zip` (File Browser **Z**, core menus). The installer copies them to `cores/apps` (2.4.4) |
+| `unzip.u2a` | The application that unpacks a `.zip` (File Browser **Z**, core menus). The installer copies them to `cores/apps` (2.4.4) |
 | `SHA256SUMS` | The checksums of the files above |
 | `INSTALL.md` | The guide that belongs to this release |
 | `ROMS.txt` | What each core needs in its own folder and where the files can legally come from (chapter 12) |
@@ -98,7 +98,7 @@ writes the flash:
 | `<vendor>-<version>.cor` | The previous firmware as a large `.cor` (for example `commodore-110.cor`). The boot menu shows it with the badge `backup` |
 | The `.cor` and `.cfw` files from the folder of the `.ue2` | The cores of the release (2.3.3). A file that exists with the same content is skipped |
 | `<medium>/cores/<name>/`, with `roms/`, `saves/` and `configs/` | The core folder (2.7.1) of every `.cor` the updater copied, and of the backup `.cor`. A folder that exists stays as it is. A `.cfw` file gets none |
-| `<medium>/cores/apps/*.u2a` | The applications from the folder of the `.ue2` (`unzip.u2a`, `miniz.u2a`). They are not menu entries |
+| `<medium>/cores/apps/*.u2a` | The applications from the folder of the `.ue2` (`unzip.u2a`). They are not menu entries |
 
 The updater ends the copy with `Files: n copied, n same, n failed`. If a file failed it asks `Not every file could be copied. Go on anyway?`. If the folder holds more files than the updater takes (64), it shows `n more file(s) left out`. It shows `Core folders: n, m could not be made`.
 
@@ -152,7 +152,7 @@ are in 4.7.
 ```
 /cores/                  the .cor files of the release, the backup .cor, TRXBK_*.BIN and TRXBK_*.CFW
     trx64.cor  vc20.cor  amiga.cor  ...
-    apps/                unzip.u2a, miniz.u2a: applications that every core and the File Browser can start
+    apps/                unzip.u2a: the application that every core and the File Browser can start
     <name>/              one folder per core, made by the installer for every `.cor` it copies, else by the core at its first start; never part of a release
         <name>.cfg       its settings
         roms/            its ROM files (chapter 12)

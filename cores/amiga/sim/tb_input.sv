@@ -54,17 +54,17 @@ module tb_input;
         mbtn = 3'b011; #1000; check(mb == 3'b011, "mouse buttons pass through");
         // joysticks: host {fire, right, left, down, up}
         joy2 = 5'b01010; joy1 = 5'b10001; #1000;
-        check(j1 == 8'b00000101 && j0 == 8'b00011000, "joystick bit order (right, left, down, up, fire)");
-        joy2 = 5'b10000; #100; check(j1[4] === 1'b1, "fire");
-        // T157 S1/S2: the swap moves the host's port 2 to the Amiga's port 1 (joystick0) and back
+        check(j0 == 8'b00000101 && j1 == 8'b00011000, "joystick bit order; host port n is Amiga port n");
+        joy1 = 5'd0; joy2 = 5'b10000; #100; check(j0[4] === 1'b1 && j1 == 8'd0, "fire: host port 2 is Amiga port 2 only");
+        // T157 S1/S2: the swap moves the host's port 2 to the Amiga's port 1 (joystick1) and back; joystick0 is the Amiga's port 2 (#125)
         joy1 = 5'd0; joy2 = 5'b10000; jswap = 0; #1000;
-        check(j1[4] === 1'b1 && j0 == 8'd0, "swap off: host port 2 fire is Amiga port 2 only");
+        check(j0[4] === 1'b1 && j1 == 8'd0, "swap off: host port 2 fire is Amiga port 2 only");
         jswap = 1; #1000;
-        check(j0[4] === 1'b1 && j1 == 8'd0, "swap on: host port 2 fire is Amiga port 1, port 2 empty");
+        check(j1[4] === 1'b1 && j0 == 8'd0, "swap on: host port 2 fire is Amiga port 1, port 2 empty");
         joy1 = 5'b00001; joy2 = 5'd0; #1000;
-        check(j1 == 8'b00001000 && j0 == 8'd0, "swap on: host port 1 up is Amiga port 2");
+        check(j0 == 8'b00001000 && j1 == 8'd0, "swap on: host port 1 up is Amiga port 2");
         jswap = 0; #1000;
-        check(j0 == 8'b00001000 && j1 == 8'd0, "swap off again: host port 1 is Amiga port 1");
+        check(j1 == 8'b00001000 && j0 == 8'd0, "swap off again: host port 1 is Amiga port 1");
         joy1 = 0; joy2 = 0;
         // audio: the left value reaches the 24 bit output
         al = 15'sd1000; ar = -15'sd2000; #20000000;           // 20 ms: primed (5.3 ms), faded in (5.3 ms)

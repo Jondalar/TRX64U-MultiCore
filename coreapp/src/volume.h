@@ -1,6 +1,6 @@
 // The "Volume" setting every core application has (T160 D1, T164 WP11): the master volume of the host, a gain on the core's audio before HDMI and I2S
 // (host/trx_gain.v). The application adds the item to the core's own settings when it starts, as it does Picture, so no descriptor declares it; the menu's
-// SHIFT+ / SHIFT- step it (menuctl.cc change_volume). A core that declares a "Volume" with a register binding of its own (the A1200 until its copy of the
+// SHIFT+ / SHIFT- step it (hotkeys.cc hk_step_volume: the setting HkSpec::vol_key names, else Volume). A core that declares a "Volume" with a register binding of its own (the A1200 until its copy of the
 // gain goes) keeps that one, and a core with CoreDesc::own_volume (the C64 with its mixer) gets none.
 #ifndef COREAPP_VOLUME_H
 #define COREAPP_VOLUME_H
@@ -16,7 +16,8 @@
 uint8_t volume_byte(int step);
 
 // out = *d with the Volume item after d's own settings (and the Picture item the caller made); `store` holds the merged array (SETTINGS_MAX items) and has
-// to outlive `out`. A descriptor with its own Volume or own_volume is copied as it is (null). Returns null, or the reason when there is no room.
+// to outlive `out`. A descriptor with its own Volume or own_volume is copied as it is (null), and so is every descriptor when the app is linked against a TOML A without the block
+// audio_master (T239.3 D36: no master volume byte, no Volume row). Returns null, or the reason when there is no room.
 const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store);
 
 // True for the item volume_extend adds (the apply operation is ours), false for a descriptor's own.

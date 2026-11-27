@@ -21,6 +21,7 @@ public:
 };
 
 #define SETTINGS_MAX 340                 // the descriptor's own, the application's Picture and what libraries contribute (T104.1 D5)
+#define SETTINGS_HASH 1024               // slots of the name index: a power of two above twice SETTINGS_MAX
 
 class Settings {
 public:
@@ -33,11 +34,20 @@ public:
     void load();
 
     int count() const { return n_; }
+    // Counts up with every new Settings object and every rebind (a new config): equal generation, equal indexes (SvcSettings::generation).
+    uint32_t generation() const { return gen_; }
     const Setting &item(int i) const { return items_[i]; }
     int value(int i) const;
     Layer layer(int i) const;
     const char *label(int i) const { return items_[i].values[value(i)]; }
+    // The index of the setting named `key` (case folded, as the stored keys of the .cfg are), -1 for none; with two equal keys the first. A name-hash index answers it, built when the
+    // object is made and never again (a rebind changes the generation, not the items), so a lookup costs about one key comparison instead of one per setting before it.
     int find(const char *key) const;
+    // What the lookups cost, process wide, for the menu simulator and the unit: calls of find, the key comparisons they made, and the comparisons the linear scan this index replaced
+    // would have made for the same calls (index + 1 for a hit, every setting for a miss).
+    struct FindStats { uint32_t calls, compares, linear; };
+    static FindStats find_stats();
+    static void find_stats_reset();
 
     // Sets the core layer and writes the .cfg. Returns false when the file could not be written (the value holds anyway).
     bool set(int i, int v);
@@ -95,11 +105,14 @@ public:
 
 private:
     const Setting *items_;
+    uint32_t gen_;
     int n_;
     const char *store_;
     CoreFs *fs_;
     char cfg_path_[256];
     FlashLayer *flash_;
+    int16_t hidx_[SETTINGS_HASH];     // the name index: the item of each slot of an open-addressing table over the case-folded key, -1 empty (index_build)
+    void index_build();
     int16_t host_[SETTINGS_MAX];      // -1: not set in the flash
     int16_t core_[SETTINGS_MAX];      // -1: not set in the .cfg
     int16_t ovr_[SETTINGS_MAX];       // -1: none; else the value this run uses instead (override_value)

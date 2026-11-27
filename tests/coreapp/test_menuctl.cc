@@ -11,6 +11,8 @@
 #include "keyboard.h"
 #include "lib_skel.h"
 #include "ops_glue.h"
+#include "home.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 struct Host : MenuHost {
     int returns = 0; bool can = false;
@@ -201,8 +203,55 @@ int main()
     CHECK_STR(r.m->title(), "/");
     r.go_to("usb0/"); r.m->key(KEY_RETURN);
     CHECK_STR(r.m->title(), "/usb0");
+    // T262 P7: a Run that waited for its file closes the menu when it has run (pump raises it; the loop closes as for a key's R_CLOSE)
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/p.xex";
+        w.fs.loading_n = 2;
+        w.go_to("p.xex");
+        w.m->key(KEY_RETURN);                                     // the sheet
+        CHECK_EQ(w.m->key(KEY_RETURN), MenuCtl::R_REDRAW);         // Run: the file is not there yet
+        CHECK(w.m->action_pending() && !w.m->take_pump_close());
+        w.io.t += 300; w.m->pump(true);
+        CHECK(w.m->action_pending() && !w.m->take_pump_close());   // still fetching
+        w.io.t += 300; w.m->pump(true);
+        CHECK(!w.m->action_pending());                            // it has run
+        CHECK(w.m->take_pump_close());                            // ... and the menu is to close
+        CHECK(!w.m->take_pump_close());                           // once
+    }
+    // T262 review 1: the pump's close saves the reopen place as a key's close does (Menu opens at = Last screen: the folder comes back)
+    {
+        static CoreDesc gd;
+        static Setting gs[SETTINGS_MAX];
+        CHECK(!home_extend(&atari800_desc, &gd, gs));
+        Rig w(&gd);
+        w.st->load();
+        { OpResult o; OpIn in[2] = { in_str("key", REOPEN_KEY), in_str("value", "Last screen") }; CHECK_EQ(ops_call(&w.c, "settings.set", in, 2, &o), OPE_OK); }
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/p.xex";
+        w.fs.loading_n = 1;
+        w.go_to("p.xex");
+        w.m->key(KEY_RETURN);
+        CHECK_EQ(w.m->key(KEY_RETURN), MenuCtl::R_REDRAW);
+        w.io.t += 300; w.m->pump(true);
+        CHECK(w.m->take_pump_close());
+        const int area = w.m->area();
+        CHECK(area != 0);
+        w.m->open();
+        CHECK_EQ(w.m->area(), area);
+        CHECK_STR(w.m->title(), "/usb0/games");
+        printf("PASS pump close saves the reopen place\n");
+    }
     if (g_fails) {
-        DONE("test_menuctl");                                      // the media level is wrong: what follows stands on it
+        DONE("test_menuctl");                                  // the media level is wrong: what follows stands on it
     }
     CHECK(r.find_row("../") == 0);
     CHECK(r.find_row("top.car") >= 0);
@@ -312,33 +361,6 @@ int main()
         CHECK(has("/usb0/p.xex") && !has("/usb0/games/p.xex") && !has("/p.xex"));
     }
 
-    // --- a core that waits for a program cannot close its menu, and opens on the browser
-    Rig n(&nes_desc, "/sd/cores/nes.cfg");
-    n.st->load();
-    CHECK_EQ(boot_start(&n.c, &ui), BOOT_WAITING_PROGRAM);
-    n.m->open();
-    CHECK(n.m->tree().a[n.m->area()].tabs[n.m->tab()].count == 1);   // it opens on the browser
-    CHECK_STR(n.m->tree().a[n.m->area()].tabs[n.m->tab()].name, "Browse");
-    CHECK(strstr(n.m->status(), ".nes") != 0);
-    for (int k : { KEY_BREAK, KEY_ESCAPE, KEY_F10, KEY_SCRLOCK }) {
-        CHECK_EQ(n.m->key(k), MenuCtl::R_REDRAW);
-        CHECK(!n.m->closable());
-    }
-    std::vector<uint8_t> g(16 + 16384 + 8192, 0);
-    memcpy(g.data(), "NES\x1A", 4); g[4] = 1; g[5] = 1;
-    n.fs.put("/usb0/g/game.nes", g);
-    n.m->open();                                                  // the Library lists what the stick holds now
-    CHECK_STR(n.m->title(), "/");                                 // the media level
-    n.go_to("usb0/"); n.m->key(KEY_RETURN);
-    n.go_to("g/"); n.m->key(KEY_RETURN);
-    CHECK_EQ(n.m->rows(), 2);                                     // ".." and game.nes
-    n.go_to("game.nes");
-    CHECK_EQ(n.m->key(KEY_RETURN), MenuCtl::R_REDRAW);            // the sheet: Run first, then the eight of every file
-    CHECK(n.m->chooser());
-    CHECK_EQ(n.m->key(KEY_RETURN), MenuCtl::R_CLOSE);             // Run: closes
-    CHECK(n.m->closable());
-    CHECK(n.c.program_loaded && n.c.started);
-    CHECK_EQ(n.io.reset_releases, 1);
     // --- spec 5.14: media that mounts after the menu opened. The browser's directory is read again, the
     // selection follows its entry by name, and an unchanged directory reports nothing (the negative control).
     Rig u(&atari800_desc);
@@ -360,6 +382,45 @@ int main()
     u.m->key(KEY_F1);                                             // off the browser: nothing to read again
     u.fs.put("/usb0/later.atr", atr());
     CHECK(!u.m->relist());
+    // --- T239.3 D41: a folder that a job still fetches shows "Loading ..." as its last line, is read again at once while it loads, and fills when the job ends; a failure says its reason there
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.fs.put_size("/usb0/slow/one.atr", 100);
+        w.fs.slow_dir = "/usb0/slow";
+        w.fs.slow_n = 2;
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("slow/"); w.m->key(KEY_RETURN);                       // the folder is entered while its job runs
+        CHECK(w.find_row("one.atr") < 0);
+        CHECK(w.find_row("Loading ...") >= 0);                        // the wait line, no entry
+        CHECK(w.m->rows() == 2);                                      // ".." and the line
+        CHECK(!w.m->relist());                                        // second read: still loading, the line stays and nothing changed: no redraw
+        CHECK(w.find_row("Loading ...") >= 0);
+        CHECK(w.m->relist());                                         // the job has ended: the folder fills, the line is gone
+        CHECK(w.find_row("one.atr") >= 0);
+        CHECK(w.find_row("Loading ...") < 0);
+        CHECK(!w.m->relist());
+        // the other ending: the job failed, its reason is the last line and stands on the status row once
+        w.fs.slow_n = 1;
+        w.fs.slow_why = "The server gave no files";
+        w.m->key(KEY_LEFT);
+        w.go_to("slow/"); w.m->key(KEY_RETURN);
+        CHECK(w.find_row("Loading ...") >= 0);
+        CHECK(w.m->relist());                                         // loading ended with the reason
+        CHECK(w.find_row("The server gave no files") >= 0);
+        CHECK(w.find_row("Loading ...") < 0);
+        CHECK(w.find_row("one.atr") < 0);
+        int lists = w.fs.slow_asked;
+        CHECK(!w.m->relist());                                        // a failed folder is asked once: no new read, the reason stays
+        CHECK(!w.m->relist());
+        CHECK_EQ(w.fs.slow_asked, lists);
+        CHECK(w.find_row("The server gave no files") >= 0);
+        w.m->key(KEY_LEFT);                                           // out and in again: asked again, the folder fills
+        w.go_to("slow/"); w.m->key(KEY_RETURN);
+        CHECK(w.find_row("one.atr") >= 0);
+    }
     // --- the media level is the way between media in every layout: RETURN on ../ and LEFT at the top of a medium lead to it, a medium's row opens it
     {
         Rig w(&atari800_desc);
@@ -375,6 +436,94 @@ int main()
         CHECK_STR(w.m->title(), "/");
         CHECK(lib_medium(w.m, "usb0"));                           // and the other one
         CHECK_STR(w.m->title(), "/usb0");
+    }
+    // T256 D13 (review): goto_screen with the menu closed lands on its place: open() takes the goto, it does not start at Home
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.c.menu_open = false;
+        CHECK(w.m->goto_when_open("F3"));
+        CHECK(!w.m->goto_when_open("F9"));                        // no such place: refused at once
+        w.m->say_when_open("Opening x ...", false);
+        w.c.menu_open = true;
+        w.m->open();
+        CHECK_EQ(w.m->area(), 1);                                 // F3, not Home
+        CHECK_STR(w.m->status(), "Opening x ...");
+        w.m->open();                                              // taken once: the next open is at Home again
+        CHECK_EQ(w.m->area(), 0);
+        w.m->key(KEY_F2);
+        CHECK(w.m->goto_when_open("F3"));                         // open menu: at once
+        CHECK_EQ(w.m->area(), 1);
+        CHECK(w.m->pump(true));                                   // T262 D4: and the screen is drawn at once: the loop's pump says it changed, once
+        CHECK(!w.m->pump(true));
+    }
+    // T239.3 D41 (review): a file the medium is still fetching: the action stays pending, the status row says so, pump() opens again every 300 ms; leaving the folder cancels
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/notes.txt";
+        w.fs.loading_n = 3;
+        w.go_to("notes.txt");
+        w.m->key(KEY_RIGHT);                                      // View: the file is not there yet
+        CHECK(!w.m->viewer() && w.m->action_pending());
+        CHECK_STR(w.m->status(), "Downloading the file: open it again in a moment");
+        CHECK_EQ(w.fs.loading_opens, 1);
+        w.io.t += 100;
+        w.m->pump(true);
+        CHECK_EQ(w.fs.loading_opens, 1);                          // 300 ms have not passed
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(w.fs.loading_opens == 2 && w.m->action_pending() && !w.m->viewer());
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(w.fs.loading_opens == 3 && w.m->action_pending());
+        w.io.t += 300;
+        w.m->pump(true);                                         // the file is there: the action runs once
+        CHECK(w.m->viewer() && !w.m->action_pending());
+        CHECK_EQ(w.fs.loading_opens, 3);
+        w.m->key(KEY_LEFT);                                       // closes the viewer
+        w.fs.loading_n = 5;
+        w.fs.loading_opens = 0;
+        w.m->key(KEY_RIGHT);
+        CHECK(w.m->action_pending() && w.fs.loading_opens == 1);
+        w.m->key(KEY_LEFT);                                       // leaves the folder: cancelled
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK(!w.m->action_pending() && w.fs.loading_opens == 1 && !w.m->viewer());
+        w.io.t += 300;
+        w.m->pump(true);
+        CHECK_EQ(w.fs.loading_opens, 1);                          // nothing is asked for any more
+    }
+    // the same for "Copy to...": the job waits for the source with the cancel at hand, then copies it once
+    {
+        Rig w(&atari800_desc);
+        w.st->load();
+        w.fs.mkdir("/usb0/games/sub");
+        w.m->open();
+        w.m->key(KEY_F3);
+        w.go_to("usb0/"); w.m->key(KEY_RETURN);
+        w.go_to("games/"); w.m->key(KEY_RETURN);
+        w.fs.loading_path = "/usb0/games/notes.txt";
+        w.fs.loading_n = 2;
+        w.go_to("notes.txt");
+        w.m->key(KEY_RETURN);
+        w.go_to("Copy to...");
+        w.m->key(KEY_RETURN);
+        CHECK(w.m->picking());
+        w.m->key(KEY_DOWN); w.m->key(KEY_DOWN);
+        w.m->key(KEY_RETURN);                                     // into sub
+        w.m->key(KEY_RETURN);                                     // take it
+        int n = 0;
+        while (w.m->tick() && ++n < 1000) {
+            w.io.t += 100;
+        }
+        uint64_t sz; bool d;
+        CHECK(w.fs.stat("/usb0/games/sub/notes.txt", &sz, &d) && !d && sz == 1);
+        CHECK_EQ(w.fs.loading_opens, 2);                          // asked twice while it was fetched, opened once after
     }
     DONE("test_menuctl");
 }

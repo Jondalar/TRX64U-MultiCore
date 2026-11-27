@@ -1,7 +1,7 @@
 # T256 — A library shows pixels over the machine's picture through a service of the base, and only the base drives the pixel layer
 
 **Status:** PROPOSED (2026-11-23). Asked by Alex, 2026-11-23 (T239.3 D23).
-Open (one line, as in the TODO table): Spec in work: D1 no gateware, D3 surfaces, D4 menu closed, D5 tag PAUSED (Alex 11-23); next: §2 and the API draft
+Open (one line, as in the TODO table): D1-D14 (Alex 11-23/24); D11 + fix round after T-3 built (SDK 0.4.5); T-3 by FW; D13 A: 2 new calls (0.4.6)
 **Repo:** TRX64U-MultiCore. The core application (`coreapp/src`: `ui.cc`, `screens.cc`, `video.cc`, `run.cc`), the LVGL port
 (`host-app/software/lvgl_port/trx_lv_port.cc`) and the SDK (`app/sdkpkg/api.md`, a new service group). No gateware (D1).
 **Number:** T256.
@@ -89,8 +89,10 @@ Draft. It is completed when the open questions of §3 are decided.
 
 - **D3** (Alex, 2026-11-23): a library draws a pixel surface. Asked how a library draws its overlay, he chose "Pixel surface": the
   library paints an RGB565 buffer itself, the base puts it at a place over the picture, pixels in the key colour stay transparent, and
-  the base offers text helpers with its fonts. The still and the elements take the same way, and TRX64-Ultimate's pixel code (the
-  Timewarp bar, `tw_draw_bar`) fits unchanged. Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
+  the base offers text helpers with its fonts. The still and the elements take the same way. (Corrected 2026-11-23, read in
+  TRX64-Ultimate: `tw_draw_bar`, `software/ultimate-app/software/io/c64/trx_video.cc:731`, does not fit unchanged. It paints into
+  the full-screen layer buffer at the absolute place of `tw_layout()` with that buffer's stride (`:735-737`), and it mixes the still
+  under the bar itself (`:739`). T-3 moves it into the ring library and paints into a surface of the service.) Lost: base-drawn building blocks (one look everywhere, but the bar rebuilt and a
   second path for the still), and both (the most work).
 
 - **D4** (Alex, 2026-11-23): an element shows only while the menu is closed. Asked what shows while the menu is open, he chose "Only
@@ -104,7 +106,89 @@ Draft. It is completed when the open questions of §3 are decided.
   library that paused shows how to go on with an element of its own; the tag is the service's first user. Lost: a P key read by
   the base while the machine holds the keyboard, and no tag at all.
 
-The other decisions are asked one at a time and recorded here.
+- **D6** (Alex, 2026-11-23, translated): "that also means the plugin/lib must be able to 'hide' and 'show' the menu by a
+  function." A library hides the menu and shows it again with calls of the SDK group. It follows from D4: its elements show only
+  while the menu is closed. What happens while it is hidden: D7.
+
+- **D7** (Alex, 2026-11-23): hiding the menu works like the person closing it. Asked what happens while a library has hidden the
+  menu, he chose "Like menu closed": the machine runs unless the library set Pause first (`api->ctx->set_paused`), the keys go to the
+  machine, and the menu key always brings the menu back. Showing it works like the menu key. Today a library can only close the
+  menu after an operation of its own (`closes_menu`, api.md 1621, 1683). Lost: a modal hidden menu (the machine frozen, the keys
+  to the library through a new key callback).
+
+- **D8** (Alex, 2026-11-23): an element's place comes from the TOML. Asked where a library element's place on the 960x540
+  canvas comes from, he chose "From the TOML": the core's UI TOML names each element with its anchor, offset and size, as the
+  menu rows take their place from the TOML (T239.3 D32), and the menu simulator shows it. The library's call hands over the
+  surface and redraws it. Lost: a place the library sets at run time, from the call or as a move beside a TOML default.
+
+- **D9** (Alex, 2026-11-23): elements are opaque. Asked how opaque a library element is over the picture while the menu is closed
+  (the layer has one alpha; key-colour pixels are always transparent), he chose "Opaque": elements show at full opacity, only
+  their key-colour pixels let the picture through, and the person's "Overlay Transparency" applies to the open menu only. Lost:
+  elements that follow the person's transparency, and one opacity per core set in its TOML.
+
+- **D10** (Alex, 2026-11-23): the rest of the design follows from D1-D9. Asked whether T-2 builds it as read here, he chose
+  "Yes, build it":
+  - The calls of the SDK group: `show(name, surface)` gives an element whose place and size come from the core's UI TOML (D8);
+    `update(el)` redraws it at the next frame; `remove(el)` takes it away; `text(surface, x, y, s, colour)` writes with the
+    base's fonts (D3); `menu_hide()` and `menu_show()` act as closing the menu and as the menu key (D6, D7).
+  - An element shows only while the menu is closed (D4): on a C64-type core over the running picture, on a layer core only while
+    the machine stands (D1). Elements are opaque (D9); the open menu has the person's Overlay Transparency.
+  - The still is taken when the machine stops (Pause, or the menu's stop of a C64-type machine): from the host's still capture,
+    the core's frame buffer or a library's surface. A TOML element marked as the still lies under the open menu (D4), and the
+    menu is blended over it in software, so the menu looks as it does over the running picture.
+  - Several libraries may show elements at once, drawn in TOML order. Calls come from any task; the UI task takes them over at
+    the next frame. When a library is released or its core is left, its elements go, and the layer takes its state at once.
+  - Limits: the TOML check refuses a place outside the canvas; a call whose buffer is not w x h x 2 bytes is refused with the
+    reason; the maxima are sized from the TOML at link time. The PAUSED tag is an element of the base UI TOML (D5).
+  The other answer was to talk the points through one by one first.
+
+- **D11** (Alex, 2026-11-24, translated: "Ok - answer A fits"): the ring library owns the Timewarp picture. TRX64-Ultimate's
+  T-3 found two gaps: after a scrub step the still under the open menu stays at the frame of the menu stop (S6), because the
+  still is taken once and the scrub runs through the ring library, which the base does not see; and the bar would be drawn
+  twice, by the base (`coreapp/src/screens.cc` `build_timeline`) and by the ring library (`tw_draw_bar`, D3). Asked which way,
+  he chose A: a helper call of the SDK group paints the frame the machine drew last into a library's surface (palette, place,
+  Scale, like the text helper of D3); the ring library paints frame and bar as the still (D10: "a library's surface"); the
+  base's timeline bar leaves with the trx64u code set (T239.3 P2-6). `core_hooks.h` (menu_video) and api.md 9.7.13, which
+  describe the picture behind the menu from before T-2, are rewritten with it. Lost: the base keeps its bar and its still and a
+  call lets a library ask for a new still after a scrub (smaller, but the base-drawn building block D3 gave up).
+
+- **D12** (Alex, 2026-11-24, translated, over a picture of the Timewarp view - the C64's frame with the bar under it: "You mean
+  the picture of the C64? It should look like this!!! And the bar etc. comes from trx64. You only make it possible!!! No UI for
+  apps from you"): the Timewarp bar, its time, frame counter, glyph and hints are TRX64-Ultimate's, painted by its library with
+  the frame (D3, D11). The base only gives the means (`frame()`, the surface, `still_palette`, the display) and builds no UI for
+  an application. So the base's own timeline bar (`coreapp/src/screens.cc` `build_timeline`) is UI for an application and goes.
+  - D11 let it stay until T239.3 P2-6, and that answer was also given to TRX64-Ultimate on 11-24; both are withdrawn.
+  - It goes now, not with P2-6: Alex the same day, "No UI for apps from you", and T239.3 D21/D44, the FW session builds trx64u.
+    The page of the layout `timeline` stays without a bar while TRX64-Ultimate's menu still names it; its keys come from the core's
+    key table.
+
+- **D13** (Alex, 2026-11-24, translated: "Claude - for apps it must work per call: fullscreen on/off, picture of the machine
+  on/off, update picture, exit directly into the machine with the app off or in the background, switch to another app or menu
+  item"): the base gives an application these five as calls of the SDK, and the application draws its own UI (D12). Mirrored to
+  Alex the same day. Which of them the SDK has today and which are new is mapped in §5 before any code.
+  The mapping was put to Alex with three options (A: document 1-3, two new calls; B: five calls of their own; C: only 4 and 5 now);
+  Alex (translated): "Yes please A" and "D13: option A, I answered above".
+  - Calls 1-3 exist: an overlay element of the canvas's size shown and removed (`show`, `remove`, `canvas()`), `frame()` and
+    `update()` (api.md 4.17.8-4.17.16). api.md documents them as the patterns for fullscreen, the machine's picture and the update.
+  - Call 4 is new: `exit_to_machine(flags)`, with OVL_EXIT_PAUSE (the machine stays stopped) and OVL_EXIT_KEEP_APP (a resident app
+    stays in the background; without it the app ends). One request in the main loop ends the session, closes the menu and applies
+    the pause in the same pass; it is refused like the person's close when the core cannot run yet. Today `menu_hide` with an app
+    session open closes the session, not the menu (`run.cc:983-996`), and the exit is bound to keys.
+  - Call 5 is new: `goto_screen(target)`, a menu place ("F3/online") or an app ("app:name[:action]"). One request in the main
+    loop opens the menu if it is closed, closes another session and goes there. It is also the goto after a job of T239.3 D41.
+  - Both are appended to SvcOverlay beside `menu_hide` and `menu_show` (base 3.4, SDK 0.4.6). The operations `menu.screen` and
+    `app.open` are documented in api.md 4.3.
+
+- **D14** (Alex, 2026-11-24, relayed by the TRX64-Ultimate session, translated: "That could go too and make room in RAM, since we
+  put no overlay over the menu"): while a library shows a still element and the machine stands, the base frees its own still
+  (`base_still_`, up to 1,036,800 bytes at 960x540). The scene draws the library's surface then and never this buffer
+  (`overlay.cc` 223-230), and the retake when the library's still goes takes a new one anyway (D11, `take_still` frees first).
+  Built in the fix round after T-3 (SDK 0.4.5).
+- **Note 2026-11-25 (T239.3 D56):** Alex took the rows Overlay transparency and Color scheme out of the generic core app
+  ("trx64g parameters"; all four Look rows are "zombies from the old Gideon menu, that was wired nowhere"). S2 ("the menu opens
+  with the Overlay Transparency the person set") has no row left to test in the generic core app.
+
+All open decisions are taken (D1-D14).
 
 ## §4 Out
 
@@ -114,3 +198,17 @@ The other decisions are asked one at a time and recorded here.
 ## §5 Decisions taken while building
 
 Nothing yet.
+- **T-3's findings for the base (TRX64-Ultimate, 2026-11-24, in ue2emu on SDK 0.4.4, not measured on the board).** T-3 (u18
+  5c9ff24a, 27883f2c) shows the Timewarp still through `frame()` and paints its own bar. Each scrub step's picture is that step's
+  screen in the palette in force. Three findings, fixed on `t239.3-ovfix`:
+  - `frame()` takes 1,193-1,206 ms per call (their bar 45 ms), so each step's picture follows its key by 1.24 s. The time is in
+    `Video::grab`, which divides per pixel to scale (`coreapp/src/video.cc` grab, both paths).
+  - Closing from the Timewarp page takes 1,248 ms instead of 49-64 ms: `remove()` of the library's still sets `retake_`, and
+    `settle()` grabs the base's still again although the menu closes (`overlay.cc` 397-398, 624).
+  - A library learns no canvas size, so their bar, laid out for 960x540, lies partly outside at 480p, 576p and 800x600.
+  - And the base's opaque bar (`screens.cc` `build_timeline`) still covers theirs; it goes (D12).
+- **Fix round after T-3 built (2026-11-24, t239.3 e8b767196, SDK 0.4.5, sha256 e87e2039).** The column table in `Video::grab`, no
+  grab while the menu closes, `canvas()`, no base bar (D12), D14 and two review fixes. Measured by TRX64-Ultimate on 0.4.5 in ue2emu,
+  the same scenario (their run 478, u18-a294af0f): `frame()` takes 217-220 ms (was 1,193-1,206 ms), their bar 45 ms; closing from
+  the Timewarp page takes 48-63 ms (was 1,249-1,252 ms); their bar is the only one, laid out with `canvas()` on 640x480, 720x540,
+  800x540 and 960x540. Not measured on the board.

@@ -1,0 +1,59 @@
+# The lock of the base API (T239.3 S5, tools/sdk_api.py): for every version of the base API (U2A_ABI_MAJOR.U2A_BASE_MINOR in coreapp/src/libfmt.h),
+# the hash of the public headers the SDK ships, comments and white space taken out. The lint is red when the version has no lock, and, for a released
+# version, when the headers differ from its lock. A new version appends one entry (python3 tools/sdk_api.py lock) and never edits a released one.
+#
+# One base minor per SDK release, not one per change (coordinator, 2026-11-22): `released = true` says an SDK release carries this version, and its hash is
+# fixed from then on. `released = false` is the version the next release will carry: what is added before it stays under it, and `python3 tools/sdk_api.py update`
+# brings its hash along. Only the newest entry can be unreleased. Release: update once, set released = true, and the next addition raises the minor.
+#
+#   minor: an addition a library built before it can ignore: a new call table at the end of LibApi, a new function at the end of a call table
+#          (every table carries its size), a new value of an enum, a new member at the end of LibRecord that is zero in a library built before it
+#   major: anything else, a change of LibRecord, of a Lib*Decl or of the file format included: libload.cc compares the size of the record and the
+#          ABI major of the file, and refuses a library built against another one
+#
+# 3.1 (T197): api->lib, the call tables libraries export
+[[lock]]
+version = "3.1"
+released = true
+headers = "48d9d26a0b188a1b438ce10612a4eaaf0ffff1f4bb4aca87b796648ea3856db9"
+#
+# 3.2 (T239.3, SDK 0.2.0): the poll of a library that loads after the core has started (S3), the budget record and the account of an image (S13, S14), named exports,
+# the C64Api table, the refusal of constructors. Released with SDK 0.2.0 (2026-11-23): the hash is fixed.
+[[lock]]
+version = "3.2"
+released = true
+headers = "da3811e51230c29e52fd338f2e8bbbee8db70746b5d37311a4da7f95de7fa25d"
+#
+# 3.3 (T239.3, SDK 0.4.0): api->sync, settings, ctx, io, board and overlay (svc_sync.h, svc_settings.h, svc_ctx.h, svc_io.h, svc_board.h, svc_overlay.h), the members appended to sys (svc_sys.h) and to fs
+# (list_long, svc_fs.h), the states "set.<key>" and "net.gated". Released: SDK 0.4.0 to 0.4.5 carried it, the last of them in this state; the hash is fixed.
+[[lock]]
+version = "3.3"
+released = true
+headers = "00b60e800dfb49b8414a945055d04f34e7e64f08232eca53fb8e8bb7cb25483a"
+#
+# 3.4 (SDK 0.4.6, 0.4.7): api->wb (svc_wb.h, T239.3 D51), the write-back service for libraries; api->overlay gets exit_to_machine and goto_screen
+# (svc_overlay.h, T256 D13). Released: SDK 0.4.7 was the last to carry it, in this state; the hash is fixed.
+[[lock]]
+version = "3.4"
+released = true
+headers = "22fd021dcfb654a4a933010080ddc33b5c88a7ebee5cd18f4712ec76992e30b3"
+#
+# 3.5 (SDK 0.5.0, T262): the node kind LN_LIST (libapi.h), api->ctx->ask_list (svc_ctx.h); the search sources are nodes of that kind, no header member. Released: SDK 0.5.0 carried it, in this state; the hash is fixed.
+[[lock]]
+version = "3.5"
+released = true
+headers = "5f20315f650767193d099ba57a370eb97aac873c7e1fa67ac9bc550674764e7a"
+#
+# 3.6 (SDK 0.5.1, T262 D4): api->ctx gets browse_at and browse_sheet (svc_ctx.h), SVCFS_SIZE_UNKNOWN (svc_fs.h); [[key]] rows in a library's menu record (no header member). Released: SDK 0.5.1 carried it; SDK 0.5.2 is a patch on it (no header change), the hash is fixed.
+[[lock]]
+version = "3.6"
+released = true
+headers = "176b3dbd37e17705eae830273e0b3de8e9da92d9d1c927318751c57562790e50"
+#
+# 4.0 (T239.3 P2-6, D57, D58): api->trx (SvcTrx, SvcRing), api->c64 (SvcC64), api->lib->find and LibRecord::exports gone, C64Api (c64_api.h) gone; no library file is loaded (a file of kind
+# lib is refused); libslot.h (the exports of the linked libraries at slots fixed when the app is linked, LibSlot::at_start and g_libslot_bound for a library with `register`); SvcNet::announce;
+# U2A3_NEEDS_MAX 8; CoreDialogs (T260, T239.3 D54, was 3.7: coredlg.h, CoreCtx::dialogs with edit_list and text, api.md 9.8); u2p_api_t without trx and c64, with root.
+[[lock]]
+version = "4.0"
+released = false
+headers = "908e382622e163388b76e59e0b2ec821228618ba3c12675202a18d8da03d4e4a"

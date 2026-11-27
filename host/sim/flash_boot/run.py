@@ -7,12 +7,18 @@ copied memory. run.sh analyses the sources first.
 The 'gideon' case takes the first 4 MB of the C64U flash dump (Gideon's
 bitstream and app) from TRX_FLASH_DUMP, by default the tools fork's
 pinmap/runs/flash-dump/c64u_flash.bin; it is skipped when the file is not there.
+
+T265 P1 (the guard): cases guard_* put a record (magic TRXG, length, CRC-32, check word)
+at 0x21F000 and a recovery program (its own header, data and CRC-32 trailer) at 0x1E0000.
+guard_off runs the boot ROM built with -DTRX_GUARD=0 (S2's negative control): the same
+flash that the guard stops starts the foreign application.
 """
 import os
 import random
 import struct
 import subprocess
 import sys
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "build")
@@ -20,7 +26,11 @@ DUMP = os.environ.get("TRX_FLASH_DUMP", os.path.expanduser(
     "~/Development/1541ultimate-tools/pinmap/runs/flash-dump/c64u_flash.bin"))
 APPL = 0x220000
 BUILD = 0x6A1B2C3D
-MARK_FLASH, MARK_JTAG = 0xA990C0DE, 0xB0B0CAFE
+MARK_FLASH, MARK_JTAG, MARK_REC = 0xA990C0DE, 0xB0B0CAFE, 0xC0DEBEEF
+REC_MAGIC = 0x47585254
+GUARD_VALID = 0x54323635
+REC_DEST = 0x1800000
+G_VERDICT, G_REC_LEN, G_REC_CRC, G_LEN, G_CRC, G_IFACE, G_RECOVERY = range(1, 8)
 
 # ---- a few RV32I instructions ------------------------------------------------
 def lui(rd, imm):
@@ -52,15 +62,32 @@ def test_app(marker, text):
     return b"".join(struct.pack("<I", w & 0xFFFFFFFF) for w in code)
 
 
-def app_image(dest, marker, size, run_off=8, seed=1, length=None):
+def app_image(dest, marker, size, run_off=8, seed=1, length=None, text="APP\n"):
     """Gideon's format: {dest, length, run} LE, data padded to 4. Two data words
     before the code, so run != dest."""
     rnd = random.Random(seed)
-    data = struct.pack("<II", 0x11111111, 0x22222222) + test_app(marker, "APP\n")
+    data = struct.pack("<II", 0x11111111, 0x22222222) + test_app(marker, text)
     data += bytes(rnd.randrange(256) for _ in range(size - len(data)))
     length = len(data) if length is None else length
     body = data + b"\0" * (-len(data) % 4)
     return struct.pack("<III", dest, length, dest + run_off) + body, body
+
+
+def record(img, bad_chk=False):
+    """The guard's record for an application image {header, data} as written at APPL."""
+    img = img + b"\0" * (-len(img) % 4)
+    ln, crc = len(img), zlib.crc32(img)
+    chk = ~(REC_MAGIC ^ ln ^ crc) & 0xFFFFFFFF
+    if bad_chk:
+        chk ^= 1
+    return struct.pack("<IIII", REC_MAGIC, ln, crc, chk)
+
+
+def recovery_image(bad_crc=False):
+    """Recovery program: {dest, length, run}, data, CRC-32 trailer over both. It prints REC and sets MARK_REC."""
+    img, _ = app_image(REC_DEST, MARK_REC, 200, seed=5, text="REC\n")
+    crc = zlib.crc32(img)
+    return img + struct.pack("<I", (crc ^ 1) if bad_crc else crc)
 
 
 def sums(body, length):
@@ -109,7 +136,8 @@ def image_words(addr, image):
 GHDL = os.environ.get("GHDL", "ghdl")
 
 
-def run(name, flash, pre=(), build=BUILD, caps2=0x03, button2=False, cmp=None, max_us=20000):
+def run(name, flash, pre=(), build=BUILD, caps2=0x03, button2=False, cmp=None, max_us=20000,
+        variant=None, caps=0x25C40222):
     fl = os.path.join(OUT, f"{name}.flash")
     pf = os.path.join(OUT, f"{name}.pre")
     of = os.path.join(OUT, f"{name}.out")
@@ -121,18 +149,21 @@ def run(name, flash, pre=(), build=BUILD, caps2=0x03, button2=False, cmp=None, m
     args = ["nice", "-n", "15", GHDL, "-r", "--std=08", "-frelaxed", "-fsynopsys", "tb_flash_boot",
             f"-gg_flash={fl}", f"-gg_pre={pf}", f"-gg_out={of}", f"-gg_build={build:032b}",
             f"-gg_caps2={caps2:08b}", f"-gg_button2={'true' if button2 else 'false'}",
-            f"-gg_max_us={max_us}", "--assert-level=failure"]
+            f"-gg_max_us={max_us}", f"-gg_caps={caps:032b}", "--assert-level=failure"]
     if cmp:
         args += [f"-gg_cmp_addr={cmp[0]}", f"-gg_cmp_words={cmp[1]}"]
     log = open(os.path.join(OUT, f"{name}.log"), "w")
-    subprocess.run(args, cwd=OUT, stdout=log, stderr=subprocess.STDOUT, check=False)
+    subprocess.run(args, cwd=os.path.join(OUT, variant) if variant else OUT, stdout=log, stderr=subprocess.STDOUT, check=False)
     lines = open(of).read().splitlines()
     r = {"end": lines[0].split()[1], "console": lines[1][8:].split("|")}
     r["res"] = [int(x, 16) for x in lines[2].split()[1:]]
-    r["marker"] = int(lines[3].split()[1], 16)
-    r["boot"] = [int(x, 16) for x in lines[4].split()[1:]]
-    r["flash"] = [int(x) for x in lines[5].split()[1:]]
-    r["mem"] = b"".join(struct.pack("<I", int(x, 16)) for x in lines[6:])
+    guard = [int(x, 16) for x in lines[3].split()[1:]]     # 0xFF60..0xFF9F
+    r["recov"], r["guard"] = guard[:8], guard[8:]
+    r["marker"] = int(lines[4].split()[1], 16)
+    r["boot"] = [int(x, 16) for x in lines[5].split()[1:]]
+    r["flash"] = [int(x) for x in lines[6].split()[1:]]
+    r["n_us"] = int(lines[0].split()[2])
+    r["mem"] = b"".join(struct.pack("<I", int(x, 16)) for x in lines[7:])
     return r
 
 
@@ -181,6 +212,12 @@ def main():
         check("", r["res"][6:8] == [s2, x2], f"sums {r['res'][6]:08X} {r['res'][7]:08X}")
         check("", r["res"][3:6] == [0x30000, 3002, 0x30008], "header in the result block")
         check("", "APP" in r["console"], "the app printed")
+        img = app2 + b"\0" * (-len(app2) % 4)
+        check("", r["guard"][0] == GUARD_VALID and r["guard"][G_VERDICT] == 0,
+              f"no record: verdict {r['guard'][G_VERDICT]} (boots as today)")
+        check("", r["guard"][G_CRC] == zlib.crc32(img), f"flash CRC reported ({r['guard'][G_CRC]:08X}, zlib {zlib.crc32(img):08X})")
+        check("", r["guard"][G_LEN] == len(img), f"flash length reported with no record too ({r['guard'][G_LEN]}, image {len(img)}): the host app provisions from it")
+        check("", r["guard"][G_IFACE] == 1, "host interface in the guard block")
 
     @case
     def match_before():
@@ -249,8 +286,10 @@ def main():
     @case
     def jtag_magic():
         japp = test_app(MARK_JTAG, "JTAG\n")
-        pre = image_words(0x40000, japp) + [(0xFFF8, 0x40000), (0xFFFC, 0x1571BABE)]
+        stale = [(0xFFC0, 0x54313552), (0xFFC4, 1), (0xFF80, GUARD_VALID), (0xFF84, 1), (0xFF60, 0x12345678)]
+        pre = image_words(0x40000, japp) + [(0xFFF8, 0x40000), (0xFFFC, 0x1571BABE)] + stale
         r = run("jtag_magic", _flash(bitstream(BUILD), app), pre=pre)
+        check("", r["res"][0] == 0 and r["guard"][0] == 0 and r["recov"][0] == 0, "stale result, guard and recovery blocks cleared")
         check("", r["marker"] == MARK_JTAG, f"the JTAG app ran (marker {r['marker']:08X})")
         check("", r["boot"][0] == 0, "magic cleared")
         check("", r["flash"][2] == 0, f"flash not read ({r['flash'][2]} bytes)")
@@ -300,6 +339,105 @@ def main():
         common("bad_request", r, 7)
         check("", r["marker"] == 0, "no boot")
 
+    # ---- T265 P1: the guard ------------------------------------------------------
+    foreign_a, _ = app_image(0x30000, MARK_FLASH, 3000, seed=1)       # the host's own (record)
+    foreign_b, _ = app_image(0x30000, MARK_FLASH, 3000, seed=7)       # another firmware's, same length
+    longer_b, _ = app_image(0x30000, MARK_FLASH, 20000, seed=7)       # another length
+    rec_a = record(foreign_a)
+    recovery = recovery_image()
+
+    def stopped(r, verdict, rv=1):
+        common("", r, 9)
+        check("", r["marker"] == MARK_REC, f"the recovery program ran (marker {r['marker']:08X}), the application did not")
+        check("", r["guard"][0] == GUARD_VALID and r["guard"][G_VERDICT] == verdict,
+              f"verdict {r['guard'][G_VERDICT]}, expected {verdict}")
+        check("", r["guard"][G_RECOVERY] == rv, f"recovery status {r['guard'][G_RECOVERY]}")
+        check("", any(l.startswith("Guard: the flash application is not the host's own") for l in r["console"]),
+              "console names the mismatch")
+        check("", "REC" in r["console"], "the recovery printed")
+
+    @case
+    def guard_match():
+        r = run("guard_match", _flash(bitstream(BUILD), foreign_a, rec_a, recovery))
+        common("guard_match", r, 1, 1)
+        check("", r["marker"] == MARK_FLASH, f"the application ran (marker {r['marker']:08X})")
+        g = r["guard"]
+        check("", g[G_VERDICT] == 1 and g[G_REC_LEN] == len(foreign_a) and g[G_LEN] == g[G_REC_LEN], "verdict 1, lengths equal")
+        check("", g[G_CRC] == g[G_REC_CRC] == zlib.crc32(foreign_a), f"CRCs equal zlib ({g[G_CRC]:08X})")
+
+    @case
+    def guard_foreign_crc():
+        # S2: another application of the same length; the record is the host's
+        r = run("guard_foreign_crc", _flash(bitstream(BUILD), foreign_b, rec_a, recovery))
+        stopped(r, 4)
+        check("", r["guard"][G_CRC] == zlib.crc32(foreign_b), "the flash CRC is the foreign one")
+        check("", r["res"][2] == 1 and r["res"][1] == 9, "result block keeps status 9 for the application")
+
+    @case
+    def guard_off():
+        # S2 negative control: the ROM built with -DTRX_GUARD=0 starts the same foreign application
+        r = run("guard_off", _flash(bitstream(BUILD), foreign_b, rec_a, recovery), variant="noguard")
+        common("guard_off", r, 1, 1)
+        check("", r["marker"] == MARK_FLASH, f"the foreign application started (marker {r['marker']:08X})")
+        check("", r["guard"][0] == 0, "no guard block written")
+
+    @case
+    def guard_foreign_len():
+        r = run("guard_foreign_len", _flash(bitstream(BUILD), longer_b, rec_a, recovery))
+        stopped(r, 3)
+        check("", r["flash"][2] < 3000, f"length compared first: {r['flash'][2]} bytes read in all")
+
+    @case
+    def guard_empty_app():
+        r = run("guard_empty_app", _flash(bitstream(BUILD), None, rec_a, recovery))
+        stopped(r, 2)
+
+    @case
+    def guard_bad_chk():
+        r = run("guard_bad_chk", _flash(bitstream(BUILD), foreign_b, record(foreign_a, bad_chk=True), recovery))
+        common("guard_bad_chk", r, 1, 1)
+        check("", r["marker"] == MARK_FLASH and r["guard"][G_VERDICT] == 0, "a broken record counts as none: boots as today")
+
+    @case
+    def guard_no_recovery():
+        r = run("guard_no_recovery", _flash(bitstream(BUILD), foreign_b, rec_a, None))
+        common("guard_no_recovery", r, 10)
+        check("", r["marker"] == 0 and r["end"] == "waiting", f"nothing started, waits ({r['end']})")
+        check("", r["guard"][G_RECOVERY] == 2 and r["guard"][G_VERDICT] == 4, "recovery slot empty, verdict 4")
+
+    @case
+    def guard_rec_badcrc():
+        r = run("guard_rec_badcrc", _flash(bitstream(BUILD), foreign_b, rec_a, recovery_image(bad_crc=True)))
+        common("guard_rec_badcrc", r, 10)
+        check("", r["marker"] == 0 and r["end"] == "waiting", f"no jump, waits ({r['end']})")
+        check("", r["guard"][G_RECOVERY] == 4, f"recovery CRC bad ({r['guard'][G_RECOVERY]})")
+
+    @case
+    def guard_jtag_request():
+        pre = [(0xFFF4, 0x7158B007), (0xFFF0, 1)]
+        r = run("guard_jtag_request", _flash(bitstream(BUILD), foreign_b, rec_a, recovery), pre=pre)
+        common("guard_jtag_request", r, 1, 1)
+        check("", r["marker"] == MARK_FLASH, "a JTAG request skips the guard")
+        g = r["guard"]
+        check("", g[G_VERDICT] == 5 and g[G_REC_CRC] == zlib.crc32(foreign_a), "the record is reported, not enforced")
+
+    @case
+    def guard_100t():
+        # FPGA type 3: application at 0x3C0000, record 0x3BF000, recovery 0x380000
+        r = run("guard_100t", _flash(bitstream(BUILD), foreign_b, rec_a, recovery, appl=0x3C0000), caps=0x35C40222)
+        stopped(r, 4)
+
+    @case
+    def guard_time():
+        big, _ = app_image(0x30000, MARK_FLASH, 65536, seed=3)
+        fl = _flash(bitstream(BUILD), big, record(big), recovery)
+        on = run("guard_time", fl, max_us=120000)
+        off = run("guard_time_off", _flash(bitstream(BUILD), big), max_us=120000, variant="noguard")
+        common("guard_time", on, 1, 1)
+        check("", on["marker"] == MARK_FLASH and off["marker"] == MARK_FLASH, "both boot the 64 KiB application")
+        print(f"  boot time with the guard {on['n_us']} us, without {off['n_us']} us")
+        check("", on["n_us"] <= off["n_us"] * 1.5, "the guard adds at most 50 % to a 64 KiB boot")
+
     for fn in cases:
         if only and fn.__name__ not in only:
             continue
@@ -309,11 +447,16 @@ def main():
     return 1 if fails else 0
 
 
-def _flash(bit, app):
+def _flash(bit, app, rec=None, recovery=None, appl=APPL):
+    """The flash: bitstream at 0, application at appl, record 0x1000 below it, recovery slot 0x40000 below it."""
     img = bytearray(b"\xff" * 0x400000)
     img[0:len(bit)] = bit
     if app is not None:
-        img[APPL:APPL + len(app)] = app
+        img[appl:appl + len(app)] = app
+    if rec is not None:
+        img[appl - 0x1000:appl - 0x1000 + len(rec)] = rec
+    if recovery is not None:
+        img[appl - 0x40000:appl - 0x40000 + len(recovery)] = recovery
     return bytes(img)
 
 

@@ -72,29 +72,26 @@ public:
     // address = DDR2 address); the model of a test returns host memory and a made-up address. Null when out of memory or no drive.
     // The memory stays the library's until the application ends.
     virtual uint8_t *drv_buffer(uint32_t bytes, uint32_t *phys) { (void)bytes; (void)phys; return 0; }
-    // T104.2 D9.3, update.run_record: what the board is called in a `.cfw`'s pre-header (getProductFamily "U64MK2", getProductString), and the jump into
-    // the staged updater. `run_at` does not return on the board: the video layer is yielded, interrupts are off, the CPU runs at addr. A model
-    // records the address and returns.
-    virtual const char *product_family() { return ""; }
-    virtual const char *product_name() { return ""; }
-    virtual void run_at(uint32_t addr) { (void)addr; }
     // T104.2 D9, the cartridge start of the C64: the control registers at C64_CARTREGS_BASE (+0 MODE, +5 CART_TYPE, +8 REU_ENABLE, +0xE SAMPLER_ENABLE)
     // and the bus bridge's at C64_IO_BASE (+0x2B BUS_INTERNAL, +0x2C BUS_EXTERNAL), both byte registers, `reg` the offset in its block. A core
     // without them ignores the write and reads 0 (the defaults), so only the C64 descriptor ever calls them.
     virtual uint8_t cart_rd(uint32_t reg) { (void)reg; return 0; }
     virtual void cart_wr(uint32_t reg, uint8_t v) { (void)reg; (void)v; }
     virtual void bus_wr(uint32_t off, uint8_t v) { (void)off; (void)v; }
+    // The read side of bus_wr: the byte at `off` of the same block. A core or host without the block reads 0 (the default); the board's HwIo overrides it when base 3.3 is built.
+    virtual uint8_t bus_rd(uint32_t off) { (void)off; return 0; }
     // T154, the GMod2's EEPROM window (EEPROM_BASE, Gideon's 0x1004C000): byte 0 is the dirty flag (read: the EEPROM was written since the last write
     // of this byte, any write clears it), the 2 KB of data are at +2048. One byte per access. A core without the window reads 0 and ignores the write.
     virtual void eeprom_read(uint32_t off, void *p, uint32_t n) { (void)off; memset(p, 0, n); }
     virtual void eeprom_write(uint32_t off, const void *p, uint32_t n) { (void)off; (void)p; (void)n; }
     // T159: U64_CASELED_SELECT, the sources of the two case LEDs (low nibble LED 1, high nibble LED 2; host/case_leds.v). A host without it ignores the write.
     virtual void case_led_select(uint8_t) { }
-    // T160 D1 / T164 WP11: the host's master volume, a byte at U64_AUDIO_MIXER + 0x50 (ultimate_sys.vhd, trx_gain.v in host/top.v): 128 unity, 0 silent,
-    // 255 +6 dB. A host without it ignores the write.
+    // T160 D1 / T164 WP11: the host's master volume, property `volume` of the base block audio_master (U64_AUDIO_MIXER + 0x50; ultimate_sys.vhd, trx_gain.v
+    // in host/top.v: gain v / 128, so 128 unity, 0 silent, 255 about +6 dB, saturated). The board writes it only when the linked TOML A has the block
+    // (T239.3 D36); without the block the write does nothing.
     virtual void master_volume(uint8_t) { }
-    // T189: the host's tone preset, a byte at U64_AUDIO_MIXER + 0x51 (ultimate_sys.vhd, trx_tone.v in host/top.v): 0 Flat, 1 Bass boost, 2 Treble boost. A host
-    // without it ignores the write.
+    // T189: the host's tone preset, property `tone` of audio_master (U64_AUDIO_MIXER + 0x51; trx_tone.v): 1 Bass boost, 2 Treble boost, any other value
+    // Flat. Like master_volume, the write does nothing without the block.
     virtual void master_tone(uint8_t) { }
     // T181: the host's hotkey mask registers (U64_AUDIO_MIXER + 0x60 ...): MOD_A, MOD_B, the 8 mask bytes, the RESTORE bit (hotkeys.h hk_regs). A host without them
     // ignores the writes.
@@ -109,6 +106,9 @@ public:
     virtual void joy_lines(int port, uint8_t pressed) { (void)port; (void)pressed; }
     // T181: the physical keys now, whatever the core is shown: m[col] bit row = down, and the RESTORE level. False: this host cannot say.
     virtual bool keys_read(uint8_t m[8], bool *restore) { (void)m; (void)restore; return false; }
+    // T239.3 P1-4: one 32 bit register at an absolute address of the I/O space, read byte by byte, little endian (the bus is 8 bit). The service reads the standard block of the bitstream
+    // with it at start (bundle_check_identity). False: this host cannot read it (the default); the board's HwIo and the models of the tests that read the block say true.
+    virtual bool read32(uint32_t addr, uint32_t *v) { (void)addr; (void)v; return false; }
     // The host's machine stop (C64_STOP) and the app's reset (C64_MODE reset / unreset).
     virtual void stop(bool on) = 0;
     virtual void mode_reset(bool on) = 0;

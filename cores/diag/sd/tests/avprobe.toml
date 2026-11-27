@@ -1,0 +1,34 @@
+# A/V channel probe (T259 S1): which of the A/V port's three DAC channels carries the picture your TV input reads, and in which bit order. Part 1 of avout.toml.
+# One channel at a time carries a full luma word: sync tip, blanking, then eight bars (bar k has only bit k set, so with the listed bit order the bars get brighter from the
+# left to the right; the first ones are darker than blanking and look black, the last two are grey and white) and a white bar at the end. The other two channels sit at blanking
+# with no sync. "Names" is the map of the U64 / C64U pinout (A = R = composite on DIN 4, B = G = luma on DIN 1, C = B = chroma on DIN 6); "Scan groups" is the map the C128 and
+# C64SCPU cores use today (A, B, C of the boundary scan). Connect the TV to the input you want to find (S-Video luma, composite, or the SCART video pin) and run the walk.
+# On a C64U to SCART RGB cable the SCART video pin carries AVID_SYNCn, not a DAC channel (T259 section 5): no step shows a picture there; use avrgb.toml for that cable.
+# Question 1: does the TV show a steady picture (it locked on the sync of that channel)? Question 2 (only after YES): do the bars get brighter from left to right?
+# The .txt lists every step the TV locked on and ends with a summary of the channels it locked on and their bit order. Upload results/avprobe_<date>.txt and .toml.
+kind = "avtest"
+
+[test]
+name = "A/V channel probe"
+id = "avprobe"
+version = 1
+
+[ask]
+questions = ["Does the TV show a steady picture (bars, no lattice, no rolling)?", "Do the bars get brighter from left to right?"]
+good = ["YES", "YES"]
+timeout_s = 30
+first_gate = true
+stop_after_ok = false
+
+[base]
+mode = "Channel probe"
+groups = "Y=A, C=B, CVBS=C"
+bits_a = "MSB first"
+bits_b = "MSB first"
+bits_c = "MSB first"
+syncn = "High"
+fb = "Low"
+
+[sweep]
+map = ["Names", "Scan groups"]
+probe_channel = ["A or R", "B or G", "C or B"]

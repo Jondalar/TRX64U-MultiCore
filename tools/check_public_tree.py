@@ -54,12 +54,13 @@ TRAILER = ("claude trailer", re.compile(rb"^(co-authored-by:\s*claude|claude-ses
 _ADDR = "private address"
 _TEXT_ALLOW = (
     ("vendor default of the ESP32 network settings (192.168.2.x) and its documentation, mock-ups and golden pages of the settings screens", _ADDR, (
-        "coreapp/cores/trx64u/menu.toml", "docs/lvgl_ui_project/screens/settings_network.xml", "docs/lvgl_ui_terminal/screens/settings_network.xml",
+        "docs/lvgl_ui_project/screens/settings_network.xml", "docs/lvgl_ui_terminal/screens/settings_network.xml",
         "docs/mockups/T198-config-overlay.html", "docs/ultimate-app-hw-spec.md", "host-app/software/hostapp/host_core_flow_wifi.cc",
         "host-app/software/io/network/network_esp32.cc", "host-app/software/io/network/network_interface.cc",
         "vendor/gideon/software/io/network/network_esp32.cc", "vendor/gideon/software/io/network/network_interface.cc",
-        "vendor/gideon/software/api/route_streams.cc", "tests/coreapp/golden/menu_c64.txt", "tests/hostapp/golden/hostwifi.txt",
-        "tests/hostapp/render/golden/hostrows.txt")),
+        "vendor/gideon/software/api/route_streams.cc", "tests/hostapp/golden/hostwifi.txt",
+        "tests/hostapp/render/golden/hostrows.txt", "coreapp/cores/trx64u/menu.toml",
+        "tests/coreapp/golden/menu_c64.txt")),
     ("example addresses typed into the unit tests, the renderers and the specs of the network screens and the FTP client", _ADDR, (
         "host-app/software/hostapp/hostui.cc", "tests/coreapp/render/render.cc", "tests/coreapp/test_ftp.cc", "tests/coreapp/test_hostwifi.cc",
         "tests/coreapp/test_wifistate.cc", "tests/hostapp/render/render.cc", "tests/hostapp/test_hostwifi.cc", "tests/hostapp/test_nettransport.cc",
@@ -174,8 +175,8 @@ def private_rows(src):
 
 
 # D22 / CLAUDE.md, fourth exception: which .cor may carry which file. The BASIC ROM and (T239.1 D44) the character ROM only trx64g.cor (Gideon's
-# application holds them), the MOD player image both.
-COR_ALLOWED = (("basic.901226-01.bin", ("trx64g.cor",)), ("characters.901225-01.bin", ("trx64g.cor",)), ("module.bin", ("trx64g.cor", "trx64u.cor")))
+# application holds them), the MOD player image the same: trx64u.cor is TRX64-Ultimate's file, taken unchanged (T239.3 D21).
+COR_ALLOWED = (("basic.901226-01.bin", ("trx64g.cor",)), ("characters.901225-01.bin", ("trx64g.cor",)), ("module.bin", ("trx64g.cor",)))
 
 
 def public_blobs(src, private):

@@ -1,7 +1,7 @@
 // "Run PRG" and "Load PRG" for the CBM 8-bit machines whose BASIC lives at a start address the machine states itself (the VIC-20 and the
 // 264 family, T83 and T90 on the generic application). The pieces that are not machine specific are the PRG library (app/loaders/cbm_prg.*:
 // relink, pointers, typed start); what is left is the job: read and check the file, reset the machine with its settings, wait until it has
-// run long enough to say READY, place the bytes, type RUN or SYS. The C64 descriptor has its own copy of this job (c64.cc, with the CPU
+// run long enough to say READY, place the bytes, type RUN or SYS. The TRX64U core (TRX64-Ultimate's) has its own copy of this job (with the CPU
 // address start the C64 core can do and these cores cannot); the two are not merged because the C64 is on the board and these are not.
 //
 // The menu holds the machine (C64_STOP) while an operation of it runs, and a held machine never reaches READY. So the operation only checks

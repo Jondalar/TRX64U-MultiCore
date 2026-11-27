@@ -5,6 +5,7 @@
 #   tests/hostapp/run_txu.sh [scratch dir]          (run.sh calls it with its own)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 HS="$ROOT/host-app/software"
 T="${1:-}"
@@ -73,7 +74,7 @@ tx_mutant tx_parts_unsealed flashfw.cc 's/if (img.sealed != FW_SEALED || (!do_bi
 tx_mutant tx_part_missing_ok flashfw.cc 's/ || (do_bit \&\& !img.bit) || (do_app \&\& !img.app)//'
 tx_mutant tx_equal_bit_always flashfw.cc 's/    return img.bit \&\& region_equals(fl, FW_BIT_ADDR, img.bit, img.bit_len, \&bad);/    return true;/'
 tx_mutant tx_seal_empty flashfw.cc 's/    if (!bit \&\& !app) {/    if (false) {/'
-tx_mutant tx_parts_tail_kept flashfw.cc 's/        if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, FW_BIT_SLOT, FWP_BIT)) {/        if (false) {/'
+tx_mutant tx_parts_tail_kept flashfw.cc 's/        if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, bslot, FWP_BIT)) {/        if (false) {/'
 # the sources print no format the firmware's printf gets wrong
 if grep -nE '%%|%\.[0-9*]+s|%0[0-9]x' "$H/txu.cc" "$H/flashlock.cc" "$H/flashlock_board.cc" "$H/espinspect.cc" | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//'; then echo "run_txu: a format the firmware's printf gets wrong (above)" >&2; exit 1; fi
 echo "run_txu: ok"

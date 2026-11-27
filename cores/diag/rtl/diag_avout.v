@@ -14,15 +14,24 @@
 //   [67] eq equalizing pulses (0: the vsync is 'vlen' lines of broad pulses at the line rate; 1: pre-equalizing, serrated broad and post-equalizing blocks of 'vlen' lines each, pulses at the half-line rate),
 //   [68] l262 262 lines per frame at the 60 Hz standards (0: 263), [73:69] vlen the block length in half lines (6 = 3 lines; 5 = 2.5; 12 = 6),
 //   [81:74] vpos signed, the vsync's position in lines against the default (the broad pulses start at line 244 / 280 of the picture; with eq the pre-equalizing block starts 3 lines earlier, whatever vlen is)
-// Outputs: the three group words, registered in the I/O flops. The group-to-ball map is cores/diag/mono/top.v.
+//   T259 (zero in every field is the T201 behaviour):
+//   [82] map    0 scan groups (the boundary scan's A, B, C of mono/top.v), 1 names (H1: a word per AVID_R, AVID_G, AVID_B on bits [9:2], MSB first; slot 0 = R, 1 = G, 2 = B, perm and rev act on these three)
+//   [84:83] mode  0 the test picture (Y, C, CVBS words), 1 channel probe (one channel with sync, blanking and bars, the others at blanking), 2 RGB (the palette as R, G, B words, perm picks the channels)
+//   [86:85] pch   the channel under test in the probe: slot 0, 1, 2 (R G B under names, A B C under scan groups)
+//   [88:87] rch   RGB: 0 the palette picture, 1 / 2 / 3 only the R / G / B word lit as a ramp across the picture, the others 0
+//   [90:89] synm  AVID_SYNCn: 0 high, 1 low, 2 csync (low in the sync pulses), 3 inverted csync (high in the sync pulses)
+//   [92:91] fbm   AVID_FB: 0 low, 1 high, 2 the picture window (high in the picture), 3 inverted window
+// Outputs: the three group words, SYNCn and FB, registered in the I/O flops. The group-to-ball map of the scan groups is cores/diag/mono/top.v; the names map is made here (the words
+// of ga, gb, gc are arranged so that the same top.v wiring puts word bit n of a channel on its AVID_x[n + 2]).
 module diag_avout (
     input  wire        clk,             // sys_clk
-    input  wire [81:0] av_cfg,
-    output wire [7:0]  ga, gb, gc
+    input  wire [92:0] av_cfg,
+    output wire [7:0]  ga, gb, gc,
+    output wire        syn_n, fb
 );
     // the start value is the register block's reset value (diag_regs.v): PAL, the C128's groups, V sign inverted, burst 28 .. 99, amplitude 32, gain 1.0, sync 0, blank 77, white 11, marker moving, vsync as the first version (broad pulses, 3 lines, 263 lines)
-    localparam [81:0] CFG0 = {8'd0, 5'd6, 1'b0, 1'b0, 1'b0, 5'd11, 8'd77, 8'd0, 5'd16, 6'd32, 10'd99, 7'd28, 8'd0, 1'b1, 3'd0, 3'd5, 2'd0};
-    (* ASYNC_REG = "TRUE" *) reg [81:0] cf1 = CFG0, cf2 = CFG0;
+    localparam [92:0] CFG0 = {11'd0, 8'd0, 5'd6, 1'b0, 1'b0, 1'b0, 5'd11, 8'd77, 8'd0, 5'd16, 6'd32, 10'd99, 7'd28, 8'd0, 1'b1, 3'd0, 3'd5, 2'd0};
+    (* ASYNC_REG = "TRUE" *) reg [92:0] cf1 = CFG0, cf2 = CFG0;
     always @(posedge clk) begin cf1 <= av_cfg; cf2 <= cf1; end
     wire [1:0]  std   = cf2[1:0];
     wire [2:0]  perm  = cf2[4:2];
@@ -40,6 +49,12 @@ module diag_avout (
     wire        l262  = cf2[68];
     wire [4:0]  vlen  = cf2[73:69];
     wire signed [7:0] vpos_k = cf2[81:74];
+    wire        nmap  = cf2[82];
+    wire [1:0]  mode  = cf2[84:83];
+    wire [1:0]  pch   = (cf2[86:85] > 2'd2) ? 2'd2 : cf2[86:85];
+    wire [1:0]  rch   = cf2[88:87];
+    wire [1:0]  synm  = cf2[90:89];
+    wire [1:0]  fbm   = cf2[92:91];
 
     wire v60 = (std == 2'd1) || (std == 2'd2);
     wire pal = (std == 2'd0) || (std == 2'd2);
@@ -152,8 +167,37 @@ module diag_avout (
         .y_o(y_w), .c_o(c_w), .cv_o(cv_w)
     );
 
+    // ---- T259: the words of the probe and the RGB mode (direct words, no encoder), registered at t3 (idx_r is t0); sync and window are delayed with them -------------------------------------------
+    // sh[k] / dh[k] are cs_r / de_r delayed by k + 1 clocks: the direct words are at t3 (the group flops then at t4), the encoder's at t8 (group flops at t9)
+    reg [7:0] sh = 8'd0, dh = 8'd0;
+    reg [9:0] xx1 = 10'd0;
+    reg [4:0] bk2 = 5'd0, bk3 = 5'd0;
+    always @(posedge clk) begin sh <= {sh[6:0], cs_r}; dh <= {dh[6:0], de_r}; xx1 <= xx; bk2 <= xx1[9:5]; bk3 <= bk2; end
+    wire [14:0] rm = xx1[8:0] * 6'd41;
+    wire [7:0] ramp = rm[13:6];                                            // 0 .. 255 across the 400 dots (xx1 is aligned with idx_r)
+    reg  [23:0] cc = 24'd0;                                                // t1: the palette colour of idx_r, or the ramp of one word
+    always @(posedge clk) begin
+        if (!de_r) cc <= 24'd0;                                            // black outside the picture window
+        else if (rch == 2'd0) cc <= pal_rgb(idx_r);
+        else cc <= {rch == 2'd1 ? ramp : 8'd0, rch == 2'd2 ? ramp : 8'd0, rch == 2'd3 ? ramp : 8'd0};
+    end
+    wire [4:0] wsc = (wamp > 5'd16) ? 5'd16 : wamp;                         // the RGB full scale: wamp / 16
+    (* use_dsp = "yes" *) reg [12:0] pr13 = 13'd0, pg13 = 13'd0, pb13 = 13'd0;
+    always @(posedge clk) begin
+        pr13 <= cc[23:16] * {8'd0, wsc}; pg13 <= cc[15:8] * {8'd0, wsc}; pb13 <= cc[7:0] * {8'd0, wsc};
+    end
+    // the probe: bar k (dot / 32) of the first eight has only bit k set, the rest of the picture has all bits
+    wire [7:0] bar = (bk3 < 5'd8) ? (8'd1 << bk3[2:0]) : 8'hFF;
+    reg [7:0] pw = 8'd0, pb = 8'd0;                                         // the word under test (sync, blanking, bars) and the others (blanking)
+    reg [7:0] rw = 8'd0, gw = 8'd0, bw = 8'd0;
+    always @(posedge clk) begin
+        pw <= sh[1] ? synl : dh[1] ? bar : blk;           // from the signals at t2
+        pb <= blk;
+        rw <= pr13[11:4]; gw <= pg13[11:4]; bw <= pb13[11:4];               // the products are at most 255 x 16: bits 11:4 are the scaled value
+    end
+
     // ---- the groups: which word, which bit order --------------------------------------------------------------------------------------
-    function [5:0] who_f;                                               // {A, B, C}: 0 Y, 1 C, 2 CV
+    function [5:0] who_f;                                               // {slot 0, 1, 2}: which of the three words (0 Y / R, 1 C / G, 2 CV / B)
         input [2:0] p;
         case (p)
         3'd0:    who_f = {2'd0, 2'd1, 2'd2};
@@ -174,18 +218,35 @@ module diag_avout (
         input [7:0] x;
         brev = {x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]};
     endfunction
-    wire [7:0] wa = pick(who[5:4], y_w, c_w, cv_w);
-    wire [7:0] wb = pick(who[3:2], y_w, c_w, cv_w);
-    wire [7:0] wc = pick(who[1:0], y_w, c_w, cv_w);
+    wire [7:0] wa = (mode == 2'd1) ? ((pch == 2'd0) ? pw : pb) : (mode == 2'd2) ? pick(who[5:4], rw, gw, bw) : pick(who[5:4], y_w, c_w, cv_w);
+    wire [7:0] wb = (mode == 2'd1) ? ((pch == 2'd1) ? pw : pb) : (mode == 2'd2) ? pick(who[3:2], rw, gw, bw) : pick(who[3:2], y_w, c_w, cv_w);
+    wire [7:0] wc = (mode == 2'd1) ? ((pch == 2'd2) ? pw : pb) : (mode == 2'd2) ? pick(who[1:0], rw, gw, bw) : pick(who[1:0], y_w, c_w, cv_w);
+    wire [7:0] ca = rev[0] ? brev(wa) : wa;                             // the channel words: slot 0, 1, 2 = A, B, C (scan groups) or R, G, B (names)
+    wire [7:0] cb = rev[1] ? brev(wb) : wb;
+    wire [7:0] cc2 = rev[2] ? brev(wc) : wc;
+    // names: AVID_x[n + 2] = word x bit n. The balls of ga, gb, gc as in mono/top.v: ga = {G9 R9 G7 G6 G4 G3 B9 B6}, gb = {R4 R3 B8 B7 B5 B4 B3 B2}, gc = {R8 R7 R6 R5 R2 G8 G5 G2}
+    wire [7:0] nr = ca, ng = cb, nb = cc2;
+    wire [7:0] na = {ng[7], nr[7], ng[5], ng[4], ng[2], ng[1], nb[7], nb[4]};
+    wire [7:0] nbb = {nr[2], nr[1], nb[6], nb[5], nb[3], nb[2], nb[1], nb[0]};
+    wire [7:0] nc = {nr[6], nr[5], nr[4], nr[3], nr[0], ng[6], ng[3], ng[0]};
     (* IOB = "TRUE" *) reg [7:0] ga_r = 8'd0;
     (* IOB = "TRUE" *) reg [7:0] gb_r = 8'd0;
     (* IOB = "TRUE" *) reg [7:0] gc_r = 8'd0;
+    (* IOB = "TRUE" *) reg syn_r = 1'b1;
+    (* IOB = "TRUE" *) reg fb_r = 1'b0;
+    wire dmode = (mode == 2'd1) || (mode == 2'd2);
+    wire cs_x = dmode ? sh[2] : sh[7];                         // the sync and the window as late as the words of the mode
+    wire de_x = dmode ? dh[2] : dh[7];
     always @(posedge clk) begin
-        ga_r <= rev[0] ? brev(wa) : wa;
-        gb_r <= rev[1] ? brev(wb) : wb;
-        gc_r <= rev[2] ? brev(wc) : wc;
+        ga_r <= nmap ? na : ca;
+        gb_r <= nmap ? nbb : cb;
+        gc_r <= nmap ? nc : cc2;
+        syn_r <= (synm == 2'd0) ? 1'b1 : (synm == 2'd1) ? 1'b0 : (synm == 2'd2) ? ~cs_x : cs_x;
+        fb_r  <= (fbm == 2'd0) ? 1'b0 : (fbm == 2'd1) ? 1'b1 : (fbm == 2'd2) ? de_x : ~de_x;
     end
     assign ga = ga_r;
     assign gb = gb_r;
     assign gc = gc_r;
+    assign syn_n = syn_r;
+    assign fb = fb_r;
 endmodule

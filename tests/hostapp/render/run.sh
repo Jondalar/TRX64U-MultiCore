@@ -4,6 +4,7 @@
 set -euo pipefail
 R="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$R/../../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 ULT="${ULTIMATE_SW:-$ROOT/vendor/gideon/software}"   # ULTIMATE_SW points at another copy
 L="$ULT/lvgl"
@@ -30,7 +31,7 @@ build_now() {
     -o "$1" "$R/render.cc" "$2" "$3" "$4" "${5:-$H/cfwicon.cc}" $HOST_SRCS "${6:-$OBJS}"/*.o -lz -lm
 }
 python3 "$R/mktree.py" "$B/tree"
-# T197 P3: the images of Unzip and its library (the real packer; the bench's "application" asks what unzip asks), copied into the tree by the scenario that needs them
+# T197 P3: the image of Unzip (the real packer; hostlibslot.cc in srclist.sh; the bench's "application" asks what unzip asks), copied into the tree by the scenario that needs them
 python3 -I "$ROOT/tests/coreapp/gen_unzip.py" "$B/zipfx" "$ROOT" > /dev/null
 export ZIP_FIXDIR="$B/zipfx"
 # the benches write into the tree (reports, converted files): every unit starts from the tree as mktree.py made it (cc_block runs CC_PRE first), so

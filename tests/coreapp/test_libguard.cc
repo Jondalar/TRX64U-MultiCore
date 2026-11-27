@@ -18,7 +18,7 @@ struct FlashFs : FakeFs {
     }
 };
 
-static const char *MONO = FS_FLASH_BOOT_MONOLITH, *MC = FS_FLASH_BOOT_MULTICORE;
+static const char *MONO = "/flash/trx64u/boot.cfg", *MC = FS_FLASH_BOOT_MULTICORE;
 
 static bool has_attempt(FlashFs &fs, const char *path)
 {
@@ -27,8 +27,21 @@ static bool has_attempt(FlashFs &fs, const char *path)
 
 int main()
 {
-    CHECK_STR(MONO, "/flash/trx64u/boot.cfg");
+    CHECK(fs_flash_set_exceptions(MONO, 0));                            // what board_set_core registers for the core "trx64u"
     CHECK_STR(MC, "/Flash/boot.cfg");
+    // ---- the monolith with no valid core id: no file at all, the counter lives in memory and the flash is never written
+    {
+        FlashFs fs;
+        LibGuard g(&fs, "");
+        LibGuardPlan p;
+        g.begin(false, &p);
+        CHECK_EQ(p.skip, LIBSKIP_NONE); CHECK_STR(p.why, "");
+        g.arm(&p);
+        CHECK(p.armed); CHECK(g.finished()); CHECK_EQ(fs.writes, 0);
+        LibGuard g2(&fs, "");
+        g2.begin(true, &p);
+        CHECK_EQ(p.skip, LIBSKIP_KEY); CHECK_EQ(fs.writes, 0);
+    }
     for (const char *path : { MONO, MC }) {
         // ---- an undisturbed start: the counter is set before the libraries and cleared after the start; two writes, no more
         {

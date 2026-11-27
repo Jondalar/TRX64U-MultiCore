@@ -13,10 +13,10 @@
 #                No negative controls (they are not even keyed), no render benches, no emulator scripts. A fast PASS writes no suite marker (a suite
 #                is "cached PASS" only after a run that did the controls too) but a fast one, fast-<suite>.<key>, which only the fast tier honours (T174 D3).
 #   integration  (default, what CI runs) every test, every negative control, the three render benches (view, coreapp_render, hostapp_render) and the
-#                emulator scripts (hostapp_emu coreapp_emu, T174 D2.8): ue2emu through ci/ue2emu.sh on the built images (EMU_IMAGES, default the trxapps
+#                emulator script (hostapp_emu, T174 D2.8): ue2emu through ci/ue2emu.sh on the built images (EMU_IMAGES, default the trxapps
 #                hand-over; the kit: tools/ue2emu_kit.sh). Where the images, the kit or the emulator are missing they are SKIPPED out loud, never a PASS.
 #   nightly      integration with the caches ignored (-f and CONTROLS_ALL=1).
-# Suites: hostapp coreapp coreapp:cross coreapp:<core>... loader (T174 D3: `coreapp` is the shared group only, see core_groups below; names from tests/coreapp/cores.txt) | view coreapp_render hostapp_render | hostapp_emu coreapp_emu. Naming suites runs exactly those, at the tier's strictness.
+# Suites: hostapp coreapp coreapp:cross coreapp:<core>... loader (T174 D3: `coreapp` is the shared group only, see core_groups below; names from tests/coreapp/cores.txt) | view coreapp_render hostapp_render | hostapp_emu. Naming suites runs exactly those, at the tier's strictness.
 # Before anything runs a plan line says which suites run and which are cached ("will run: ..., skipped: ... (inputs unchanged)"), with the files
 # of `git diff BASE` (BASE default: the plan's base, else merge-base with origin/integration, else HEAD~1; none of them: every suite runs) that touch each suite. --plan goes further, down to the units:
 # the suites walk through their keys with nothing built or run (CC_DRYRUN) and print "plan: would run ..." for each unit that has no valid cache entry.
@@ -40,9 +40,9 @@ ok_dir="${CI_APPTESTS_OK:-/cache/multicore/apptests-ok}"
 # What each suite reads. Shared by all: the application trees, our copy of Gideon's software (hostapp's FatFS bench), the python
 # tools the run.sh files call (and what those import), the parallel helper. A pathspec that matches nothing makes files_key fail.
 common=(coreapp uicore app host-app/software/hostapp host-app/software/io host-app/software/lvgl_port host-app/software/filesystem host-app/software/filemanager
-        host-app/software/components host-app/software/infra host-app/software/system host-app/software/api host-app/software/network host-app/patches vendor/gideon/software tests/parallel.sh tests/ctlcache_selftest.sh
+        host-app/software/components host-app/software/infra host-app/software/system host-app/software/api host-app/software/network host-app/patches vendor/gideon/software tests/parallel.sh tests/hostgen.sh tests/ctlcache_selftest.sh
         tools/zx_snap.py tools/zx_asm.py tools/gen_xexboot.sh tools/64tass.sh tools/check_app_size.py tools/u2a_pack.py
-        tools/cor_pack.py tools/trx_pkg.py tools/test_cor_pack.py tools/txu_pack.py tools/pack_txu_mc.sh tools/descrec.py tools/exfat_check.py tools/gen_cfw_icons.py tests/lvgl_objs.sh tools/core_logos/firmware cores/c64u/logo tools/core_logos/trx64 cores/apple2/rtl/roms)
+        tools/cor_pack.py tools/trx_pkg.py tools/test_cor_pack.py tools/txu_pack.py tools/pack_txu_mc.sh tools/descrec.py tools/libtab.py tools/exfat_check.py tools/gen_cfw_icons.py tests/lvgl_objs.sh tools/core_logos/firmware cores/c64u/logo tools/core_logos/trx64 cores/apple2/rtl/roms 'cores/*/app/*' tools/pack_cores_mc.sh tools/pack_large_cor.sh tools/core_toml.py ci/version.sh cores/vc20/core.toml)
 # T174 D3: the core application tests are one suite per group (tests/coreapp/cores.txt, tests/coreapp/run.sh CA_GROUP): `coreapp` = the units that name no
 # core's files (shared), coreapp:<core> = the units of one core, coreapp:cross = the units that link several cores or read them at run time. A group is keyed
 # over the application tree WITHOUT the files of the cores it does not own, so a change to one core's files moves that core's suite and `cross`, no other.
@@ -64,8 +64,8 @@ suite_specs() {
     coreapp_render) printf '%s\n' "${common[@]}" tests/coreapp app/view app/video app/loaders app/lib app/edit host-app/target/u64ii/riscv/coreapp ;;
     hostapp_render) printf '%s\n' "${common[@]}" tests/hostapp app/view app/video ;;
     # emulator scripts (ue2emu through ci/ue2emu.sh, T174 D2.8): they run on the built RISC-V images; a PASS is cached for the content below
-    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh tools/ue2emu_kit.sh ;;
-    coreapp_emu)    printf '%s\n' "${common[@]}" tests/coreapp host-app/target/u64ii/riscv/coreapp ci/ue2emu.sh tools/ue2emu_kit.sh ;;
+    # the round of the old pipeline is the VIC-20's: its profile and description are read by tools/ue2emu_core.py
+    hostapp_emu)    printf '%s\n' "${common[@]}" tests/hostapp host-app/target/u64ii/riscv/hostapp ci/ue2emu.sh ci/emu_kit.sh tools/ue2emu_kit.sh tools/ue2emu_core.py ;;
     *) return 1 ;;
   esac
 }
@@ -129,7 +129,7 @@ if [ "$tier" = auto ]; then
   esac
 fi
 case "$tier" in fast|integration|nightly) ;; *) echo "apptests: unknown tier $tier (fast|integration|nightly)" >&2; exit 2 ;; esac
-test_suites=(hostapp coreapp coreapp:cross $(core_groups | sed 's/^/coreapp:/') loader uicore) render_suites=(view coreapp_render hostapp_render) emu_suites=(hostapp_emu coreapp_emu)
+test_suites=(hostapp coreapp coreapp:cross $(core_groups | sed 's/^/coreapp:/') loader uicore) render_suites=(view coreapp_render hostapp_render) emu_suites=(hostapp_emu)
 if [ ${#suites[@]} -eq 0 ]; then
   suites=("${test_suites[@]}")
   if [ "$tier" != fast ]; then suites+=("${render_suites[@]}" "${emu_suites[@]}"); elif [ -n "$scoped" ]; then suites+=("${emu_suites[@]}"); fi
@@ -149,11 +149,11 @@ fi
 export TRX_LVGL_CACHE="${TRX_LVGL_CACHE:-${CI_TRXAPPS_CACHE:-/cache/trxapps}/lvgl}"
 render_dir="${TMPDIR:-/tmp}/apptests-render"
 
-kind_of() { case "$1" in view|coreapp_render|hostapp_render) echo render ;; hostapp_emu|coreapp_emu) echo emu ;; *) echo test ;; esac; }
+kind_of() { case "$1" in view|coreapp_render|hostapp_render) echo render ;; hostapp_emu) echo emu ;; *) echo test ;; esac; }
 script_of() {
   case "$1" in
     view) echo tests/view/run.sh ;; coreapp_render) echo tests/coreapp/render/run.sh ;; hostapp_render) echo tests/hostapp/render/run.sh ;;
-    hostapp_emu) echo tests/hostapp/emu_host.sh ;; coreapp_emu) echo tests/coreapp/emu/run.sh ;;
+    hostapp_emu) echo tests/hostapp/emu_host.sh ;; 
     coreapp:*) echo tests/coreapp/run.sh ;;
     *) echo "tests/$1/run.sh" ;;
   esac
@@ -193,7 +193,6 @@ run_one() {   # run_one suite : returns the suite's status
     mkdir -p "$eout"
     case "$s" in
       hostapp_emu) nice -n 15 "$sc" "$imgs" "$eout" || erc=$? ;;
-      coreapp_emu) EMU_LOGS="$eout" nice -n 15 "$sc" "$imgs/coreapp_trx64u.app" || erc=$? ;;   # T228 R25: tests/coreapp/emu/run.sh runs trx64u, which has its own image
       *)           nice -n 15 "$sc" "$imgs/coreapp.app" || erc=$? ;;
     esac
     if [ $erc -eq 77 ]; then
@@ -221,7 +220,8 @@ run_one() {   # run_one suite : returns the suite's status
   local t0=$SECONDS rc=0 args=()
   if [ "$k" = render ]; then mkdir -p "$render_dir/$s"; args=("$render_dir/$s"); fi
   local grp=""; case "$s" in coreapp) grp=shared ;; coreapp:*) grp="${s#coreapp:}" ;; esac   # T174 D3: the group of the core application tests
-  CA_GROUP="$grp" nice -n 15 "$sc" ${args[@]+"${args[@]}"} || rc=$?
+  # RENDER_CORE=shared: the coreapp render suite is the shared bench; each moved core's render build runs in its own lane (ci/lane.sh core:<id> ui, T239.5 D13)
+  CA_GROUP="$grp" RENDER_CORE=shared nice -n 15 "$sc" ${args[@]+"${args[@]}"} || rc=$?
   if [ $rc -eq 0 ]; then
     echo "=== apptests $s: ${plan:+plan }done in $((SECONDS - t0))s"
     if [ "$k" = test ] && [ "$tier" = fast ] && [ -z "$plan" ] && [ -n "$cache_on" ]; then

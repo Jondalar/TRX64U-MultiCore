@@ -2,13 +2,16 @@
 # Stage `lint`: cheap checks that fail before a bench or Vivado runs, in
 # trx64-sim-env. Every check runs; the stage fails if one did.
 #
-#   ci/lint.sh
+#   ci/lint.sh                          every check (by hand; the matrix runs the groups)
+#   ci/lint.sh tree|sdk|host|core:<id>  the checks of one lane of the matrix (T239.5 D7): tree = the tree checks of every push (public tree, no ROMs,
+#                                       TODO and specs, versions), sdk = the SDK's lint (its tools, the API document, D24, the shared TOML B), host = the
+#                                       host menu's, core:<id> = a core's (core.toml, the core id, the contract ports, the TOML A against the RTL)
 #
 #  - shell: bash -n and shellcheck (errors only) over ci/, tools/, vivado/ and the benches
 #  - python: byte-compile and ruff's syntax/undefined-name rules (E9, F63, F7, F82)
 #  - the RTL (designs/*/*.v): syntax only (yosys -defer), no elaboration; the VHDL and the
 #    benches are analysed by the benches of stage sims
-#  - the workflows: parse, every `needs:` names a job, every `uses:` a file; the children table against pipeline.yml (ci/orchestrate.py check)
+#  - the workflows: parse, every `needs:` names a job, every `uses:` a file; the children table against matrix.yml, pipeline.yml only calling the matrix (ci/orchestrate.py check)
 #  - ci/select.sh: its answers for the cases the workflows rely on
 #  - host/layers.txt, the layer cache keys, the host_sha rule of the core entries and the cache janitor, on generated data
 #  - ci/sims.txt: every bench's script exists
@@ -21,8 +24,18 @@ cd "$ROOT"
 # hand-over directories of runs that never reached their end (failed stages)
 [ ! -d /cache/runs ] || find /cache/runs -mindepth 1 -maxdepth 1 -mtime +2 -exec rm -rf {} + || true
 
+LINT_GROUP="${1:-all}"
+case "$LINT_GROUP" in all|tree|sdk|host|core:?*) ;; *) echo "ci/lint.sh: all, tree, sdk, host or core:<id>, not $LINT_GROUP" >&2; exit 2 ;; esac
 fails=()
-check() { # check <name> <command...>
+check() { # check <name> <command...>   a check of the full lint and of the lane tree (T239.5: the tree checks of every push are every check no other lane owns)
+  case "$LINT_GROUP" in all|tree) ;; *) return 0 ;; esac
+  run_check "$@"
+}
+gcheck() { # gcheck <group> <name> <command...>   a check of the full lint and of the lane <group> (tree, sdk, host, core)
+  local g="$1"; shift
+  case "$LINT_GROUP" in all|"$g"|"$g":*) run_check "$@" ;; esac
+}
+run_check() {
   local name="$1"; shift
   if "$@"; then echo "ok   $name"; else echo "FAIL $name"; fails+=("$name"); fi
 }
@@ -35,7 +48,8 @@ check "package names selftest" python3 ci/check_pkg.py --selftest
 check "python compile" bash -c 'git ls-files -- "*.py" | xargs python3 -m py_compile'
 check "ruff" bash -c 'git ls-files -- "*.py" | xargs ruff check --no-cache --select E9,F63,F7,F82'
 
-check "core descriptors" python3 tools/core_toml.py --check
+gcheck core "core descriptors" python3 tools/core_toml.py --check
+gcheck core "diag pin table (T260)" python3 tools/diag_pins_gen.py --check
 check "issue forms (T161)" python3 tools/check_issue_forms.py --selftest
 if command -v patch >/dev/null; then check "atari800 gen" sh tools/atari800_gen.sh --check; fi
 check "nes gen" python3 tools/nes_gen.py --check
@@ -52,42 +66,45 @@ check "neogeo fix: the Vivado copies are what the edits make of rtl/" python3 to
 check "zx keys" python3 tools/zxcpc_keys.py --check
 check "zx programs" python3 tools/zx_progs.py --check
 check "zx snapshots" python3 tools/zx_snap.py selftest
-check "zx/cpc: no ROM, media or snapshot" bash -c 'python3 tools/check_no_rom.py selftest && python3 tools/check_no_rom.py'
-check "zx/cpc/vc20/c264: core id = descriptor id" bash -c 'python3 tools/check_core_id.py selftest && python3 tools/check_core_id.py'
+gcheck tree "zx/cpc: no ROM, media or snapshot" bash -c 'python3 tools/check_no_rom.py selftest && python3 tools/check_no_rom.py'
+gcheck core "zx/cpc/vc20/c264: core id = descriptor id" bash -c 'python3 tools/check_core_id.py selftest && python3 tools/check_core_id.py'
 check "cpc gen" python3 tools/cpc_gen.py --check
 check "cpc programs" python3 tools/cpc_progs.py --check
 check "cpc slot model" python3 tools/cpc_slots.py selftest
 check "zx/cpc shared modules once" bash -c 'python3 tools/check_zxcpc_shared.py selftest && python3 tools/check_zxcpc_shared.py'
-check "layer-2 contract" python3 tools/contract_ports.py --check
+gcheck core "layer-2 contract" python3 tools/contract_ports.py --check
 # Alex, 2026-11-08 (T115 section 5): the old DFX trx64 core stays deleted; the selftest plants each fault
 check "no old core (trx64 directory and paths)" python3 tools/check_no_old_core.py
 check "no old core: selftest" python3 tools/check_no_old_core.py --selftest
-check "TODO rows and specs (Open lines, DONE specs in docs/specs/done/)" python3 -I tools/check_todo.py
+gcheck tree "TODO rows and specs (Open lines, DONE specs in docs/specs/done/)" python3 -I tools/check_todo.py
 # T107 D7 / T164 WP1: the HDMI mode tables (A1200 and host editions) against every limit, the committed .vh files, and one negative control per rule
 check "hdmi modes (A1200 + host)" bash -c 'python3 tools/hdmi_modes.py check && python3 tools/hdmi_modes.py selftest >/dev/null'
 # T168 S9: DDT's ported files are byte-identical to the pinned upstream or have their .diff, NOTICE names licence / repository / commit, no character ROM, the palette is the tool's
 check "ddt cores: tree marking, no ROM, palette" bash -c 'python3 tools/check_ddt_tree.py selftest && python3 tools/check_ddt_tree.py'
 # T89 S1: no Apple ROM bytes (system, character, Disk II boot ROM) anywhere in the tree; the selftest plants every encoding first
-check "no Apple ROM content" bash -c 'tools/check_no_roms.sh --selftest && tools/check_no_roms.sh'
+gcheck tree "no Apple ROM content" bash -c 'tools/check_no_roms.sh --selftest && tools/check_no_roms.sh'
 # T239.1 D24, S1, D6: no private file and no internal host, home path, Gitea host, builder login or claude link in a tracked file; the selftest plants every rule.
 # The same check runs in .github/workflows/public-tree.yml on every push (no paths-ignore) and in .githooks/pre-push.
-check "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tree.py --selftest >/dev/null && python3 -I tools/check_public_tree.py'
+gcheck tree "public tree (T239.1 D24)" bash -c 'python3 -I tools/check_public_tree.py --selftest >/dev/null && python3 -I tools/check_public_tree.py'
 # T239.1 D9: while a Gitea workflow carries a copy of the Vivado env (vivado.yml, package.yml), it must agree with ci/vivado.env
 check "vivado env copies (T239.1 D9)" bash -c 'python3 tools/check_vivado_env.py --selftest >/dev/null && python3 tools/check_vivado_env.py'
 # T239.1 D1, S9: workflow rules (risky triggers with a secret or environment, the builds guard, permissions, SHA and digest pins, no self-hosted, no private repository name); the selftest plants one fault per rule
 check "workflow rules (T239.1 D1)" bash -c 'python3 -I tools/check_workflows.py --selftest >/dev/null && python3 -I tools/check_workflows.py'
-check "cor_pack test" python3 tools/test_cor_pack.py
+gcheck sdk "cor_pack test" python3 tools/test_cor_pack.py
+gcheck tree "rtl_check test, once per push (T239.3 D30, T264 S3: an optional tool; the c64_basic case needs a TRX64-Ultimate checkout, P1-7 runs it in that lint)" python3 -I tests/rtl_check/test_rtl_check.py
+gcheck sdk "reverse lint: no literal I/O address in a library or base source (T239.3 D30, P2-6)" python3 -I tools/rtl_check.py lint-src app/lib app/sdkpkg/example coreapp/src --allow wsproto.cc:0x10325476u   # P2-6: coreapp/src too; the one literal is a hash initial word
 # T104.2: the pinned TRX64 bitstream is packed with the generic application, any other file is refused (the control must fail)
 check "import .cor pack test" bash -c 'tools/test_pack_import_cor.sh && ! tools/test_pack_import_cor.sh --control >/dev/null 2>&1'
-check "descrec test" python3 tools/test_descrec.py
-# T104.2 D10: the menu record the application carries is what menu.toml compiles to (and every name in it is one the application exports); its areas and tabs are the concept's
-check "TRX64U menu record" python3 tools/gen_menu_rec.py --check
+gcheck sdk "descrec test" python3 tools/test_descrec.py
+gcheck sdk "libtab test" python3 tools/test_libtab.py
+gcheck sdk "app_build test (T239.3 D31: the maxima per core, the split of the base)" python3 tools/test_app_build.py
+gcheck sdk "the SDK links with the options of the core app Makefile (T239.3 D31)" python3 -I tools/app_build.py flags host-app/target/u64ii/riscv/coreapp/Makefile app/lib/appflags.mk
+check "base UI table" python3 tools/gen_base_ui.py --check --ops tests/coreapp/golden/ops_amiga1200.txt
 # T192 D23 (Alex, 2026-11-09: "Until the UI, including the UX, works completely as an API client, it is a botch"): the host's screen changes no state outside host_core, acts on
 # no key itself (the key map is one table), carries no hand-written legend; what is not cut yet is the ledger (tools/host_cut_ledger.txt) and only shrinks.
-check "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'
+gcheck host "host screen is a client of host_core (T192 D23)" bash -c 'python3 -I tools/check_host_cut.py --selftest >/dev/null && python3 -I tools/check_host_cut.py'
 # T192.2 P5 (S11, S12): the parity compare of two render outputs reports a pixel, a word of a dump, a missing and an extra file, and passes on two equal copies
 check "render compare (T192.2 parity)" python3 -I tools/render_compare.py --selftest
-check "TRX64U menu against the UX concept" bash -c 'python3 tools/check_menu_concept.py --selftest && python3 tools/check_menu_concept.py tests/coreapp/golden/menu_c64.txt'
 # T192.3 S1, S6 (D23): the core menu controller holds navigation, dialogs and rows and nothing of the domain; no raw key outside its three input handlers. The selftest plants every fault.
 check "menu controller gate (T192.3 S1, S6)" python3 tools/check_menuctl_gate.py
 check "menu controller gate: selftest" python3 tools/check_menuctl_gate.py --selftest
@@ -95,8 +112,14 @@ check "menu controller gate: selftest" python3 tools/check_menuctl_gate.py --sel
 check "no v1 UI state, no second reader (T192.3)" python3 tools/check_no_v1_ui.py
 check "no v1 UI state: selftest" python3 tools/check_no_v1_ui.py --selftest
 # T211 S1 (D1): the host app names its keys itself; no Gideon page/help/tasks code treated as an F key
-check "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --selftest && python3 -I tools/check_host_keys.py'
-check "u2a_pack test" python3 tools/test_u2a_pack.py
+gcheck host "host key names (T211 S1)" bash -c 'python3 -I tools/check_host_keys.py --selftest && python3 -I tools/check_host_keys.py'
+# T265 P5: the boot ROM package is made by hand; red when host/bootrom moved after it (a host key input that CI never rebuilds)
+gcheck host "boot ROM package not older than its source (T265 P5)" tools/check_bootrom_fresh.sh
+gcheck sdk "u2a_pack test" python3 tools/test_u2a_pack.py
+# T239.3 S1: the API document of the SDK (app/sdkpkg/api.md) has a section for every symbol of the public headers of the core application (libapi.h, svctab.h, ops.h, libfmt.h);
+# the unit test has a complete document and one with a missing section, and runs the real headers against the real document
+gcheck sdk "API document of the SDK (T239.3 S1)" python3 -I tools/check_api_doc.py
+gcheck sdk "API document: unit test (T239.3 S1)" python3 -I tools/test_check_api_doc.py
 check "release checks test" python3 tools/test_release_check.py
 check "release bundle test" python3 tools/test_make_release_mc.py
 check "builds repository reader (T239.1 S8)" python3 -W ignore tools/test_builds.py
@@ -121,8 +144,9 @@ check "negative controls only in flash and persistence tests" python3 -I tools/c
 
 
 # T213 D4 / T192 D24 (Alex 2026-11-16): per-core code in the generic app only shrinks (ledger tools/d24_ledger.txt); the selftest plants each breach
-check "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
-check "D24 per-core code gate" python3 -I tools/check_d24.py
+gcheck sdk "D24 per-core code gate (selftest)" python3 -I tools/check_d24.py --selftest
+gcheck sdk "D24 per-core code gate" python3 -I tools/check_d24.py
+gcheck sdk "library table: TOML B and the generic sources (T239.3 D31)" python3 -I tools/libtab.py lint coreapp/libs/shared.toml .
 
 check "verilog syntax" bash -c '
   rc=0
@@ -159,17 +183,18 @@ check "plan scenarios D9-1..6" ci/test_plan.sh
 check "large stage flow (fake vivado)" ci/test_large_flow.sh
 check "constraint fail-fast in the host builds" ci/test_constraint_check.sh
 check "treesync: persistent build tree touches only what changed (T174)" ci/test_treesync.sh
-# T174 D4, T239.1 S6: pipeline.yml has one job for each child of ci/children.txt, with the table's needs, and calls the child's workflow, which checks out the
+# T174 D4, T239.1 S6, T239.5 D22: pipeline.yml only calls the matrix; matrix.yml has a job for each child of ci/children.txt, which calls the child's workflow, which checks out the
 # run's commit and runs ci/child.sh; the environments vivado and builds sit only where D1 and D14 want them; every bench has one owner (ci/sims.lane).
 check "children table and workflows (D4, S6)" python3 ci/orchestrate.py check
 check "children table: graph, outputs, check (S6)" python3 -I ci/test_orchestrate.py
-# T239.1 S6: no call of the Gitea API in ci/ or tools/ (releases and statuses are GitHub's now). The one named exception is the Gitea read of the .cor import on the
-# Mac (D22). This file and the scanner's own selftest strings are not calls.
+# T239.1 S6: no call of the Gitea API in ci/ or tools/ (releases and statuses are GitHub's now). The named exceptions are the Gitea read of the .cor import on the
+# Mac (D22) and the builder's fetch of a pinned finished .cor (ci/imports.py fetch, T239.3 D45: its URL comes from the builder's environment, not from a file). This file and the scanner's own selftest strings are not calls.
 check "no Gitea API calls (T239.1 S6)" bash -c '
   hits=$(git ls-files -- ci tools | grep -vE "^(tools/pack_import_cor\.sh|ci/lint\.sh|ci/check_pkg\.py)$" \
     | xargs grep -nE "/api/v1|/api/packages" 2>/dev/null || true)
   [ -z "$hits" ] || { echo "$hits"; exit 1; }'
 check "emulator kit (T239.1 D23)" ci/test_emu_kit.sh
+check "core round in the emulator (T239.5 D18)" ci/test_core_round.sh
 check "public-tree checker unit tests (T239.1 D24)" python3 -I tools/test_check_public_tree.py
 check "pre-push path rule (T239.1 D24)" ci/test_pre_push.sh
 check "pre-release staging (T239.1 D1, D42)" ci/test_prerelease.sh
@@ -178,6 +203,7 @@ check "import entries (T239.1 D43)" python3 -W ignore ci/test_imports.py
 check "work order (T239.1 D13, S15)" python3 -W ignore ci/test_order.py
 check "bitstream fetch (T239.1 D19)" python3 -W ignore ci/test_fetch_bits.py
 check "pre-release publication (T239.1 D1)" python3 -W ignore ci/test_publish_release.py
+check "SDK release publication (T261 D4)" python3 -W ignore ci/test_publish_sdk.py
 check "select.sh" bash -c '
   t() { [ "$(env -i HOME="$HOME" PATH="$PATH" "${@:2}" ci/select.sh $1)" = "$EXPECT" ]; }
   EXPECT=no  t ue2 GITHUB_REF_NAME=main GITHUB_EVENT_NAME=push &&
@@ -191,7 +217,6 @@ check "select.sh" bash -c '
   EXPECT=yes t update GITHUB_REF_NAME=integ-m1 &&
   EXPECT=yes t update GITHUB_REF_NAME=main &&
   EXPECT=yes t update GITHUB_REF_NAME=integration &&
-  EXPECT=yes t update GITHUB_REF_NAME=t239.1 &&
   EXPECT=no  t update GITHUB_REF_NAME=feature SELECT_MSG=x CI_BRANCH=feature &&
   EXPECT=yes t update GITHUB_REF_NAME=12/merge CI_BRANCH=main &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integration GITHUB_EVENT_NAME=push &&
@@ -208,8 +233,9 @@ check "select.sh" bash -c '
   EXPECT=2   t sims-tier GITHUB_REF_NAME=main GITHUB_EVENT_NAME=workflow_dispatch SIMS_INPUT=true SELECT_MSG=x &&
   EXPECT=2   t sims-tier GITHUB_REF_NAME=integ-m1 GITHUB_EVENT_NAME=push'
 # T221 S1/S2: every deliverable has its own x.y.z in its own file, the build strings are made from them (ci/version.sh)
-check "versions (T221 S2)" python3 tools/check_versions.py
-check "version strings (T221 S1)" ci/test_version.sh
+gcheck tree "versions (T221 S2, base API lock T239.3 S5)" python3 tools/check_versions.py
+gcheck sdk "base API lock test (T239.3 S5)" python3 tools/test_sdk_api.py
+gcheck tree "version strings (T221 S1)" ci/test_version.sh
 check "workflow" python3 - <<'PY'
 import glob, os, sys, yaml
 ok = True

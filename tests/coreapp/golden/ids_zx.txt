@@ -1,0 +1,23 @@
+ZX Spectrum 48K / 128K F1/home 0 task:Reset
+ZX Spectrum 48K / 128K F1/home 1 task:Reload ROMs, reset
+ZX Spectrum 48K / 128K F1/home 2 media:zx.tape.image
+ZX Spectrum 48K / 128K F1/home 3 fixed:10:Save as config...
+ZX Spectrum 48K / 128K F1/home 4 fixed:11:Load config...
+ZX Spectrum 48K / 128K F5/settings 0 set:Model
+ZX Spectrum 48K / 128K F5/settings 1 set:Joystick port 1
+ZX Spectrum 48K / 128K F5/settings 2 set:Joystick port 2
+ZX Spectrum 48K / 128K F5/settings 3 set:Tape sound
+ZX Spectrum 48K / 128K F8/expert 0 fixed:13:Actions
+ZX Spectrum 48K / 128K F8/expert 1 fixed:6:Restart core
+ZX Spectrum 48K / 128K F8/expert 2 fixed:7:Return to host menu
+ZX Spectrum 48K / 128K F8/expert 3 fixed:13:Network
+ZX Spectrum 48K / 128K F8/expert 4 fixed:9:WiFi
+ZX Spectrum 48K / 128K F8/expert 5 fixed:13:Support
+ZX Spectrum 48K / 128K F8/expert 6 fixed:8:Bug report
+ZX Spectrum 48K / 128K F8/expert 7 fixed:17:Keys and help
+ZX Spectrum 48K / 128K F8/expert 8 fixed:13:Reset
+ZX Spectrum 48K / 128K F8/expert 9 fixed:5:Reset to host defaults
+ZX Spectrum 48K / 128K F8/expert 10 fixed:13:Status
+ZX Spectrum 48K / 128K F8/expert 11 info:Build
+ZX Spectrum 48K / 128K F8/expert 12 info:ROMs
+ZX Spectrum 48K / 128K F8/expert 13 info:Libraries

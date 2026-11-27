@@ -27,17 +27,24 @@ only rises when the partition's edge changes, and a host re-routed with the same
 Hashes are SHA-256 over each part (integrity only, no signatures).
 
   cor_pack.py pack  -o core.cor --name N --version V --partial P.bit|P.bin --app A.bin --host-key K
-                    [--load 0x30000] [--entry 0x30000] [--contract 2] [--fpga xc7a50t] [--icon I.rgb565|I.png]
+                    [--load 0x30000] [--entry 0x30000] [--contract 2] [--fpga xc7a50t] [--icon I.rgb565|I.png] [--heap BYTES]
   cor_pack.py check core.cor [--contract 2] [--host-key K]   exit 0 = intact, prints the manifest
   cor_pack.py hostkey host.bit                   prints the AXSS word of a full bitstream (the host key)
+  cor_pack.py heap APP.bin --core ID [--sizes TOML_B] [--heap BYTES]
+                                                 T239.5 (step 7 of a core lane): the heap check of `pack` on the app alone, before a .cor exists - the layout figures,
+                                                 the heap the TOML B's libraries keep against the heap (default 0: the region left behind the image); exit 1 = refused
 
 OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, both announced by the manifest ("records": 1 and
 `desc_size`/`desc_sha256`, `libs_size`/`libs_sha256`). A bundle without them is byte for byte what this tool wrote before they existed.
-  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h)
-  7 libs   the libraries this core needs, a copy in every bundle that needs it (Q5): "TRXL", u32 version 1, u32 count, then for each
-           u32 length and the `.u2a` of format 3 (tools/u2a_pack.py), padded with zeros to a multiple of 4
+  6 desc   the menu description, compiled from TOML (tools/descrec.py; the layout is coreapp/src/descrec.h). Since T239.3 D17 it may also carry the core's data
+           sections (the descriptor's identity, ROMs, video, hotkeys, mount slots; cores/vc20/app/desc.toml): its [core] name has to be the manifest's name
+           A record of TOML A (version 7, T239.3 P1-4) gets the bitstream's AXSS word as the build of its identity; `check` refuses a record with another one.
+  7 libs   base 4.0 (T239.3 D58): the menu records of the libraries the core's app links with `register` (TOML B `menu`, compiled by tools/descrec.py) that could not be
+           merged into record 6 (merge_lib_menus: a poll, a route, the core's own tables): "TRXL", u32 version 2, u32 count, then for each char name[16] (the
+           [[library]] name, NUL-padded), u32 length and the record, padded with zeros to a multiple of 4. The base hands each to the register call of the library of
+           that name (libscan.h lib_link_cor). Version 1 (library files, .u2a) is refused: base 4.0 loads no library file.
 
-  8 files  files the core installs on the SD (T175 D-files, Alex 2026-11-16: the diag core's example tests ride in diag.cor, no other core carries them):
+  8 files  files the core installs on the SD (T175 D-files; the diag core carried its example tests here until T260 D6, they are a folder of its lane's delivery now; a sub-app core uses the record):
            "TRXF", u32 version 1, u32 count, then per file
              u32 entry_len   bytes of the entry after this field, a multiple of 4
              u16 path_len, u16 n_old, u32 size
@@ -47,7 +54,7 @@ OPTIONAL records of either kind (T104.1 D9, D12), after the others, each once, b
            file, except one that is byte for byte (size and hash) an earlier version listed in the entry (coreapp/src/instfiles.cc).
            Manifest: files_size, files_sha256, files_count. Source: the core's descriptor (core.toml `install_dir`, `install_old`).
 
-  cor_pack.py pack ... [--desc D.toml] [--lib L.u2a ...] [--files DIR [--files-old DIR]]      (also for pack-large)
+  cor_pack.py pack ... [--desc D.toml [--desc E.toml]] [--sizes TOML_B] [--files DIR [--files-old DIR]]      (also for pack-large)
   cor_pack.py files-record DIR [--old DIR] -o F.rec            only the record 8 (for the application's benches)
 
 LARGE cores (T115 §7 "The extended .cor"): a core that does not fit layer 2 is one FULL bitstream of the 50T (host and core
@@ -57,7 +64,7 @@ the host writes for the IPROG). No `contract`, no `host_key`, no partial record:
 manifest names the FPGA by IDCODE (`idcode`, 8 hex); the host refuses another one when the entry is added and again at the start.
 
   cor_pack.py pack-large -o core.cor --id I --name N --version V --bit B.bit --app A.bin [--icon I.rgb565|I.png]
-                    [--map auto|identity|gideon_bl4] [--bit-commit C] [--app-commit C]
+                    [--map auto|identity|gideon_bl4] [--bit-commit C] [--app-commit C] [--heap BYTES]
   cor_pack.py check core.cor                     both kinds
 """
 import argparse
@@ -70,6 +77,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import descrec  # noqa: E402
+import libtab  # noqa: E402
 
 MAGIC = b"TRXCOR01"
 T_MANIFEST, T_PARTIAL, T_APP, T_ICON, T_BIT, T_DESC, T_LIBS, T_FILES = 1, 2, 3, 4, 5, 6, 7, 8
@@ -80,8 +88,8 @@ FILES_VERSION = 1
 FILES_MAX = 256 * 1024                    # one installed file (coreapp/src/instfiles.h INST_FILE_MAX)
 FILES_PATH_MAX = 100
 FILES_OLD_MAX = 8
-LIB_U2A_MAGIC = b"U2AP"                  # coreapp/src/libfmt.h
-LIB_U2A_FORMAT, LIB_U2A_HEADER = 3, 104
+LIBS_VERSION = 2                          # base 4.0: menu records by library name (version 1 held .u2a files)
+LIB_NAME_MAX = 16                         # coreapp/src/libfmt.h U2A3_NAME_MAX: 1 to 15 characters and the NUL
 KIND_LARGE = "large"
 LARGE_FORMAT = 2
 IDCODE_XC7A50T = 0x0362C093               # host-app cfw.h CFW_IDCODE_XC7A50T
@@ -90,6 +98,14 @@ LARGE_APP_ADDR = 0x30000                  # cfw.h CFW_APP_ADDR: load and entry o
 LARGE_APP_MAX = 0x400000                  # cfw.h CFW_APP_MAX
 LARGE_BIT_MAX = 0x800000                  # cfw.h CFW_BIT_MAX
 MAPS = ("identity", "gideon_bl4")
+# T239.3 D15, P4-1: the heap word. The application image carries one record `TRXHEAP:` (coreapp/src/heapcfg.c): heap size, image end (the linker's _end),
+# end of the application region (__heap_limit) and the stack reserve, four little-endian words. The packer sets the heap from the core's core.toml `heap`
+# in the copy it packs and refuses an image whose end + heap + reserve does not fit the region. A heap of 0 is the region that is left: from the 16-aligned
+# image end to the region end less the reserve (the application computes the same at start); the packer leaves the word 0 and reports the figure.
+HEAP_MAGIC = b"TRXHEAP:"
+HEAP_WORDS = 4
+HEAP_DEFAULT = 0x7A0000                   # coreapp/src/heapcfg.c: what the image says when the core's TOML sets nothing
+HEAP_MIN = 0x10000
 CONTRACT = 2
 ICON_BYTES = 32 * 32 * 2
 BIT_MAGIC = bytes([0x00, 0x09, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x0F, 0xF0, 0x00, 0x00, 0x01])
@@ -151,42 +167,50 @@ def rec(t, v):
     return struct.pack("<II", t, len(v)) + v
 
 
-def pack_libs(libs):
-    """Record 7: the libraries as `.u2a` files of format 3, each checked for its magic and header (the loader checks the rest)."""
-    if not libs:
-        raise CorError("libs: no library given")
-    out = bytearray(LIBS_MAGIC + struct.pack("<II", 1, len(libs)))
-    for i, lib in enumerate(libs):
-        if len(lib) < LIB_U2A_HEADER or lib[:4] != LIB_U2A_MAGIC:
-            raise CorError("lib %d: not a .u2a (magic)" % i)
-        hsz, fmt = struct.unpack_from("<HH", lib, 4)
-        if hsz != LIB_U2A_HEADER or fmt != LIB_U2A_FORMAT:
-            raise CorError("lib %d: header %d / format %d, this base loads %d / %d" % (i, hsz, fmt, LIB_U2A_HEADER, LIB_U2A_FORMAT))
-        out += struct.pack("<I", len(lib)) + lib + b"\0" * (-len(lib) % 4)
+def pack_libs(menus):
+    """Record 7 (base 4.0): [(library name, menu record bytes)] as "TRXL", u32 2, u32 count, then per entry the name (16 bytes, NUL-padded), u32 length, the record, zeros to 4."""
+    if not menus:
+        raise CorError("libs: no menu record given")
+    out = bytearray(LIBS_MAGIC + struct.pack("<II", LIBS_VERSION, len(menus)))
+    seen = set()
+    for name, blob in menus:
+        if not re.match(r"^[a-z0-9_]{1,15}$", name or ""):
+            raise CorError("libs: %r is no library name (1 to 15 characters of [a-z0-9_])" % name)
+        if name in seen:
+            raise CorError("libs: library %s has two menu records" % name)
+        seen.add(name)
+        if not blob:
+            raise CorError("libs: the menu record of library %s is empty" % name)
+        out += name.encode("ascii").ljust(LIB_NAME_MAX, b"\0") + struct.pack("<I", len(blob)) + blob + b"\0" * (-len(blob) % 4)
     return bytes(out)
 
 
 def parse_libs(blob):
-    """The `.u2a` files of record 7, in the order they were packed."""
+    """The menu records of record 7, [(library name, record bytes)] in the order they were packed; each record is read by descrec."""
     if len(blob) < 12 or blob[:4] != LIBS_MAGIC:
-        raise CorError("libs: not a library set (magic)")
+        raise CorError("libs: not a library record (magic)")
     ver, cnt = struct.unpack_from("<II", blob, 4)
-    if ver != 1:
-        raise CorError("libs: version %d, this tool reads 1" % ver)
+    if ver == 1:
+        raise CorError("libs: version 1 holds library files (.u2a); base 4.0 loads no library file (T239.3 D58): pack the core again")
+    if ver != LIBS_VERSION:
+        raise CorError("libs: version %d, this tool reads %d" % (ver, LIBS_VERSION))
     p, out = 12, []
     for _ in range(cnt):
-        if p + 4 > len(blob):
+        if p + LIB_NAME_MAX + 4 > len(blob):
             raise CorError("libs: truncated")
-        n, = struct.unpack_from("<I", blob, p)
-        p += 4
-        if n < LIB_U2A_HEADER or p + n > len(blob):
-            raise CorError("libs: a library runs past the end")
-        out.append(blob[p:p + n])
-        if out[-1][:4] != LIB_U2A_MAGIC:
-            raise CorError("libs: a library is not a .u2a (magic)")
+        name = blob[p:p + LIB_NAME_MAX].split(b"\0")[0].decode("ascii", "replace")
+        n, = struct.unpack_from("<I", blob, p + LIB_NAME_MAX)
+        p += LIB_NAME_MAX + 4
+        if not re.match(r"^[a-z0-9_]{1,15}$", name) or n == 0 or p + n > len(blob):
+            raise CorError("libs: an entry has no library name or runs past the end")
+        try:
+            descrec.parse_desc(blob[p:p + n])
+        except descrec.DescError as e:
+            raise CorError("libs: the menu record of library %s: %s" % (name, e))
+        out.append((name, blob[p:p + n]))
         p += n + (-n % 4)
     if p != len(blob) or not out:
-        raise CorError("libs: %d bytes behind the last library, or none" % (len(blob) - p))
+        raise CorError("libs: %d bytes behind the last menu record, or none" % (len(blob) - p))
     return out
 
 
@@ -275,53 +299,136 @@ def parse_files(blob):
     return out
 
 
-def lib_menu(u2a):
-    """(name, menu record bytes or None) of a format-3 library: the TOML record behind the header's last word (libmenu.cc reads it the same way)."""
-    name = u2a[20:36].split(b"\0")[0].decode("ascii", "replace")
-    off, = struct.unpack_from("<I", u2a, 100)
-    if not off:
-        return name, None
-    if off + 16 > len(u2a):
-        raise CorError("library %s: its menu record lies outside the file" % name)
-    total, = struct.unpack_from("<I", u2a, off + 8)
-    if off + total > len(u2a):
-        raise CorError("library %s: its menu record runs past the end of the file" % name)
-    return name, u2a[off:off + total]
+def lib_menu_compile(path, name):
+    """The menu record of the linked library `name` from its TOML (TOML B `menu`): the nodes, file actions, settings, tabs, key rows and poll a library may contribute,
+    with the refusals u2a_pack.py --menu had for a library file (no windows, no route, nothing hidden or renamed: those are a core's description)."""
+    try:
+        doc = descrec.toml_loads(open(path).read())
+        if "window" in doc:
+            raise CorError("library %s: its menu record %s has windows; those are a core's description" % (name, path))
+        if "hide" in doc or "rename" in doc or "area" in doc:
+            raise CorError("library %s: its menu record %s gives a route or hides or renames something; that is a core's description" % (name, path))
+        return descrec.compile_desc(doc)
+    except (descrec.DescError, OSError) as e:
+        raise CorError("library %s: menu %s: %s" % (name, path, e))
 
 
-def merge_menus(desc, libs):
-    """T104.2 D10: what the libraries of the bundle contribute to the menu goes into the description when it is packed, so the bundle carries the finished menu
-    and the application does not add the libraries' menus again at run time. Returns the description to pack (the one given when nothing was merged)."""
-    menus = [(n, b) for n, b in (lib_menu(u) for u in libs or [] if len(u) >= LIB_U2A_HEADER and u[:4] == LIB_U2A_MAGIC) if b is not None]   # a bad file is pack_libs' to refuse
+def toml_b_libs(path):
+    """Base 4.0 (T239.3 D58): the libraries the TOML B of a core's app links, [(name, [(export, major)], menu record bytes or None)] in the order of the file: the menu of a
+    [[library]] with `menu` (a path relative to the TOML B) compiled, for record 7 and the merge into record 6; the exports for check_hooks."""
+    try:
+        libs = libtab.load(path)
+    except libtab.LibTabError as e:
+        raise CorError(str(e))
+    out = []
+    for l in libs:
+        menu = lib_menu_compile(os.path.join(os.path.dirname(os.path.abspath(path)), l["menu"]), l["name"]) if l.get("menu") else None
+        out.append((l["name"], [(e["name"], e["major"]) for e in l.get("exports", [])], menu))
+    return out
+
+
+def check_hooks(desc, libs):
+    """T239.3 base 3.3 (core_hooks.h), base 4.0: a core whose description record names its hooks library (`hooks` in [core]) is linked with that library: the TOML B of its app
+    (--sizes) lists a [[library]] of that name that exports corehooks major 1 (the base takes the table of that slot, libslot.h). `libs`: toml_b_libs, None when no TOML B is given."""
+    if desc is None:
+        return
+    try:
+        d = descrec.parse_desc(desc)
+    except descrec.DescError as e:
+        raise CorError(str(e))
+    hooks = (d.get("core") or {}).get("hooks")
+    if not hooks:
+        return
+    if libs is None:
+        raise CorError('desc: the core names the hooks library "%s" ([core] hooks); the TOML B of its app (--sizes) has to be given, which links it' % hooks)
+    mine = [ex for n, ex, _ in libs if n == hooks]
+    if not mine:
+        raise CorError('desc: the core names the hooks library "%s" ([core] hooks), which the TOML B of its app does not link (%s)'
+                       % (hooks, ", ".join(n for n, _, _ in libs) or "no library"))
+    if ("corehooks", 1) not in mine[0]:
+        raise CorError('library %s is the code of the core ([core] hooks), but its [[library]] does not export corehooks major 1 (exports = [{ name = "corehooks", major = 1 }]); it exports %s'
+                       % (hooks, ", ".join("%s=%d" % x for x in mine[0]) or "nothing"))
+
+
+def merge_menus(desc, menus):
+    """T104.2 D10: what the linked libraries contribute to the menu goes into the description when it is packed, so the bundle carries the finished menu and the application
+    does not add those menus again at run time. Returns (the description to pack, [(name, record)] of the menus that stay for the run time: record 7)."""
     if not menus:
-        return desc
+        return desc, []
     try:
         blob, merged, kept = descrec.merge_lib_menus(desc, menus)
     except descrec.DescError as e:
         raise CorError(str(e))
     for n, why in kept:
         print("cor_pack: library %s keeps its menu for the run time: %s" % (n, why), file=sys.stderr)
-    return blob
+    stay = set(n for n, _ in kept)
+    return blob, [(n, b) for n, b in menus if n in stay]
+
+
+def check_desc(m, desc):
+    """The description by its own reader; one with the core's data sections names the core the manifest names (the application finds its descriptor by that name)."""
+    try:
+        d = descrec.parse_desc(desc)
+    except descrec.DescError as e:
+        raise CorError(str(e))
+    if d.get("core") and d["core"]["name"].lower() != str(m.get("name", "")).lower():
+        raise CorError('desc: the core section names "%s", the manifest "%s"' % (d["core"]["name"], m.get("name")))
+
+
+def stamp_desc(desc, axss, what):
+    """T239.3 P1-4 (D30 condition 2, D31): a record of TOML A (version 7) gets the bitstream's build word, its AXSS word (the BUILD register of the gateware answers it, trx_io.v), into
+    its identity; the service compares ID and build with the standard block at start. Every other record comes back as it was. TOML A without a bitstream that has an AXSS word is refused:
+    it could not be told from another bitstream."""
+    if desc is None:
+        return desc
+    try:
+        if descrec.identity_build(desc) is None and not _is_toml_a(desc):
+            return desc
+        if axss is None:
+            raise CorError("desc: TOML A needs the bitstream's build word, and %s has no AXSS write (built without USR_ACCESS)" % what)
+        return descrec.stamp_build(desc, axss)
+    except descrec.DescError as e:
+        raise CorError("desc: %s" % e)
+
+
+def _is_toml_a(desc):
+    return "identity" in descrec.parse_desc(desc)
+
+
+def check_build(recs, axss, what):
+    """A made .cor with TOML A carries the build word of its own bitstream (the pair the service compares at start)."""
+    if T_DESC not in recs:
+        return
+    try:
+        have = descrec.identity_build(recs[T_DESC])
+        toml_a = _is_toml_a(recs[T_DESC])
+    except descrec.DescError as e:
+        raise CorError("desc: %s" % e)
+    if not toml_a:
+        return
+    if have is None:
+        raise CorError("desc: TOML A carries no build word (cor_pack writes it)")
+    if axss is None or have != axss:
+        raise CorError("desc: TOML A carries the build %08x, %s has %s" % (have, what, "no AXSS word" if axss is None else "%08x" % axss))
 
 
 def optional_records(m, desc, libs, files=None):
-    """The manifest keys and the records for the optional description and libraries; nothing at all when both are None (the bytes of a bundle
-    without them stay what they were)."""
-    if desc is None and not libs and not files:
+    """The manifest keys and the records for the optional description, the menu records of the linked libraries (`libs`: toml_b_libs, None without a TOML B) and the files;
+    nothing at all when none of them is there (the bytes of a bundle without them stay what they were)."""
+    check_hooks(desc, libs)
+    menus = [(n, b) for n, _, b in libs or [] if b is not None]
+    if desc is None and not menus and not files:
         return b""
-    desc = merge_menus(desc, libs)
+    desc, menus = merge_menus(desc, menus)
     m["records"] = RECORDS_FORMAT
     body = b""
     if desc is not None:
-        try:
-            descrec.parse_desc(desc)
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, desc)
         m.update(desc_size=len(desc), desc_sha256=sha(desc))
         body += rec(T_DESC, desc)
-    if libs:
-        blob = pack_libs(libs)
-        m.update(libs_size=len(blob), libs_sha256=sha(blob), libs_count=len(libs))
+    if menus:
+        blob = pack_libs(menus)
+        m.update(libs_size=len(blob), libs_sha256=sha(blob), libs_count=len(menus))
         body += rec(T_LIBS, blob)
     if files:
         blob = pack_files(files)
@@ -345,14 +452,11 @@ def check_optional(m, recs):
         if m[part + "_size"] != len(recs[t]) or m.get(part + "_sha256") != sha(recs[t]):
             raise CorError("%s: size or SHA-256 mismatch" % part)
     if T_DESC in recs:
-        try:
-            descrec.parse_desc(recs[T_DESC])
-        except descrec.DescError as e:
-            raise CorError(str(e))
+        check_desc(m, recs[T_DESC])
     if T_LIBS in recs:
         libs = parse_libs(recs[T_LIBS])
         if m.get("libs_count") != len(libs):
-            raise CorError("libs: the manifest says %r libraries, the record holds %d" % (m.get("libs_count"), len(libs)))
+            raise CorError("libs: the manifest says %r menu records, the record holds %d" % (m.get("libs_count"), len(libs)))
     if T_FILES in recs:
         files = parse_files(recs[T_FILES])
         if m.get("files_count") != len(files):
@@ -407,11 +511,73 @@ def put_short(m, short):
     m["short"] = short
 
 
-def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None):
+def toml_b_heap_needs(path):
+    """[(name, heap_keep, heap_peak)] of the libraries the TOML B of a core's app links (`heap_keep` and `heap_peak` of a [[library]] table, read and checked by libtab.load; None: not declared). Sub-apps (.u2a) are not counted: S13 checks them at load."""
+    try:
+        libs = libtab.load(path)
+    except libtab.LibTabError as e:
+        raise CorError(str(e))
+    return [(l["name"], l.get("heap_keep"), l.get("heap_peak")) for l in libs]
+
+
+def app_heap(app, heap, core, needs=None, report=None):
+    """T239.3 D15, P4-1: `app` with the heap word set to `heap` (the core's core.toml `heap`; None keeps the image's own, the default; 0 is the region that is
+    left behind the image and the stack reserve). The image must hold one TRXHEAP record; one without it is left alone when no heap is asked for (an imported
+    core's own app) and refused when one is. Refused too: an image whose end + heap + stack reserve is beyond the end of the application region, and a core whose
+    libraries keep (`heap_keep`, `needs`: (name, keep, peak) per linked library) more than the heap; the message names the core, the figures and
+    the limit. `report`, a list, gets the lines of the build report: the figures of the layout and the needs of each library."""
+    at, i = [], -1
+    while True:
+        i = app.find(HEAP_MAGIC, i + 1)
+        if i < 0:
+            break
+        at.append(i + len(HEAP_MAGIC))
+    if not at:
+        if heap is None:
+            return app
+        raise CorError("app (%s): no %s record in the image, so heap 0x%x cannot be set" % (core, HEAP_MAGIC.decode(), heap))
+    if len(at) > 1:
+        raise CorError("app (%s): %d %s records in the image, one expected" % (core, len(at), HEAP_MAGIC.decode()))
+    o = at[0]
+    if o + 4 * HEAP_WORDS > len(app):
+        raise CorError("app (%s): the %s record is cut off" % (core, HEAP_MAGIC.decode()))
+    cur, image_end, region_end, reserve = struct.unpack_from("<4I", app, o)
+    if heap is None:
+        heap = cur
+    start = (image_end + 15) & ~15
+    left = region_end - reserve - start                 # what heapcfg.c's heapcfg_define makes of the word 0
+    word = heap
+    if heap == 0:
+        heap = left
+        if heap < HEAP_MIN:
+            raise CorError("core %s: image end 0x%x, stack reserve 0x%x, region end 0x%x: the region left is %d bytes, below 0x%x" % (core, image_end, reserve, region_end, max(heap, 0), HEAP_MIN))
+    if heap < HEAP_MIN or heap % 16:
+        raise CorError("core %s: heap 0x%x is below 0x%x or not a multiple of 16" % (core, heap, HEAP_MIN))
+    need = start + heap + reserve
+    if need > region_end:
+        raise CorError("core %s: image end 0x%x + heap 0x%x + stack reserve 0x%x = 0x%x, the application region ends at 0x%x (%d bytes too much)"
+                       % (core, image_end, heap, reserve, need, region_end, need - region_end))
+    keeps = [(n, k) for n, k, _ in needs or [] if k]
+    keep_sum = sum(k for _, k in keeps)
+    if report is not None:
+        report.append("heap (%s): image end 0x%x (aligned 0x%x), region end 0x%x, stack reserve 0x%x; heap 0x%x = %d bytes%s"
+                      % (core, image_end, start, region_end, reserve, heap, heap, " (word 0: the region left)" if word == 0 else ""))
+        for n, k, pk in needs or []:
+            report.append("heap (%s): library %s keeps %s, peak %s" % (core, n, "n/a" if k is None else "%d" % k, "n/a" if pk is None else "%d" % pk))
+        if needs:
+            report.append("heap (%s): libraries keep %d of %d bytes, %d left" % (core, keep_sum, heap, heap - keep_sum))
+    if keep_sum > heap:
+        raise CorError("core %s: its libraries keep %d bytes of heap (%s), the heap of the core is %d bytes (%d too much)"
+                       % (core, keep_sum, ", ".join("%s %d" % kv for kv in keeps), heap, keep_sum - heap))
+    return app[:o] + struct.pack("<I", word) + app[o + 4:]
+
+
+def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, fpga="xc7a50t", icon=None, desc=None, libs=None, files=None, short=None, heap=None, heap_needs=None, report=None):
     partial = bit_config_data(partial)
     check_partial(partial)
     if not app:
         raise CorError("app: empty")
+    app = app_heap(app, heap, name, heap_needs, report)
     if not (load <= entry < load + len(app)):
         raise CorError("app: entry outside the image")
     # Record 3 is the raw image: the boot app copies it to app_load and jumps to app_entry. A `.app` file is that
@@ -434,6 +600,7 @@ def pack(name, version, partial, app, load, entry, host_key, contract=CONTRACT, 
     put_short(m, short)
     if icon is not None:
         m.update(icon_size=len(icon), icon_sha256=sha(icon))
+    # P1-4 stamps no build word here: the BUILD register of a DFX core answers the static host (USR_ACCESSE2 in host/top.v), not the partial; which word its identity carries is open (step 2)
     extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     body = rec(T_MANIFEST, man) + rec(T_PARTIAL, partial) + rec(T_APP, app)
@@ -606,7 +773,7 @@ FLASH_ID_MAX = 40
 
 
 def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_commit=None, app_commit=None,
-               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None):
+               fpga="xc7a50t", desc=None, libs=None, files=None, origin=None, flash_id=None, short=None, heap=None, heap_needs=None, report=None):
     """A .cor that carries a LARGE core: the full bitstream and the application (see the docstring).
     origin (T137 D1): None or "trx" writes no key (the bytes of every .cor before T137); "foreign" and "backup" write `origin`; a backup also
     writes flash_bit, flash_app and flash_id (D2: the chip the parts were read from, so they are written back only to the layout they came from)."""
@@ -622,6 +789,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         raise CorError("bitstream: IDCODE %08x is not the XC7A50T (%08x)" % (idcode, IDCODE_XC7A50T))
     if not app:
         raise CorError("app: empty")
+    app = app_heap(app, heap, cid, heap_needs, report)
     if len(app) > LARGE_APP_MAX:
         raise CorError("app: %d bytes, the host stages at most %d" % (len(app), LARGE_APP_MAX))
     if len(app) > 12:
@@ -655,6 +823,7 @@ def pack_large(cid, name, version, bit, app, icon=None, map_kind="auto", bit_com
         if len(flash_id) > FLASH_ID_MAX:
             raise CorError("flash_id: %d characters, at most %d" % (len(flash_id), FLASH_ID_MAX))
         m.update(flash_bit=FLASH_BIT, flash_app=FLASH_APP, flash_id=flash_id)
+    desc = stamp_desc(desc, axss, "the bitstream")
     extra = optional_records(m, desc, libs, files)
     man = json.dumps(m, sort_keys=True, separators=(",", ":")).encode()
     if len(man) > 2048:
@@ -706,6 +875,7 @@ def parse_large(m, recs, order):
     if m.get("origin") == "backup" and (m["flash_bit"], m["flash_app"]) != (FLASH_BIT, FLASH_APP):
         raise CorError("backup: the parts lay at 0x%x and 0x%x, this layout is 0x%x and 0x%x" % (m["flash_bit"], m["flash_app"], FLASH_BIT, FLASH_APP))
     idcode, axss = scan_config(bit_config_data(recs[T_BIT]))
+    check_build(recs, axss, "the bitstream")
     if idcode is None or "%08x" % idcode != m["idcode"]:
         raise CorError("manifest says IDCODE %s, the bitstream has %s" % (m["idcode"], "none" if idcode is None else "%08x" % idcode))
     if (idcode ^ IDCODE_XC7A50T) & IDCODE_MASK:
@@ -726,15 +896,24 @@ def load_icon(path):
 
 
 def read_extras(a):
-    """(desc record or None, [library bytes] or None, [files] or None) from --desc, --lib and --files."""
+    """(desc record or None, the libraries of the TOML B (toml_b_libs) or None, [files] or None) from --desc, --sizes and --files."""
     desc = None
     if a.desc:
         try:
-            desc = descrec.compile_checked(open(a.desc).read(), open(a.ops).read() if a.ops else None, what=a.desc)
+            if getattr(a, "sizes", None):                  # the core's TOML B: its [sizes] are the record maxima the app is linked with (tools/app_build.py)
+                descrec.apply_sizes(descrec.toml_loads(open(a.sizes).read()).get("sizes", {}))
+            if getattr(a, "toml_a", None):                 # the TOML A the core's app is linked with: a [[window]] may not cover a block of its base (default coreapp/gateware/host.toml)
+                descrec.use_base_toml_a(a.toml_a)
+            desc = descrec.compile_files([(f, open(f).read()) for f in a.desc], open(a.ops).read() if a.ops else None)
         except descrec.DescError as e:
-            raise CorError("%s: %s" % (a.desc, e))
+            raise CorError("%s: %s" % (" + ".join(a.desc), e))
     files = collect_files(a.files, a.files_old) if a.files else None
-    return desc, [open(f, "rb").read() for f in a.lib] or None, files
+    return desc, toml_b_libs(a.sizes) if getattr(a, "sizes", None) else None, files
+
+
+def heap_needs_of(a):
+    """The heap the core's linked libraries keep (P4-1): the [[library]] tables of the TOML B (--sizes) the app is linked with."""
+    return toml_b_heap_needs(a.sizes) if getattr(a, "sizes", None) else []
 
 
 def main(argv=None):
@@ -753,9 +932,11 @@ def main(argv=None):
     p.add_argument("--fpga", default="xc7a50t")
     p.add_argument("--icon")
     p.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
-    p.add_argument("--desc", help="the menu description (TOML, tools/descrec.py): record 6")
-    p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
-    p.add_argument("--lib", action="append", default=[], help="a library (.u2a of format 3) this core needs: record 7; repeat for more")
+    p.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application; 0: the region left behind the image and the stack reserve (P4-1)")
+    p.add_argument("--desc", action="append", default=[], help="the menu description (TOML, tools/descrec.py): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    p.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2); the heap its libraries keep (P4-1); the menu records of its libraries with `register` (record 7, base 4.0) and the library of [core] hooks")
+    p.add_argument("--toml-a", help="the TOML A the core's app is linked with: a [[window]] of --desc may not cover a block of its base (T239.3 D30 point 1; default coreapp/gateware/host.toml)")
+    p.add_argument("--ops", help="the operations and states the application exports (tests/coreapp/golden/ops_amiga1200.txt): every name and binding of --desc is checked against it")
     p.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
     p.add_argument("--files-old", help="earlier shipped versions of those files, <name>.v<N>.<ext>: the app replaces a file only when it is byte for byte one of them")
     g = sub.add_parser("pack-large")
@@ -767,9 +948,11 @@ def main(argv=None):
     g.add_argument("--app", required=True, help="the application image (coreapp.bin, raw, linked to 0x30000)")
     g.add_argument("--icon")
     g.add_argument("--short", help="T209 D15: the text tile's short name (core.toml `short`)")
-    g.add_argument("--desc", help="the menu description (TOML): record 6")
-    g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_trx64u.txt): every name and binding of --desc is checked against it")
-    g.add_argument("--lib", action="append", default=[], help="a library (.u2a) this core needs: record 7")
+    g.add_argument("--heap", type=lambda s: int(s, 0), help="T239.3 D15: the core's heap in bytes (core.toml `heap`), set in the packed copy of the application; 0: the region left behind the image and the stack reserve (P4-1)")
+    g.add_argument("--desc", action="append", default=[], help="the menu description (TOML): record 6; repeat for a core's menu.toml and desc.toml (one record; a table or key in two files is refused)")
+    g.add_argument("--sizes", help="the TOML B of the core's app: its [sizes] table sets the record maxima the description is compiled against (T239.3 P3-2); the heap its libraries keep (P4-1); the menu records of its libraries with `register` (record 7, base 4.0) and the library of [core] hooks")
+    g.add_argument("--toml-a", help="the TOML A the core's app is linked with: a [[window]] of --desc may not cover a block of its base (T239.3 D30 point 1; default coreapp/gateware/host.toml)")
+    g.add_argument("--ops", help="what the application exports (tests/coreapp/golden/ops_amiga1200.txt): every name and binding of --desc is checked against it")
     g.add_argument("--files", help="a folder: every file below it is installed into the core's folder at the same relative path: record 8")
     g.add_argument("--files-old", help="earlier shipped versions of those files, <name>.v<N>.<ext>: the app replaces a file only when it is byte for byte one of them")
     g.add_argument("--map", default="auto", choices=("auto",) + MAPS)
@@ -787,25 +970,31 @@ def main(argv=None):
     r.add_argument("-o", "--out", required=True)
     k = sub.add_parser("hostkey")
     k.add_argument("file")
+    h = sub.add_parser("heap")
+    h.add_argument("app")
+    h.add_argument("--core", required=True)
+    h.add_argument("--sizes", help="the TOML B of the core's app: the heap its libraries keep (heap_keep)")
+    h.add_argument("--heap", type=lambda s: int(s, 0), default=0, help="the core's heap in bytes (core.toml `heap`); 0 (default): the region left behind the image")
     c = sub.add_parser("check")
     c.add_argument("file")
     c.add_argument("--contract", type=int, default=None)
     c.add_argument("--host-key", default=None, help="refuse a bundle built for another host")
     a = ap.parse_args(argv)
     try:
+        rep = []
         if a.cmd == "pack":
             entry = a.load if a.entry is None else a.entry
             blob = pack(a.name, a.version, open(a.partial, "rb").read(), open(a.app, "rb").read(),
                         a.load, entry, a.host_key, a.contract, a.fpga,
-                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short)
+                        load_icon(a.icon) if a.icon else None, *read_extras(a), short=a.short, heap=a.heap, heap_needs=heap_needs_of(a), report=rep)
             open(a.out, "wb").write(blob)
-            print("%s: %d bytes" % (a.out, len(blob)))
+            print("\n".join(rep + ["%s: %d bytes" % (a.out, len(blob))]))
         elif a.cmd == "pack-large":
             blob = pack_large(a.id, a.name, a.version, open(a.bit, "rb").read(), open(a.app, "rb").read(),
                               load_icon(a.icon) if a.icon else None, a.map, a.bit_commit, a.app_commit, "xc7a50t", *read_extras(a),
-                              origin=a.origin, flash_id=a.flash_id, short=a.short)
+                              origin=a.origin, flash_id=a.flash_id, short=a.short, heap=a.heap, heap_needs=heap_needs_of(a), report=rep)
             open(a.out, "wb").write(blob)
-            print("%s: %d bytes" % (a.out, len(blob)))
+            print("\n".join(rep + ["%s: %d bytes" % (a.out, len(blob))]))
         elif a.cmd == "files-record":
             blob = pack_files(collect_files(a.dir, a.old))
             open(a.out, "wb").write(blob)
@@ -816,6 +1005,9 @@ def main(argv=None):
             print("%s: %d bytes" % (a.out, len(blob)))
         elif a.cmd == "hostkey":
             print(host_key_from_bit(open(a.file, "rb").read()))
+        elif a.cmd == "heap":
+            app_heap(open(a.app, "rb").read(), a.heap, a.core, heap_needs_of(a), rep)
+            print("\n".join(rep))
         else:
             m, _ = parse(open(a.file, "rb").read(), a.contract, a.host_key)
             print(json.dumps(m, indent=1, sort_keys=True))

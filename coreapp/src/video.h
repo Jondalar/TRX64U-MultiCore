@@ -22,6 +22,8 @@ class PxPort {
 public:
     virtual ~PxPort() { }
     virtual void w32(uint32_t reg, uint32_t v) = 0;     // 32 bit little endian, byte 3 commits
+    // The two registers of the layer that read (PX_STATUS 0x60A4 and STILL_STATUS 0x6068); every other one is write only. 0 for a port that cannot read (a test's).
+    virtual uint32_t r32(uint32_t reg) { (void)reg; return 0; }
     // T107 5.9: where the menu's own canvas goes in the output (position and output size in output pixels). The menu and the core's picture take
     // turns on the one layer, and the layer's OSIZE stays what the picture last wrote, so the menu needs its own; the board hands it to the
     // LVGL port, which writes it with every first picture and moves a menu that is up. A test records it.
@@ -82,6 +84,7 @@ public:
     // T107 D8: Integer / Fit / Fill (VID_SCALE_*), with the gateware; the layout is redone at once. Without it ignored.
     void set_scale_mode(int m);
     int scale_mode() const { return scale_mode_; }
+    void set_vic_scale(int m);   // a C64-type core: the Scale (VID_SCALE_*) the gateware's VIC scaler runs at, for picture_rect; -1: not told
     // T164 Q3: bilinear smoothing of Fit and Fill, with the gateware
     void set_smoothing(bool on);
     bool smoothing() const { return smooth_; }
@@ -97,6 +100,20 @@ public:
     bool own_picture() const { return d_.w == 0; }
 
     bool ready() const { return ready_; }          // init() has run
+    // T256 D10: the picture of the machine that stopped, for the still of the overlay service. The picture is fitted to fw x fh RGB565 pixels by nearest sampling (0 x 0: to w x h), and dst
+    // takes the window of w x h pixels of it that starts at ox, oy. A C64-type core (own_picture) has the host's still capture: still_start() points it at two slots of the base's own heap
+    // once, at the core's start; grab() reads the last complete frame (4 bit VIC colours, 400 x 270 or 400 x 240 in the 60 Hz modes) and paints it with the palette the person's setting
+    // put on the screen (set_still_palette; Colodore when no source is set). Any other core: the newest frame buffer of its own picture (32 bit pixels are cut to RGB565). False: no picture.
+    // The rows of dst are `stride` pixels apart (0: w). `pal` is a library's source of the colours, asked first (T256 D11); null: the base's own, then Colodore. Both grab paths keep static buffers (and one table of the source column of each output column: w is at most 960, wider is false): the
+    // caller makes only one grab at a time (the overlay service's grab_lock).
+    typedef bool (*StillPalette)(uint8_t rgb[16][3]);
+    void still_start();
+    bool grab(uint16_t *dst, int w, int h, int fw = 0, int fh = 0, int ox = 0, int oy = 0, int stride = 0, StillPalette pal = nullptr);
+    // The 16 colours of the screen's palette (R, G, B) as the person set them; true when the source answered. One source for the application, set when a core's palette code starts.
+    static void set_still_palette(StillPalette f);
+    // T256 D10: where the running picture of a frame-buffer core stands on the menu's canvas (the canvas video_place_menu names for the mode), in canvas pixels, the rectangle of the whole shown
+    // picture: it may reach beyond the canvas (a Fit picture on a mode whose canvas is smaller than its active area). A C64-type core (its picture is the host's scaler's) has one when the gateware has the VIC scaler and set_vic_scale told the Scale in force: the 400 x 270 (400 x 240 at 60 Hz) window laid out by that Scale in the mode's active area. False otherwise, and for any other core before init().
+    bool picture_rect(int *x, int *y, int *w, int *h) const;
     // T113: a core with two pictures (the C128: VIC-IIe through the host's scaler, VDC on this layer) keeps the layer off while the other one is
     // shown. show() then writes the layer set with the layer off, so every caller that gives the layer back (menu close, Freeze) keeps it dark.
     void set_hidden(bool h) { hidden_ = h; }
@@ -126,6 +143,7 @@ private:
     CoreIo *io_;
     void init_bias();
     int mode_;
+    int vic_mode_ = -1;
     int scale_mode_ = 0, sys_ = 0;                 // VID_SCALE_*; the 50/60 Hz family of the last set_mode
     bool gw_ = false, smooth_ = false;
     uint32_t ow_ = 0, oh_ = 0;                     // gateware: the picture's output size
@@ -141,6 +159,7 @@ private:
     VideoDesc prim_ = VideoDesc();                 // the descriptor's own picture while the alternative is selected, with its bias
     int pic_ = 0, prim_bx_ = 0, prim_by_ = 0;
     void alt_height(int sys);
+    uint8_t *still_raw_ = nullptr, *still_slots_ = nullptr;   // T256: the capture's two slots of 64 KB, 16-byte aligned (raw: what malloc gave)
     int msys_ = -1;                                // the machine's System Mode (its VIC's 50 / 60 Hz family); -1 = not told, sys_ stands in
 };
 

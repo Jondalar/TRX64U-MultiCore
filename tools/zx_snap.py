@@ -460,7 +460,7 @@ def make_tests(outdir):
 def make_corpus(outdir):
     """every container the app has to read, from random states: SNA 48K, SNA 128K (the paged bank 3 and 5, where the file holds one bank
     more), Z80 v1/v2/v3 plain and packed; next to each file its expected result as bench_inputs() makes it (the C++ reader of the application,
-    coreapp/cores/zx_snap.cc, is compared against it by tests/coreapp/test_zx_snap.cc). Temporary files only: no snapshot is ever committed."""
+    cores/zx/app/lib/zx_snap.cc, is compared against it by tests/coreapp/test_zx_snap.cc). Temporary files only: no snapshot is ever committed."""
     import os
     rnd = random.Random(23)
     out = []

@@ -5,6 +5,7 @@
 #   tests/hostapp/run_fwrestore.sh [scratch dir]          (run.sh calls it with its own)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$ROOT/tests/hostgen.sh"   # T239.3 V-3b: CPATH holds hostio.h (IOBASE, U2P_IO_BASE) and basetab.h, generated from the TOML A of the host
 H="$ROOT/host-app/software/hostapp"
 HS="$ROOT/host-app/software"
 T="${1:-}"
@@ -44,7 +45,7 @@ fwr_mutant fwr_our_cor fwrestore.cc 's/case FWK_FIRMWARE: return known != 0;/cas
 # the check before the first erase (P3)
 fwr_mutant fwr_stage_gate_skipped fwrestore.cc 's/if (!fw_can_restore(p, known, chip)) {/if (false) {/'
 fwr_mutant fwr_cor_sha_skipped fwrestore.cc 's/if (ci.from_cor \&\& (strcmp(o->bit_sha, ci.bit_sha) || strcmp(o->app_sha, ci.app_sha))) {/if (false) {/'
-fwr_mutant fwr_slot_unchecked fwrestore.cc 's/if (p.bit_flash_len > FW_BIT_SLOT) {/if (false) {/'
+fwr_mutant fwr_slot_unchecked fwrestore.cc 's/if (p.bit_flash_len > FW_BIT_SLOT_FULL) {/if (false) {/'
 fwr_mutant fwr_app_slot_unchecked fwrestore.cc 's/if (p.app_flash_len > FW_APP_SLOT) {/if (false) {/'
 fwr_mutant fwr_load_addr_unchecked fwrestore.cc 's/return fail(o, "the application does not load and start at 0x30000");/(void)0;/'
 fwr_mutant fwr_cancel_ignored fwrestore.cc 's/return fail(o, abort \&\& abort(ctx) ? "cancelled" : "the file cannot be read");/return fail(o, "the file cannot be read");/'
@@ -59,7 +60,7 @@ fwr_mutant fw_no_retry flashfw.cc 's/for (int tries = 0; tries < 3; tries++) {/f
 fwr_mutant fw_no_blank_check flashfw.cc 's/    for (uint32_t off = 0; off < FW_SECTOR; off += FW_PAGE) {$/    for (uint32_t off = 0; off < 0; off += FW_PAGE) {/'
 fwr_mutant fw_locked_is_started flashfw.cc 's/if (have_before \&\& sector_sum(w.fl, addr, \&after) \&\& after == before) {/if (false) {/'
 fwr_mutant fw_no_readback flashfw.cc 's/if (!region_equals(fl, reg\[k\].addr + off, reg\[k\].p + off, n, \&bad)) {/if (false) {/'
-fwr_mutant fw_tail_kept flashfw.cc 's/if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, FW_BIT_SLOT, FWP_BIT)) {/if (false) {/'
+fwr_mutant fw_tail_kept flashfw.cc 's/if (!clear_tail(w, FW_BIT_ADDR + img.bit_len, bslot, FWP_BIT)) {/if (false) {/'
 fwr_mutant fw_flash_stamp_unchecked flashfw.cc 's/if (!flash_axss(fl, \&v, \&found) || !found || v != img.axss) {/if (false) {/'
 fwr_mutant fw_chip_any flashfw.cc 's/if (!strcmp(type, "Winbond W25Q128")) {/if (true) {/'
 fwr_mutant fw_geometry_any flashfw.cc 's/if (fl->get_page_size() != (int)FW_PAGE || fl->get_sector_size(0) != (int)FW_SECTOR || !fl->need_erase()) {/if (false) {/'

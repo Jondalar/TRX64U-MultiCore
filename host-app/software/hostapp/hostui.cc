@@ -11,6 +11,11 @@
 #include "host_core_flow_fileops.h"
 #include "host_core_flow_wifi.h"
 #include "host_core_flow_zip.h"
+#include "host_core_flow_guard.h"
+#include "guard.h"
+#ifndef HOSTUI_RENDER_TEST
+#include "guardnote.h"
+#endif
 #include "hostzip_board.h"
 #include "host_core_job.h"
 #include "host_core_nav.h"
@@ -1910,6 +1915,7 @@ static void update_net(void)
 // The autostart rows only exist while direct boot is off: with it on, the menu does not come up by itself, so there is nothing to count down.
 #define SET_SLOTS HC_SET_SLOTS
 static lv_obj_t *s_box[SET_SLOTS], *s_name[SET_SLOTS], *s_val[SET_SLOTS], *s_help, *s_note;
+static int s_help_top, s_pitch, s_help_y = -1;             // the help line sits under the rows that are shown, not under all slots (T265 P4)
 static lv_obj_t *s_mk[SET_SLOTS][4];
 static void fill_snapshot(WebSnapshot *w);
 
@@ -2103,7 +2109,7 @@ static void pm_update(void)
 static void build_settings(void)
 {
     lv_obj_t *p = bview(V_SET);
-    int pitch = COMPACT ? 29 : 34, sh = COMPACT ? 26 : 30, y0 = COMPACT ? 62 : 70;           // ten rows (T163 S4: FTP service) in the height nine had
+    int pitch = COMPACT ? 29 : 34, sh = COMPACT ? 26 : 30, y0 = COMPACT ? 62 : 70;           // eleven rows (T163 S4: FTP service, T265 P4: Analogue out) in the height nine had
     int nw = 290, vx = 330;
     if (COMPACT) {                                  // the label column is the width of the longest label (measured, as the File Browser's keys), the value takes the rest
         int lw = 0;
@@ -2129,7 +2135,8 @@ static void build_settings(void)
         }
     }
     BSTEP {
-        s_help = txt(p, CX0, y0 + SET_SLOTS * pitch + 4, "", F_SMALL, C_MUTED, CW);
+        s_help_top = y0 + 4; s_pitch = pitch; s_help_y = y0 + SET_SLOTS * pitch + 4;
+        s_help = txt(p, CX0, s_help_y, "", F_SMALL, C_MUTED, CW);
         s_note = fit1(txt(p, CX0, CH - 26, "", F_SMALL, C_MUTED, CW), CW);
     }
     build_cm(p);
@@ -2167,6 +2174,10 @@ static void update_settings(void)
         set_txt(s_name[i], name);
         set_txt(s_val[i], v);
         marks_show(s_mk[i], i == nv.ssel);
+    }
+    if (s_help_top + n * s_pitch != s_help_y) {
+        s_help_y = s_help_top + n * s_pitch;
+        lv_obj_set_y(s_help, s_help_y);
     }
     set_txt(s_help, help);
     set_txt(s_note, nv.note);
@@ -3627,7 +3638,7 @@ void (*hostui_cv_hook)(int phase, uint64_t done, uint64_t total);       // the b
 // ---- the flash and the staging areas the firmware flows work on (the flows themselves are the core's: host_core_flow_*.cc) ------------------------------------------
 #ifdef HOSTUI_RENDER_TEST
 Flash *hostui_test_flash;                                     // the bench's flash: a model with erase semantics
-static uint8_t fw_bit_area[FW_BIT_SLOT + 8192], fw_app_area[FW_APP_SLOT + 8192];
+static uint8_t fw_bit_area[FW_BIT_SLOT_FULL + 8192], fw_app_area[FW_APP_SLOT + 8192];
 #define FW_FLASH()   (hostui_test_flash)
 #define FW_BIT_BUF   (fw_bit_area)
 #define FW_APP_BUF   (fw_app_area)
@@ -3849,11 +3860,28 @@ static const HcConvertEnv convert_env = { &flow_env, cve_icon, cve_buf, 0 };
 static void ese_yes_key(void *, int key) { fm_yes_key = key; }
 static const HcEspEnv esp_env = { &flow_env, ese_yes_key, 0 };
 
+// T265: the guard's board half is not in the render bench; there the answers are "no guard"
+#ifdef HOSTUI_RENDER_TEST
+static bool guard_flash_writer_busy(void) { return false; }
+static bool guard_recovery_start(void) { return false; }
+static void guard_poll_note(void) { }
+#else
+static bool guard_flash_writer_busy(void) { return guard_busy(); }
+static bool guard_recovery_start(void) { return guard_info().start == GS_RECOVERY; }
+static void guard_poll_note(void)
+{
+    char t[GUARD_NOTE_MAX];
+    int tone;
+    if (guard_take_note(t, sizeof(t), &tone)) {
+        set_note(t, tone);
+    }
+}
+#endif
 // ---- the flows as jobs the loop steps (host_core_job.h) ---------------------------------------------------------------------------------------------------
 // ue_flow starts a job and returns; the loop steps it (sj_pump) instead of reading keys, so the UI task is never inside a flow: a flow waits where it asks and the loop
 // goes round. While a job runs nothing else of the UI runs (no countdown, no key starts a core: fmt_active), as when the flows were one modal call each; what the person
 // sees and presses is the same. sj_finish is what each flow's function did after the call.
-enum { SJ_RESTORE = 1, SJ_UPDATE, SJ_CONVERT, SJ_INSPECT, SJ_FORMAT, SJ_RENAME, SJ_WIFI, SJ_UNZIP };
+enum { SJ_RESTORE = 1, SJ_UPDATE, SJ_CONVERT, SJ_INSPECT, SJ_FORMAT, SJ_RENAME, SJ_WIFI, SJ_UNZIP, SJ_REPAIR };
 static struct {
     HcJob *job;
     FlowScope *scope;
@@ -3914,6 +3942,15 @@ static void sj_finish(void)
     case SJ_RENAME:
     case SJ_WIFI:
         break;
+    case SJ_REPAIR:                                        // T265: the repair after the recovery program started this application; the menu follows
+        fmt_active = false;
+        if (ok) {
+            set_note("Host application repaired. The next power-on starts normally.", HCT_OK);
+        } else {
+            set_note("The host application was not repaired. Restart the board to try again.", HCT_WARN);
+        }
+        refresh_status();
+        break;
     case SJ_FORMAT:
         if (hc_format_outcome(j) == HCFO_RAN) {
             refresh_status();
@@ -3959,6 +3996,10 @@ static void sj_start(int kind, const char *arg, int index = 0)
     if (sj.job) {
         return;
     }
+    if (guard_flash_writer_busy() && (kind == SJ_RESTORE || kind == SJ_UPDATE)) {          // T265: the recovery copy is being written; the flash has one writer at a time
+        set_note("The recovery copy is being written. Try again in a minute.", HCT_WARN);
+        return;
+    }
     snprintf(sj.arg, sizeof(sj.arg), "%s", arg);
     sj.kind = kind;
     sj.index = index;
@@ -3992,6 +4033,12 @@ static void sj_start(int kind, const char *arg, int index = 0)
         fmt_active = true;
         hc_ui_changed();
         sj.job = hc_zip_job(*hostzip_env(&flow_env), sj.arg);
+        break;
+    case SJ_REPAIR:
+        sj.scope = new FlowScope("repair", "host application", true);
+        fmt_active = true;
+        hc_ui_changed();
+        sj.job = hc_repair_job(flow_env, guard_info(), (const uint8_t *)(uintptr_t)guard_info().stage_addr);
         break;
     case SJ_RENAME:
         if (have_ui) {
@@ -4657,7 +4704,9 @@ static void startup(void)
     snprintf(txu_running_version, sizeof(txu_running_version), "%s", APP_BUNDLE_VERSION_STRING);   // T221 D19
     hc_ui_init(&ui_env_ref());
     hc_cfg_clear();
-    direct_phase();                                  // T135: a direct start never returns; otherwise the menu below, with the reason in its note
+    if (!guard_recovery_start()) {
+        direct_phase();                              // T135: a direct start never returns; otherwise the menu below, with the reason in its note
+    }                                                // T265: started by the recovery program, no autostart: the repair comes first (below, once the screen is up)
     matrix_kb = new Keyboard_C64(&matrix_host, &U64II_KEYB_ROW, &U64II_KEYB_COL, &U64II_KEYB_JOY);
     matrix_kb->set_keyboard_only(true);                 // T135 Q9: the joystick never drives the host menu; port-1 fire is only the power-on key (menukeys.cc)
 
@@ -4733,6 +4782,14 @@ static void startup(void)
     if (snap_shown) {
         snap_poll_keys();
     }
+#ifndef HOSTUI_RENDER_TEST
+    guard_board_install();
+    if (guard_recovery_start()) {
+        sj_start(SJ_REPAIR, "");                     // T265: the application in the flash was replaced; the repair is the first job, before any menu key or countdown
+    } else {
+        guard_start_background();                    // T265: started from the flash: the recovery program, the copy and the record are brought up to date in the background
+    }
+#endif
     if (have_ui) {
         // colour check for the log: LVGL's first buffer must hold 0x0042 (#070a12) at the background and
         // 0x0884 (#0d1220) in the header. (The layer registers are write-only, they cannot be read back.)
@@ -4851,6 +4908,7 @@ void hostui_run(void)
             vTaskDelay(pdMS_TO_TICKS(1));
             continue;
         }
+        guard_poll_note();                                  // T265: something the guard's background job could not write
         redraw_pending = hostapi_pass(redraw_pending || need_full || need_sel) || redraw_pending;      // the service: remote intents queue keys, the snapshot follows
         if (redraw_pending) {
             apply_updates();

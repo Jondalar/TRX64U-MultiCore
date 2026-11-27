@@ -1,0 +1,102 @@
+# A joystick with a second button in port 2 (C64 stick with a 2-button mod, or an Amiga stick whose second button is on pin 9, a pot line):
+# which port pin or comparator bit moves for each button. Button 2 passes on a port pin OR a comparator bit; the samples in the result show which.
+kind = "test"
+
+[test]
+name = "2-button stick, port 2"
+id = "stick2"
+version = 3
+menu_input = "keyboard"
+needs = ["joystick with two buttons"]
+
+[[prompt]]
+id = "idle"
+text = "Plug the stick into port 2 and touch nothing. Then press RETURN."
+timeout_s = 120
+
+[[prompt]]
+id = "b1"
+text = "HOLD button 1 (the normal fire button) and keep holding it, also while you press RETURN."
+timeout_s = 300
+
+[[prompt]]
+id = "b2"
+text = "Let go of button 1. HOLD button 2 only and keep holding it, also while you press RETURN."
+timeout_s = 300
+
+[[prompt]]
+id = "rel"
+text = "Let go of everything. Then press RETURN."
+timeout_s = 300
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 0
+
+[[step]]
+op = "wait_user"
+prompt = "idle"
+
+[[step]]
+op = "sample"
+into = "idle"
+
+[[step]]
+op = "wait_user"
+prompt = "b1"
+
+[[step]]
+op = "sample"
+into = "b1"
+
+[[step]]
+op = "wait_user"
+prompt = "b2"
+
+[[step]]
+op = "sample"
+into = "b2"
+
+[[step]]
+op = "wait_user"
+prompt = "rel"
+
+[[step]]
+op = "sample"
+into = "rel"
+
+[[eval]]
+id = "idle_high"
+value = "idle.pins"
+mask = 992
+eq = 992
+verdict = "port 2 lines idle high"
+fail = "a port 2 line is low with nothing pressed"
+
+[[eval]]
+id = "b1_pin6"
+value = "b1.pins"
+mask = 512
+eq = 0
+verdict = "button 1 pulls pin 6 low"
+fail = "button 1 does not pull pin 6 low (or was not held)"
+
+[[eval]]
+id = "b2_moves"
+value = "b2"
+mask = 63548
+differs = "idle"
+verdict = "button 2 is seen: a port 2 pin or a comparator bit moved (the samples show which)"
+fail = "button 2 moves neither a port 2 pin nor a comparator bit"
+
+[[eval]]
+id = "rel_pins"
+value = "rel.pins"
+mask = 992
+eq = 992
+verdict = "released: port 2 lines high again"
+fail = "a port 2 line stays low after the release"
+
+[result]
+format = "toml"

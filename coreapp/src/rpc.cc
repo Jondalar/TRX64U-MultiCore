@@ -98,6 +98,50 @@ int reply_result(const JsonRpcReq &r, const char *result_json, char *out, int ca
 
 }
 
+// The name the registry knows a method by: the method itself ("settings.set"), else the method with its slashes turned into dots ("session/state" is
+// "session.state", "trace/run/start" is "trace.run.start"; a registered name has dots only). False when no operation of the registry has either.
+static bool rpc_registered(OpRegistry *reg, const char *method, char *name, int cap)
+{
+    if (reg->find_op(method)) {
+        snprintf(name, cap, "%s", method);
+        return true;
+    }
+    if (!strchr(method, '/') || (int)strlen(method) >= cap) {
+        return false;
+    }
+    int i = 0;
+    for (; method[i]; i++) {
+        name[i] = method[i] == '/' ? '.' : method[i];
+    }
+    name[i] = 0;
+    return reg->find_op(name) != 0;
+}
+
+// Runs the operation `name` for the request and writes the response: a result, or the error of the operation (-32601 when the name is no operation).
+static int rpc_call_op(RpcSession *s, const JsonRpcReq &r, const char *name, char *result, int rcap, char *out, int cap)
+{
+    OpRegistry *reg = ops_of(s->c);
+    OpResult res;
+    int rp = 0;
+    s->c->fs->file_loading(true);
+    svc_call_net(s->c, name, r.has_params ? &r.params : 0, &res);       // D19a: a destructive operation does not run on a socket, it says where to ask
+    // T239.3 D41 (review): this task may wait, the menu's may not: an operation that failed on a file the medium is still fetching (/Online) is asked again until it is there, 120 s at most
+    for (uint32_t t0 = s->c->io->now_ms(); res.code != OPE_OK && s->c->fs->file_loading(false) && s->c->io->now_ms() - t0 < 120000; ) {
+        s->c->io->delay_ms(300);
+        s->c->fs->file_loading(true);
+        svc_call_net(s->c, name, r.has_params ? &r.params : 0, &res);
+    }
+    if (res.code == OPE_NOT_FOUND && !reg->find_op(name)) {
+        return reply_error(r, -32601, res.msg, out, cap);       // no such method
+    }
+    if (res.code == OPE_OK) {
+        svc_put_result(result, rcap, &rp, res);
+        return r.has_id ? reply_result(r, result, out, cap) : 0;
+    }
+    return reply_error(r, res.code, res.msg, out, cap);
+}
+
+
 void rpc_close(RpcSession *s)
 {
     OpRegistry *reg = ops_of(s->c);
@@ -122,6 +166,7 @@ int rpc_handle(RpcSession *s, const char *msg, int n, char *out, int cap)
     OpRegistry *reg = ops_of(s->c);
     const char *m = r->method;
     char result[RPC_RESULT_MAX];
+    char name[64];
     int rp = 0;
     result[0] = 0;
     if (!r->version_ok) {
@@ -206,28 +251,23 @@ int rpc_handle(RpcSession *s, const char *msg, int n, char *out, int cap)
                 len = reply_error(*r, rc, rc == OPE_NOT_FOUND ? "No such event, or not subscribed" : "Too many subscriptions", out, cap);
             }
         }
+    } else if (rpc_registered(reg, m, name, sizeof(name))) {
+        // an operation the registry holds answers first: a linked library's method (D31) is served before the contract table, and a name of the table
+        // that a library registered is the library's
+        len = rpc_call_op(s, *r, name, result, sizeof(result), out, cap);
     } else if ((len = rpc_contract_handle(s, *r, out, cap)) != -2) {
         // a method of the TRX64 runtime contract: answered, or -32601 with the reason (rpccontract.cc)
         if (!r->has_id) {
             len = 0;
         }
     } else {
-        const char *name = m;
+        const char *alias = m;
         for (int a = 0; a < rpc_naliases; a++) {
             if (!strcmp(m, rpc_aliases[a].method)) {
-                name = rpc_aliases[a].op;
+                alias = rpc_aliases[a].op;
             }
         }
-        OpResult res;
-        svc_call_net(s->c, name, r->has_params ? &r->params : 0, &res);       // D19a: a destructive operation does not run on a socket, it says where to ask
-        if (res.code == OPE_NOT_FOUND && !reg->find_op(name)) {
-            len = reply_error(*r, -32601, res.msg, out, cap);       // no such method
-        } else if (res.code == OPE_OK) {
-            svc_put_result(result, sizeof(result), &rp, res);
-            len = r->has_id ? reply_result(*r, result, out, cap) : 0;
-        } else {
-            len = reply_error(*r, res.code, res.msg, out, cap);
-        }
+        len = rpc_call_op(s, *r, alias, result, sizeof(result), out, cap);
     }
     if (!r->has_id) {
         len = 0;                                                    // a notification is not answered, not even with an error

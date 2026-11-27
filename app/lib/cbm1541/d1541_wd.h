@@ -14,7 +14,7 @@
 #include "fsif.h"
 #include "io.h"
 
-// the WD177x block, at DRIVE_A_BASE + 0x1800 (wd177x_t, wd177x.h:56)
+// the registers of the block drive_wd of the TOML A (map wd177x; shared.toml puts the block at 0x10021800)
 #define WDR_COMMAND   0
 #define WDR_TRACK     1
 #define WDR_SECTOR    2

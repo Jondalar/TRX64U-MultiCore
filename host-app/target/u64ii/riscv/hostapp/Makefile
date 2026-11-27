@@ -125,6 +125,9 @@ SRCS_CC	 =  u64ii_init.cc \
 			fwrestore.cc \
 			fwconfirm.cc \
 			txu.cc \
+			guard.cc \
+			guard_board.cc \
+			host_core_flow_guard.cc \
 			espinspect.cc \
 			espflash.cc \
 			espflash_board.cc \
@@ -172,16 +175,19 @@ SRCS_CC	 =  u64ii_init.cc \
 			host_core_flow_wifi.cc \
 			host_core_flow_zip.cc \
 			hostzip_board.cc \
+			hostlibslot.cc \
 			appindex.cc \
 			libload.cc \
 			libscan.cc \
 			libmenu.cc \
 			descrec.cc \
+			overlay.cc \
 			ops.cc \
 			corefolder.cc \
 			fm_fs.cc \
 			fm_medium.cc \
 			fastseek.cc \
+			fastseek_exports.cc \
 			host_core_nav.cc \
 			host_core_cm.cc \
 			host_core_cfgov.cc \
@@ -218,17 +224,33 @@ VPATH +=	$(PATH_SW)/io/c64
 VPATH +=	$(PATH_SW)/api
 VPATH +=	$(PATH_SW)/io/usb
 VPATH +=	$(PATH_SW)/io/uart
+RECOVERY_DIR = ../hostrecovery
+VPATH +=	$(RECOVERY_DIR)/result
 
 SRCS_ASM =
 SRCS_ASMS = crt0.S port_asm.S
 SRCS_6502 =
 SRCS_BIN =
+# T265: the recovery program (../hostrecovery) as a blob of this application. Its image (record, data, CRC-32 trailer) is what guard_board.cc writes to 0x1E0000 when the
+# flash holds another one. The program is built first (ci/trxapps.sh, tools/build_hostapp.sh): `make -C ../hostrecovery`.
+SRCS_APP  = recovery_slot.app
 SRCS_IEC =
 SRCS_NANO = nano_minimal.nan
 
+# T239.3 V-3b (D30 point 1): the blocks of the base in the TOML A the app is linked with (the shared app and the host app: coreapp/gateware/host.toml; an app of one core: make
+# BASETAB_TOMLA=<its TOML A>). `descrec.py basetab` writes basetab.h, the table descrec.cc refuses a [[window]] against, into $(OUTPUT)/io before any source is compiled, the file only
+# when its content changes. Nothing is read at run time.
+BASETAB_TOMLA ?= $(PATH_SW)/../../coreapp/gateware/host.toml
+BASETAB_DIR    = $(OUTPUT)/io
+BASETAB_GEN   := $(shell python3 $(PATH_SW)/../../tools/descrec.py basetab $(BASETAB_TOMLA) $(BASETAB_DIR) 2>&1 || echo "basetab: the table of the base blocks was not generated")
+ifneq ($(strip $(BASETAB_GEN)),)
+$(error $(BASETAB_GEN))
+endif
+VPATH += $(BASETAB_DIR)
+
 PATH_INC =  $(addprefix -I, $(VPATH))
 OPTIONS  = -march=$(MARCH) -mabi=$(MABI) $(EFFORT) -ffunction-sections -fdata-sections -nostartfiles -mno-div
-OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DIOBASE=0x10000000 -DU2P_IO_BASE=0x10100000 -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
+OPTIONS += -gdwarf-2 -Os -DRISCV -DU64=2 -DUSB2513 -DOS -DCLOCK_FREQ=100000000 -Wno-write-strings -DFP_SUPPORT=1
 OPTIONS += -DFLASH_EXTRA_PROTECTION=1 -DTRX_HOSTAPP=1 -DUI_RES=$(UI_RES) -I$(PATH_SW)/hostapp
 OPTIONS += -I$(PATH_SW)/lvgl -DLV_CONF_INCLUDE_SIMPLE -DLV_LVGL_H_INCLUDE_SIMPLE
 OPTIONS += -DconfigTOTAL_HEAP_SIZE=0x7A0000
@@ -238,11 +260,31 @@ CPPOPT   = $(OPTIONS) -std=gnu++11 -fno-exceptions -fno-rtti -fno-threadsafe-sta
 LINK 	 = linker.x
 LIBS    = ../../../libs/riscv/lwip/result/liblwip.a
 LIBS   += ../../../libs/riscv/lvgl/result/liblvgl.a
+# T239.3 V-3 (D30, D31): IOBASE, U2P_IO_BASE and the icap registers (iomap.h, u2p.h, hw.cc) are linker symbols, none is a -D or a literal here. They come from the TOML A of the host
+# bitstream (coreapp/gateware/host.toml) through `descrec.py ldfrag`, which writes $(OUTPUT)/io/iofrag.ld before any source is compiled, the file only when its content changes. An app of
+# one core links the ldfrag of its own TOML A: make IOFRAG=<its .ld>.
+ifndef IOFRAG
+HOST_TOMLA = $(PATH_SW)/../../coreapp/gateware/host.toml
+IOFRAG     = $(OUTPUT)/io/iofrag.ld
+IOFRAG_GEN := $(shell mkdir -p $(OUTPUT)/io && python3 $(PATH_SW)/../../tools/descrec.py ldfrag $(HOST_TOMLA) $(IOFRAG).new --maps $(PATH_SW)/../../app/sdkpkg/maps 2>&1 && { cmp -s $(IOFRAG).new $(IOFRAG) || cp $(IOFRAG).new $(IOFRAG); } || echo "iofrag: the link fragment was not generated")
+ifneq ($(strip $(IOFRAG_GEN)),)
+$(error $(IOFRAG_GEN))
+endif
+endif
+LIBS    += $(IOFRAG)
 LFLAGS   = --gc-sections --wrap=outbyte --wrap=malloc --wrap=_malloc_r --wrap=free --wrap=_free_r --wrap=realloc --wrap=_realloc_r --wrap=calloc --wrap=_calloc_r
 LINKMETHOD = ld
 
+ifeq ($(filter clean gitinfo,$(MAKECMDGOALS)),)
+ifeq ($(wildcard $(RECOVERY_DIR)/result/recovery_slot.app),)
+$(error T265: the recovery program is not built: make -C $(RECOVERY_DIR) first)
+endif
+endif
+
 VERSION_COMPONENT = hostapp          # T221: ci/version.sh <component> names the SemVer file the TRXVSTAMP field starts from
 include ../../../common/rules.mk
+
+$(OUTPUT)/$(PRJ).out: $(IOFRAG)
 
 # the hash loop is the hot spot of the bundle check
 sha256.o: sha256.c

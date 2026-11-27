@@ -1,5 +1,5 @@
 // T104 5.1/5.2 `media_slot: window`: a raw image in a window slot of the DDR2 with the dirty-track write-back, against a model of the Amiga
-// core's log (amiga_model.h). The record is the Amiga's real one (coreapp/cores/amiga.cc); the code under test is coreapp/src/winslot.cc.
+// core's log (amiga_model.h). The record is the Amiga's real one (cores/amiga/app/lib/amiga.cc); the code under test is coreapp/src/winslot.cc.
 #include "check.h"
 #include "amiga_model.h"
 #include "engines.h"

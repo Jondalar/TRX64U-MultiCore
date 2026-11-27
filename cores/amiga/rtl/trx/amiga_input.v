@@ -21,7 +21,7 @@ module amiga_input (
     input  wire [4:0]  joy2,
     input  wire [10:0] pad_word,                    // T225: the USB pad's state for game port 2 {play, reverse, forward, yellow, green, blue/fire2, red/fire, right, left, down, up} (cpu_clk, quasi static)
     input  wire [1:0]  pad_mode,                    // T225: 0 port 2 as before (the host's joystick port), 1 one-button joystick, 2 two-button joystick, 3 CD32 pad; (cpu_clk, quasi static)
-    input  wire        joy_swap,                    // T157: 1 = the host's port 2 is the Amiga's port 1 and the host's port 1 its port 2
+    input  wire        joy_swap,                    // T157: 0 = the host's port n is the Amiga's port n; 1 = the host's port 2 is the Amiga's port 1 and the host's port 1 its port 2
     // the application's mouse (cpu_clk values, quasi static; the toggle says a new pair is there)
     input  wire [7:0]  mouse_dx,
     input  wire [7:0]  mouse_dy,
@@ -113,16 +113,18 @@ module amiga_input (
 
     // joysticks: host {fire, right, left, down, up} = joy[4], joy[3], joy[2], joy[1], joy[0]
     //            Amiga  bit 0 right, 1 left, 2 down, 3 up, 4 fire
-    wire [4:0] ja = joy_swap ? joy2 : joy1;
-    wire [4:0] jb = joy_swap ? joy1 : joy2;
-    assign joystick1 = {3'b000, jb[4], jb[0], jb[1], jb[2], jb[3]};
+    // joystick0 is the Amiga's port 2 (nanomig ._joy1(~JOY0) -> userio _sjoy2 -> JOY1DAT, _fire1), joystick1 its port 1
+    // (the mouse port, JOY0DAT, _fire0); issue #125, T213.3 §5
+    wire [4:0] p2 = joy_swap ? joy1 : joy2;
+    wire [4:0] p1 = joy_swap ? joy2 : joy1;
+    assign joystick1 = {3'b000, p1[4], p1[0], p1[1], p1[2], p1[3]};
     // T225 D1: with the USB pad on game port 2 (mode != 0) the port comes from the pad only, the host's joystick port is off for it
     (* ASYNC_REG = "TRUE" *) reg [10:0] pw_a = 11'd0, pw_b = 11'd0;
     (* ASYNC_REG = "TRUE" *) reg [1:0]  pm_a = 2'd0,  pm_b = 2'd0;
     always @(posedge sys_clk) begin pw_a <= pad_word; pw_b <= pw_a; pm_a <= pad_mode; pm_b <= pm_a; end
     //            Amiga  bit 0 right, 1 left, 2 down, 3 up, 4 fire/red, 5 blue (2nd button), 6 green, 7 yellow, 8 forward, 9 reverse, 10 play
     wire [10:0] pad_j = {pw_b[8], pw_b[9], pw_b[10], pw_b[7:4], pw_b[0], pw_b[1], pw_b[2], pw_b[3]};
-    assign joystick0 = (pm_b == 2'd0) ? {6'b000000, ja[4], ja[0], ja[1], ja[2], ja[3]} : pad_j;
+    assign joystick0 = (pm_b == 2'd0) ? {6'b000000, p2[4], p2[0], p2[1], p2[2], p2[3]} : pad_j;
     assign cd32pad2_en = (pm_b == 2'd3);
 
     always @(posedge sys_clk) begin

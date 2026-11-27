@@ -48,8 +48,8 @@ bool rom_own_dir(const char *cor_path, char *out, int outlen)
     return corefolder_sub(cor_path, "roms", out, outlen);
 }
 
-// The directories to look in, in order: `first` when the board names one (the monolith's /flash/roms, T104.2 D8), then
-// <root>/roms/<folder> of every root.
+// The directories to look in: the core folder alone when the core runs from its .cor (`own`, T148 D2); else, in order, `first` when the board
+// names one (the monolith's /flash/roms, T104.2 D8), then <root>/roms/<folder> of every root.
 static void list_roots(CoreFs *fs, const char *folder, const char *first, const char *own)
 {
     for (int r = 0; r < ROOTS_MAX; r++) {

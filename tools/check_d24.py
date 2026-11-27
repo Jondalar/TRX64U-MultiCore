@@ -9,6 +9,8 @@
   P4  data generated from cores/ (a generated file whose generator names cores/, or a file in coreapp/cores/ included by generic code) sits in the app
       image outside the ledger: a new .inc/.h of that kind is red, a ledger one is counted like any other file
   P5  an exception line names a file that is not in the ledger (stale)
+  P6  (T239.3 S6) a ledger file has no line in tools/d24_targets.txt, a line there names a file that is not in the ledger, has an unknown target, no reason or a second line,
+      or gives the target ultimate-repo to a file that is not on the D12 list
 
 Code lines = lines left after comments are cut (C-like: // and /* */, string and char literals respected; toml/python: #; 6502 asm: ;) and blanks dropped.
 This is a small lexer of its own (ci/code_hash.py needs tree-sitter, which the lint image does not carry); only the baseline has to agree with itself.
@@ -18,7 +20,9 @@ Ledger lines:   file <path> <code lines>
                 ids <path> <id> <count>
                 exception <path> +<lines> <spec ref> (<decision>)      the file may hold that many lines more; every run prints it
 
-Usage: tools/check_d24.py [--root DIR] [--ledger FILE]   exit 1 and a line per breach
+Targets file:   <path> <target> <reason: a few words>, # comments; every ledger file has exactly one line. Targets: data, core-library, shared-library, ultimate-repo, generic-module.
+
+Usage: tools/check_d24.py [--root DIR] [--ledger FILE] [--targets FILE]   exit 1 and a line per breach
        tools/check_d24.py --selftest                      plants each breach in a copy of the tree; each must be reported, the real tree must be green
        tools/check_d24.py --write-ledger [--root DIR]     prints the file/ids lines for the tree (exceptions are kept by hand)
        tools/check_d24.py --measure DIR                   prints, for another tree (a branch worktree), what it adds against the ledger"""
@@ -31,14 +35,16 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT0 = os.path.abspath(os.path.join(HERE, ".."))
 LEDGER0 = os.path.join(HERE, "d24_ledger.txt")
+TARGETS0 = os.path.join(HERE, "d24_targets.txt")
+TARGETS = ("data", "core-library", "shared-library", "ultimate-repo", "generic-module")
+# T239.3 D12: what goes to TRX64-Ultimate from this repository. P2-6 deleted u64cfg, the monitor, the ring and trxmon; its menu and c64.cc went with P1-8; the list is empty.
+D12_TRX64U = []
 
-# Core-specific files of coreapp/src, decided by name and content on 2026-11-16: the monitor and its server (the TRX64 bus monitor, trace ring), the trace ring
-# files, the TRX64U ops and menu glue, the U64 configuration (U64 register map and resampler), the Port Diagnostics tests (diag core), the Amiga filesystem,
+# Core-specific files of coreapp/src, decided by name and content on 2026-11-16 (the monitor, ring and U64 configuration files of that list are deleted since T239.3 P2-6): the resampler, the Amiga filesystem,
 # the C64 tape container. Everything else in coreapp/src is generic (menu, files, network, update ...) and is scanned for core ids.
 SRC_PER_CORE = [
-    r"coreapp/src/trx64u_ops\.(cc|h)", r"coreapp/src/ring[a-z]*\.(cc|h)", r"coreapp/src/trx_(c64re|ring)\.h",
-    r"coreapp/src/monitor\.(cc|h)", r"coreapp/src/monsrv\.(cc|h)", r"coreapp/src/u64cfg\.(cc|h)", r"coreapp/src/u64_resample\.inc",
-    r"coreapp/src/diagtest\.(cc|h)", r"coreapp/src/amiga_ffs\.(cc|h)", r"coreapp/src/t64\.(cc|h)", r"coreapp/src/trxmon/.*",
+    r"coreapp/src/u64_resample\.inc",
+    r"coreapp/src/amiga_ffs\.(cc|h)", r"coreapp/src/t64\.(cc|h)",
 ]
 GENERIC_DIRS = ["coreapp/src", "uicore"]
 CODE_EXT = (".cc", ".c", ".h", ".inc", ".asm", ".toml", ".py")
@@ -185,6 +191,27 @@ def parse_ledger(path):
     return files, ids, exc
 
 
+def parse_targets(path):
+    """{file: target} and the errors (a bad line, a second line for a file, an unknown target, no reason)."""
+    res, errs = {}, []
+    for ln in read(path).split("\n"):
+        ln = ln.strip()
+        if not ln or ln.startswith("#"):
+            continue
+        t = ln.split(None, 2)
+        if len(t) < 3:
+            errs.append("P6 targets line has no reason (path target reason): %s" % ln)
+        elif t[1] not in TARGETS:
+            errs.append("P6 %s: unknown target %r (one of %s)" % (t[0], t[1], ", ".join(TARGETS)))
+        elif t[0] in res:
+            errs.append("P6 %s has two lines in the targets file" % t[0])
+        elif t[1] == "ultimate-repo" and not any(re.match(r + "$", t[0]) for r in D12_TRX64U):
+            errs.append("P6 %s: ultimate-repo is only the D12 list" % t[0])
+        else:
+            res[t[0]] = t[1]
+    return res, errs
+
+
 def current(root):
     pc = per_core_files(root)
     files = {p: code_lines(os.path.join(root, p)) for p in pc}
@@ -192,10 +219,14 @@ def current(root):
     return pc, files, ids
 
 
-def check(root, ledger):
+def check(root, ledger, targets=TARGETS0):
     lf, li, exc = parse_ledger(ledger)
     pc, files, ids = current(root)
     bad = []
+    tg, errs = parse_targets(targets)
+    bad += errs
+    bad += ["P6 ledger file without a target: %s" % p for p in lf if p not in tg and not any(e.startswith("P6 %s" % p) for e in errs)]
+    bad += ["P6 target for a file that is not in the ledger: %s" % p for p in tg if p not in lf]
     allow = {}
     for p, n, spec, dec in exc:
         allow[p] = allow.get(p, 0) + n
@@ -301,6 +332,15 @@ def selftest():
         emb = os.path.join(tree, "coreapp/src/zz_data.inc")
         expect("P4", lambda: open(emb, "w").write("// Generated by tools/gen_x.py from cores/foo/data - do not edit\nstatic int d[1];\n"),
                lambda: os.remove(emb))
+        # T239.3 S6: a ledger file with no target, a target that is no target, a ultimate-repo outside D12, a target for no ledger file
+        for tag, mut in (("P6 ledger file without a target", lambda ls: [l for l in ls if not l.startswith("coreapp/cores/snes.cc ")]),
+                         ("P6 coreapp/cores/snes.cc: unknown target", lambda ls: [l.replace(" core-library ", " nowhere ") if l.startswith("coreapp/cores/snes.cc ") else l for l in ls]),
+                         ("P6 coreapp/cores/snes.cc: ultimate-repo", lambda ls: [l.replace(" core-library ", " ultimate-repo ") if l.startswith("coreapp/cores/snes.cc ") else l for l in ls]),
+                         ("P6 target for a file that is not in the ledger", lambda ls: ls + ["coreapp/cores/zz_new.cc data nothing"])):
+            tf = os.path.join(t, "targets.txt")
+            open(tf, "w").write("\n".join(mut(read(TARGETS0).split("\n"))))
+            if not any(x.startswith(tag) for x in check(tree, led, tf)):
+                fails.append("%s not reported" % tag)
         # a comment must not count
         open(grow, "a").write("// a long comment\n/* block\n comment */\n")
         if check(tree, led):
@@ -317,6 +357,7 @@ def main(argv):
         root = os.path.abspath(argv[argv.index("--root") + 1])
     if "--ledger" in argv:
         ledger = os.path.abspath(argv[argv.index("--ledger") + 1])
+    targets = os.path.abspath(argv[argv.index("--targets") + 1]) if "--targets" in argv else TARGETS0
     if "--selftest" in argv:
         f = selftest()
         for x in f:
@@ -328,7 +369,7 @@ def main(argv):
     if "--measure" in argv:
         measure(os.path.abspath(argv[argv.index("--measure") + 1]), ledger)
         return 0
-    bad = check(root, ledger)
+    bad = check(root, ledger, targets)
     for b in bad:
         print("D24: " + b)
     return 1 if bad else 0

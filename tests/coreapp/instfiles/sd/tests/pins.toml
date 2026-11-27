@@ -1,0 +1,483 @@
+# Which of the ten joystick-port pins can the FPGA drive low, and does anything pull a pin low by itself? Nothing is to be plugged in.
+kind = "test"
+
+[test]
+name = "Pin drive and read-back"
+id = "pins"
+version = 1
+needs = []
+
+[[step]]
+op = "padctl"
+dis = 1
+adj = 1
+
+[[step]]
+op = "wait"
+us = 50
+
+[[step]]
+op = "sample"
+into = "base"
+
+[[step]]
+op = "drive"
+pins = ["p1_up"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p1_up"
+
+[[step]]
+op = "drive"
+pins = ["p1_up"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p1_down"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p1_down"
+
+[[step]]
+op = "drive"
+pins = ["p1_down"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p1_left"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p1_left"
+
+[[step]]
+op = "drive"
+pins = ["p1_left"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p1_right"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p1_right"
+
+[[step]]
+op = "drive"
+pins = ["p1_right"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p1_fire"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p1_fire"
+
+[[step]]
+op = "drive"
+pins = ["p1_fire"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p2_up"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p2_up"
+
+[[step]]
+op = "drive"
+pins = ["p2_up"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p2_down"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p2_down"
+
+[[step]]
+op = "drive"
+pins = ["p2_down"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p2_left"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p2_left"
+
+[[step]]
+op = "drive"
+pins = ["p2_left"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p2_right"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p2_right"
+
+[[step]]
+op = "drive"
+pins = ["p2_right"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "drive"
+pins = ["p2_fire"]
+level = "low"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "sample"
+into = "d_p2_fire"
+
+[[step]]
+op = "drive"
+pins = ["p2_fire"]
+level = "release"
+
+[[step]]
+op = "wait"
+us = 20
+
+[[step]]
+op = "padctl"
+dis = 0
+adj = 0
+
+[[step]]
+op = "wait"
+us = 50
+
+[[step]]
+op = "sample"
+into = "pad_low"
+
+[[eval]]
+id = "stuck_p1_up"
+value = "base.pins"
+mask = 1
+eq = 1
+verdict = "p1_up idles high"
+fail = "p1_up reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p1_up"
+value = "d_p1_up.pins"
+mask = 1
+eq = 0
+verdict = "p1_up follows the drive"
+fail = "p1_up stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p1_up"
+all = ["stuck_p1_up", "drv_p1_up"]
+verdict = "p1_up can be driven"
+fail = "p1_up cannot be driven"
+
+[[eval]]
+id = "stuck_p1_down"
+value = "base.pins"
+mask = 2
+eq = 2
+verdict = "p1_down idles high"
+fail = "p1_down reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p1_down"
+value = "d_p1_down.pins"
+mask = 2
+eq = 0
+verdict = "p1_down follows the drive"
+fail = "p1_down stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p1_down"
+all = ["stuck_p1_down", "drv_p1_down"]
+verdict = "p1_down can be driven"
+fail = "p1_down cannot be driven"
+
+[[eval]]
+id = "stuck_p1_left"
+value = "base.pins"
+mask = 4
+eq = 4
+verdict = "p1_left idles high"
+fail = "p1_left reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p1_left"
+value = "d_p1_left.pins"
+mask = 4
+eq = 0
+verdict = "p1_left follows the drive"
+fail = "p1_left stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p1_left"
+all = ["stuck_p1_left", "drv_p1_left"]
+verdict = "p1_left can be driven"
+fail = "p1_left cannot be driven"
+
+[[eval]]
+id = "stuck_p1_right"
+value = "base.pins"
+mask = 8
+eq = 8
+verdict = "p1_right idles high"
+fail = "p1_right reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p1_right"
+value = "d_p1_right.pins"
+mask = 8
+eq = 0
+verdict = "p1_right follows the drive"
+fail = "p1_right stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p1_right"
+all = ["stuck_p1_right", "drv_p1_right"]
+verdict = "p1_right can be driven"
+fail = "p1_right cannot be driven"
+
+[[eval]]
+id = "stuck_p1_fire"
+value = "base.pins"
+mask = 16
+eq = 16
+verdict = "p1_fire idles high"
+fail = "p1_fire reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p1_fire"
+value = "d_p1_fire.pins"
+mask = 16
+eq = 0
+verdict = "p1_fire follows the drive"
+fail = "p1_fire stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p1_fire"
+all = ["stuck_p1_fire", "drv_p1_fire"]
+verdict = "p1_fire can be driven"
+fail = "p1_fire cannot be driven"
+
+[[eval]]
+id = "stuck_p2_up"
+value = "base.pins"
+mask = 32
+eq = 32
+verdict = "p2_up idles high"
+fail = "p2_up reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p2_up"
+value = "d_p2_up.pins"
+mask = 32
+eq = 0
+verdict = "p2_up follows the drive"
+fail = "p2_up stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p2_up"
+all = ["stuck_p2_up", "drv_p2_up"]
+verdict = "p2_up can be driven"
+fail = "p2_up cannot be driven"
+
+[[eval]]
+id = "stuck_p2_down"
+value = "base.pins"
+mask = 64
+eq = 64
+verdict = "p2_down idles high"
+fail = "p2_down reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p2_down"
+value = "d_p2_down.pins"
+mask = 64
+eq = 0
+verdict = "p2_down follows the drive"
+fail = "p2_down stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p2_down"
+all = ["stuck_p2_down", "drv_p2_down"]
+verdict = "p2_down can be driven"
+fail = "p2_down cannot be driven"
+
+[[eval]]
+id = "stuck_p2_left"
+value = "base.pins"
+mask = 128
+eq = 128
+verdict = "p2_left idles high"
+fail = "p2_left reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p2_left"
+value = "d_p2_left.pins"
+mask = 128
+eq = 0
+verdict = "p2_left follows the drive"
+fail = "p2_left stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p2_left"
+all = ["stuck_p2_left", "drv_p2_left"]
+verdict = "p2_left can be driven"
+fail = "p2_left cannot be driven"
+
+[[eval]]
+id = "stuck_p2_right"
+value = "base.pins"
+mask = 256
+eq = 256
+verdict = "p2_right idles high"
+fail = "p2_right reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p2_right"
+value = "d_p2_right.pins"
+mask = 256
+eq = 0
+verdict = "p2_right follows the drive"
+fail = "p2_right stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p2_right"
+all = ["stuck_p2_right", "drv_p2_right"]
+verdict = "p2_right can be driven"
+fail = "p2_right cannot be driven"
+
+[[eval]]
+id = "stuck_p2_fire"
+value = "base.pins"
+mask = 512
+eq = 512
+verdict = "p2_fire idles high"
+fail = "p2_fire reads low without being driven (stuck)"
+
+[[eval]]
+id = "drv_p2_fire"
+value = "d_p2_fire.pins"
+mask = 512
+eq = 0
+verdict = "p2_fire follows the drive"
+fail = "p2_fire stays high when driven (not driven)"
+
+[[eval]]
+id = "ok_p2_fire"
+all = ["stuck_p2_fire", "drv_p2_fire"]
+verdict = "p2_fire can be driven"
+fail = "p2_fire cannot be driven"
+
+[[eval]]
+id = "drivable"
+all = ["ok_p1_fire", "ok_p2_fire"]
+verdict = "the fire pins (pin 6) of both ports can be driven"
+fail = "the fire pins cannot both be driven: a CD32 pad cannot be read on this board"
+
+[result]
+format = "toml"

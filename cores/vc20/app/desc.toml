@@ -1,0 +1,309 @@
+# The VIC-20's data description (T239.3 D17): what cores/vc20/app/lib/vc20.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the
+# record cannot hold is code, and stays in the core's C++ (T239.3 D17 step 3): init, release, the operations of register_ops, the media write-back
+# and the three functions of the mount slot.
+# The gateware's facts are in the core's TOML A, gateware.toml (T239.3 V-2): a register is written as the name of its property, "block.property", a
+# reset value as "block.property.state"; tools/descrec.py makes the numbers of them (api.md 6.14.20), and the record is the one the numbers made.
+toml_a = "gateware.toml"
+machine_info = "Memory Expansion"
+
+[restart]
+clear_ram = 65536
+
+[core]
+id = "VC20"
+name = "VIC-20"
+title = "VIC-20"
+short_title = "VIC-20"
+folder = "vc20"
+store = "VIC-20 Settings"
+min_contract = 1
+reset_ms = 20
+service_op = "vc20.service"            # a PRG waits for READY while the machine runs, not while the menu holds it; the drive's poll rides on it
+service_period_ms = 20
+type_op = "vc20.type_script"
+run_op = "vc20.run_prg"
+caps = ["iec", "drive_a"]              # the VIC-20 carries the 1541 (drive_l2) on the IEC bus
+
+# 376 x 283 shown 3 x 3 (VIC-20 pixels 5 : 3 as the writer makes them square), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+[video]
+w = 376
+h = 283
+scale = 3
+x0 = 396
+y0 = 115
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
+nbuf = 4
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
+
+[freeze]
+reg_status = "machine.status"
+mask = 0x02
+timeout_ms = 200
+
+# ---- ROMs: the names the old application tried (the VICE and the Commodore part names), first match wins
+[[rom]]
+role = "BASIC"
+names = ["basic.bin", "basic", "basic-901486-01.bin"]
+sizes = [8192]
+required = true
+put_op = "vc20.put_basic"
+
+[[rom]]
+role = "KERNAL"
+names = ["kernal.bin", "kernal", "kernal.901486-07.bin", "kernal.901486-06.bin"]
+sizes = [8192]
+required = true
+put_op = "vc20.put_kernal"
+
+[[rom]]
+role = "CHAR"
+names = ["char.bin", "chargen.bin", "chargen", "characters.bin", "chargen-901460-03.bin", "chargen-901460-02.bin"]
+sizes = [4096]
+required = true
+put_op = "vc20.put_char"
+
+# a shared device ROM (the C64 side keeps it in <root>/roms too): the core's folder first, then <root>/roms
+[[rom]]
+role = "1541 drive"
+names = ["1541.rom", "1541.bin", "1541-ii.bin", "1541-ii.rom", "1541ii.rom", "1541c.rom", "dos1541.rom", "dos1541-325302-01+901229-05.bin"]
+sizes = [16384, 32768]
+shared = true
+put_op = "vc20.put_drive_rom"
+
+# T199: optional, used only by the setting JiffyDOS, and only as a pair
+[[rom]]
+role = "JiffyDOS VC-20 KERNAL"
+names = ["jiffydos-vc20.bin", "jiffydos_vc20.bin", "jiffydos-vic20.bin", "jiffydos_vic20.bin", "jiffydos-kernal-vc20.bin"]
+sizes = [8192]
+put_op = "vc20.put_jiffy_kernal"
+
+[[rom]]
+role = "JiffyDOS 1541 ROM"
+names = ["jiffydos-1541.bin", "jiffydos1541.bin", "jiffydos_1541.bin", "jiffydos-1541-ii.bin", "jiffydos1541-ii.bin", "jiffydos.bin"]
+sizes = [16384, 32768]
+put_op = "vc20.put_jiffy_rom"
+
+# ---- settings. The bits of RAM_EXT are the fields of machine.ram_ext in gateware.toml; the values are the combinations the menu offers
+[[core_setting]]
+key = "Memory Expansion (at next reset)"
+label = "Memory Expansion"
+values = ["Unexpanded", "+3K", "+8K", "+16K", "+24K", "+3K +24K", "+3K +24K +8K at $A000"]
+when = "reset"
+reg_bind = { reg = "machine.ram_ext", mask = 0x1F, bytes = [0x00, 0x01, 0x02, 0x06, 0x0E, 0x0F, 0x1F] }
+
+# machine.ram_ro, field ro_a000: the block at $A000 refuses writes (it only exists with the field ram_a000 of machine.ram_ext)
+[[core_setting]]
+key = "Block 5 ($A000), when expanded"
+values = ["RAM", "ROM (read only)"]
+when = "reset"
+reg_bind = { reg = "machine.ram_ro", mask = 0x10, bytes = [0x00, 0x10] }
+
+[[core_setting]]
+key = "JiffyDOS"
+values = ["Off", "On"]
+when = "reset"
+apply = "vc20.set_jiffy"
+
+# T214: an external datasette on the C2N port (GitHub #26): tape.tape_pin, the fields motor and write driven, read_sense the machine's inputs. Off releases every pin.
+[[core_setting]]
+key = "Datasette port"
+values = ["Off (file only)", "External datasette"]
+reg_bind = { reg = "tape.tape_pin", mask = 0x13, bytes = [0x00, 0x13] }
+
+# drive A (cbm1541_desc.h CBM1541_SETTINGS): the names and the defaults are Gideon's (c1541.cc:46-62): drive on, bus ID 8, no extra RAM, 100 ms swap delay
+[[core_setting]]
+key = "Drive"
+values = ["Disabled", "Enabled"]
+default = 1
+apply = "drive.set_power"
+
+[[core_setting]]
+key = "Drive Bus ID"
+values = ["8", "9", "10", "11"]
+apply = "drive.set_bus_id"
+
+[[core_setting]]
+key = "Extra RAM"
+values = ["Disabled", "Enabled"]
+apply = "drive.set_ram"
+
+[[core_setting]]
+key = "Disk swap delay"
+values = ["100 ms", "200 ms", "300 ms", "400 ms", "500 ms", "600 ms", "700 ms", "800 ms", "900 ms", "1000 ms"]
+apply = "drive.set_swap_delay"
+
+[[core_setting]]
+key = "LED Load Indicator"
+values = ["On", "Off"]
+apply = "led.load"
+
+# ---- tasks
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true
+
+[[task]]
+label = "Reload ROMs, reset"
+op = "machine.reload_roms"
+closes_menu = true
+
+[[task]]
+label = "Reset Drive"
+op = "drive.reset"
+bind = [ { arg = "slot", str = "iec:drive_a" } ]
+
+[[task]]
+label = "Create blank D64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "d64" }, { arg = "name", str = "" } ]
+ask = "Name of the new D64"
+ask_state = "drive.suggest.d64"
+pick_dir = true
+
+[[task]]
+label = "Create blank G64"
+op = "drive.create"
+bind = [ { arg = "path", text = true }, { arg = "format", str = "g64" }, { arg = "name", str = "" } ]
+ask = "Name of the new G64"
+ask_state = "drive.suggest.g64"
+pick_dir = true
+
+[[task]]
+label = "Save Disk as D64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "d64" } ]
+ask = "Save as D64, name"
+ask_state = "drive.suggest.save_d64"
+
+[[task]]
+label = "Save Disk as G64"
+op = "drive.save"
+bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]
+ask = "Save as G64, name"
+ask_state = "drive.suggest.save_g64"
+
+# ---- media slots
+[[media]]
+name = "Program"
+state = "vc20.program"
+
+[[media]]
+name = "Drive A:"
+state = "drive.drive_a.image"
+eject_op = "drive.eject"
+eject_bind = [ { arg = "slot", str = "iec:drive_a" } ]
+exts = ".d64,.g64"
+mount = "Mount Disk"
+empty_tasks = "Create blank D64,Create blank G64"
+mounted_tasks = "Save Disk as D64,Save Disk as G64,Reset Drive"
+
+# ---- file types
+[[filetype]]
+ext = ".prg"
+  [[filetype.action]]
+  label = "Run PRG"
+  op = "vc20.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load PRG (no reset, no start)"
+  op = "vc20.load_prg"
+  bind = [ { arg = "path", file = true } ]
+
+[[filetype]]
+ext = ".p00"
+  [[filetype.action]]
+  label = "Run PRG"
+  op = "vc20.run_prg"
+  bind = [ { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Load PRG (no reset, no start)"
+  op = "vc20.load_prg"
+  bind = [ { arg = "path", file = true } ]
+
+# a disk image is a folder for the browser: `inner` are the actions of the PRGs inside it
+[[filetype]]
+ext = ".d64"
+inner_ext = ".prg"
+  [[filetype.action]]
+  label = "Mount Disk"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Browse Disk"
+  op = "menu.browse"
+  bind = [ { arg = "path", file = true } ]
+  [[filetype.inner]]
+  label = "Mount & Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "dma" } ]
+  closes_menu = true
+  [[filetype.inner]]
+  label = "Real Run"
+  op = "drive.mount_run_file"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "how", str = "load" } ]
+  closes_menu = true
+
+[[filetype]]
+ext = ".g64"
+  [[filetype.action]]
+  label = "Mount Disk"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "rw" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Read Only"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "ro" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Mount Disk Unlinked"
+  op = "drive.mount"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true }, { arg = "mode", str = "unlinked" } ]
+  closes_menu = true
+  [[filetype.action]]
+  label = "Run Disk"
+  op = "drive.mount_run"
+  bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", file = true } ]
+  closes_menu = true
+
+# the 1541 ROM of a file picked in the browser goes through the JiffyDOS choice (vc20.set_drive_rom), not the library's own set_rom
+[[filetype]]
+ext = ".rom"
+  [[filetype.action]]
+  label = "Set as 1541 ROM"
+  op = "vc20.set_drive_rom"
+  bind = [ { arg = "path", file = true } ]
+
+# ---- hotkeys (hk_defaults.h hk_cbm): CTRL + RESTORE menu, + R reset, + "+" / "-" volume, + J swap joystick ports, + P picture mode. Keys as hotkeys.h: 0-63 = col * 8 + row, 64 = RESTORE, 255 = none
+[hotkeys]
+mod = [58, 255]
+actions = [64, 40, 43, 17, 34, 41, 255]
+own_keys = [56, 59, 8, 11, 16, 19, 24, 27, 32, 35]          # the digit keys: CTRL + 1..8 are the colours and CTRL + 9 / 0 reverse on / off
+
+# the slot of the core's own media engine; its three functions (spec, mount, eject) are the drive library's code
+[mount]
+names = ["Drive A"]

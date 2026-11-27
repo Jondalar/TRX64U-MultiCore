@@ -39,6 +39,7 @@ page net|Network|C colours    V picture
 page settings|Settings|UP/DOWN select    LEFT/RIGHT or RETURN change    V picture
   settings.direct|Direct boot|on|The auto core starts at power-on without the menu. C= or fire on port 1 at power-on shows the menu.|
   settings.hdmi|Picture|from the screen: 1920 x 1080|Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. RETURN opens the modes the screen names; V opens them from every view. Nothing is applied while you browse.|
+  settings.av|Analogue out|RGB|The menu and the cores' pictures on the A/V port, for a SCART RGB cable. off: nothing on the port. Saved at once.|
   settings.protect|Protect Flash from updates|on|On: a large core gets the machine with the host and its app (flash 0x000000-0x3FFFFF) locked until power-off. Flash chip ef4018: status registers SR1 34, SR2 01 now.|
   settings.wifi|WiFi|open|Use DHCP or static addresses, the access point list, enter an access point, connect to the last one, disconnect, forget. The cores show the WiFi and switch it on and off.|
   settings.ftp|FTP service|on, port 21, no password|Switches the FTP file service. Stored in host.cfg; the listener follows at once, a connection that is already open ends with its session.|

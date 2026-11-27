@@ -1,0 +1,21 @@
+# The description of the example core (T239.3 D17, D32, S17): its identity, the library that is its code, and its menu, one file; the core has no descriptor compiled into the app. `bin/menusim --desc app/desc.toml` shows the menu at once and shows it again when
+# the file changes (Cmd+R); `tools/cor_pack.py pack ... --desc app/desc.toml` puts the compiled record into the .cor. The tab, the group and the order of a row are its place in this file.
+[core]
+id = "EXMP"
+name = "Example"
+title = "Example core"
+short_title = "EXMP"
+folder = "example"
+store = "Example Settings"
+min_contract = 1
+reset_ms = 20
+hooks = "example"             # the code of the core is the library example (../example.cc): it exports the core hooks (api.md 9.7)
+
+[[area]]
+key = "F1"
+name = "Example"
+  [[area.tab]]
+  id = "example"
+  name = "Example"
+  widget = "info"
+  n = 1

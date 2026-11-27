@@ -5,14 +5,15 @@
 #include "picture.h"
 #include "volume.h"
 #include "tone.h"
+#include "baseset.h"
 #include "hotkeys.h"
 #include "home.h"
 #include "engines.h"
 #include "mediamounts.h"
 #include "settings_ops.h"
-#include "update.h"
 #include "writeback.h"
-#include "pad.h"
+#include "pad_api.h"
+#include "libtab.h"
 #include "libfiles.h"
 #include <stdio.h>
 #include <string.h>
@@ -65,15 +66,21 @@ void ops_register_base(OpRegistry &r)
     picture_register(r);
     volume_register(r);
     tone_register(r);
+    baseset_register(r);
     hk_register(r);
     home_register(r);
     settings_register(r);
-    update_register(r);
     wb_register_ops(r);
-    pad_register(r);
+    if (const PadApi *p = (const PadApi *)libtab_export(PAD_API_NAME, 1)) {       // the gamepad library's operations and states (pad_api.h); an app linked without it has none
+        if (p->size >= sizeof(PadApi)) {
+            p->register_ops(r);
+        }
+    }
     netops_register(r);                                            // T210 D1: WiFi, Ethernet and the streams are the board's, every core has them
     libfiles_register(r);                                          // the Library's file operations belong to the F3 browser, which every core has
 }
+
+void (*ops_record_groups)(OpRegistry &r, const CoreDesc *d) = 0;
 
 OpRegistry *ops_of(CoreCtx *c)
 {
@@ -82,6 +89,8 @@ OpRegistry *ops_of(CoreCtx *c)
         ops_register_base(*c->ops);
         if (c->desc && c->desc->register_ops) {
             c->desc->register_ops(*c->ops);
+        } else if (c->desc && c->desc->from_record && ops_record_groups) {
+            ops_record_groups(*c->ops, c->desc);
         }
     }
     return c->ops;
@@ -164,11 +173,16 @@ static void ask_set(CoreCtx *c, uint8_t kind, const char *op, int phase, const c
     c->want_prompt.kind = kind;
     c->want_prompt.phase = phase;
     c->want_prompt.maxlen = maxlen;
+    c->want_prompt.any = false;
     snprintf(c->want_prompt.op, sizeof(c->want_prompt.op), "%s", op);
     snprintf(c->want_prompt.prompt, sizeof(c->want_prompt.prompt), "%s", prompt);
     snprintf(c->want_prompt.src, sizeof(c->want_prompt.src), "%s", src);
 }
-void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret) { ask_set(c, secret ? 2 : 1, op, phase, prompt, "", maxlen); }
+void ops_ask_text(CoreCtx *c, const char *op, int phase, const char *prompt, int maxlen, bool secret, bool any)
+{
+    ask_set(c, secret ? 2 : 1, op, phase, prompt, "", maxlen);
+    c->want_prompt.any = any;
+}
 void ops_ask_list(CoreCtx *c, const char *op, int phase, const char *prompt, const char *src) { ask_set(c, 3, op, phase, prompt, src, 0); }
 
 const char *ops_state(CoreCtx *c, const char *name)

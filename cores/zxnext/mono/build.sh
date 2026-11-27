@@ -2,16 +2,16 @@
 # Build the ZX Spectrum Next as a LARGE core (T116): the flat full bitstream, and with --app-bin the .cfw.
 #
 #   cores/zxnext/mono/build.sh [--build-dir <name under host/>] [--stop synth|place|route]
-#   cores/zxnext/mono/build.sh --pack --bit host/build_mono_zxnext/zxnext_mono.bit --app-bin <coreapp.bin> [--out <dir>]
+#   cores/zxnext/mono/build.sh --pack --bit host/build_mono_zxnext/zxnext_mono.bit --app-bin <zxnext.app> [--out <dir>]
 #
 # Build: run it inside vivado-env:2024.1 (vivado on the PATH) at the repository root, e.g. on the builder
 #   docker run --rm --name zxnext-mono -v $PWD:/src -w /src vivado-env:2024.1 nice -n 15 timeout 3h cores/zxnext/mono/build.sh
 # Vivado's working directory is host/ (cores/zxnext/mono/build_mono.tcl keeps only the output there and reads the host's files from its own copy, cores/zxnext/mono/host/; nothing under host/ is
 # edited). Output in host/<build-dir> (default build_mono_zxnext): zxnext_mono.bit, timing.rpt, utilization*.rpt, route_status.rpt,
 # vivado.log. Exit 1 when there is no bitstream or the setup slack is negative.
-# Pack: tools/pack_cfw_mc.sh makes zxnext.cfw out of the bit and the generic application (coreapp.bin of tools/build_coreapp.sh);
+# Pack: tools/pack_cfw_mc.sh makes zxnext.cfw out of the bit and an application image: the Next's own app (cores/zxnext/app, the step build of ci/lane.sh core:zxnext), since T239.5 D15 not the shared coreapp.bin, which has no ZX Next record any more;
 # it needs the `container` CLI and the u64-build-env image (or --native inside it), not Vivado.
-#   cores/zxnext/mono/build.sh --pack-cor --bit host/build_mono_zxnext/zxnext_mono.bit --app-bin <coreapp.bin> [--out <dir>]   the large .cor (tools/pack_large_cor.sh, python3 only)
+#   cores/zxnext/mono/build.sh --pack-cor --bit host/build_mono_zxnext/zxnext_mono.bit --app-bin <zxnext.app> [--out <dir>]   the large .cor (tools/pack_large_cor.sh, python3 only)
 # The descriptor is cores/zxnext/mono/core.toml (the only one; the pipeline reads it there); TRX_CORE_DESC names it for the tools run from here.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

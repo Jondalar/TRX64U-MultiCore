@@ -2,6 +2,7 @@
 #ifndef COREAPP_CTX_H
 #define COREAPP_CTX_H
 
+#include <strings.h>
 #include "desc.h"
 #include "settings.h"
 #include "handover.h"
@@ -11,7 +12,9 @@
 class Video;
 class OpRegistry;
 class Executor;
+class CoreLock;
 class PartialPort;
+class CoreDialogs;
 
 // What the Library shows and has marked (T104.2 UI): the menu writes it as the browser moves, the file operations (fileops.cc) read it. One writer, and the
 // operations run while the menu waits for them, so there is no lock.
@@ -29,6 +32,8 @@ struct LibSel {
     bool mark_all, mark_none;             // asked by an operation, taken by the menu
     char home[200];                       // the home folder ("" none)
     char want_dir[200];                   // an operation asks the Library to open this folder (the Home desk), taken by the menu
+    char want_name[FS_NAME_MAX + 1];      // with want_dir (T262 D4): the entry the cursor stands on after the folder is read ("" none: the top)
+    bool want_sheet;                      // with want_name: the action sheet of that entry opens, as RETURN on it (MenuCtl::take_screen)
 };
 
 struct CoreCtx {
@@ -63,14 +68,19 @@ struct CoreCtx {
         uint8_t kind;
         int phase;
         int maxlen;
+        bool any;                       // kind 1, 2: the text is free (every printable character); false: a name, without / \ : * ? " < > | (T262 D4: the opt-in of ops_ask_text)
         char op[40];
         char prompt[80];
         char src[40];
     } want_prompt;
+    uint8_t menu_op;                    // > 0 while an operation the menu called runs (menuctl.cc): only then may an operation ask the person (ops_ask_list through the service)
     const struct MenuMerge *merge;       // what libraries, applications and the description put into the menu (contrib.h); null: nothing
     struct Engines *eng;                  // the media and ROM engines' state (engines.h); null until a core that declares one asks
     OpRegistry *ops;                    // the service layer (ops.h); null until something asks for it
     Executor *exec;                       // the one task that runs operations; null: they run on the caller (tests, before the start)
+    CoreLock *lock;                       // the core lock (exec.h), set with exec; null: none (tests, before the start)
+    bool identity_refused;                // P1-4: the bitstream that runs is not the one TOML A names: no release path lets the core go, no poll starts (run.cc, boot.cc)
+    char identity_why[240];               // the reason, as the start notice told it
     bool program_loaded;                  // a program the core needs (NES) is in
     char notice[200];                     // one line for the screen from a service (a failed write-back), told once
     bool notice_pending;
@@ -88,6 +98,8 @@ struct CoreCtx {
     char job_path[260];                   // the file being written, written by the operation once it is placed
     // The files the core's bundle installs on the card (record 8, instfiles.h): the application sets it, null in builds that link no bundle; -1 = cannot write.
     int (*install_files)(CoreCtx *c);
+    // T260 P7: the application host's dialogs for a core whose code asks the person (coredlg.h); null in builds that have none (tests, before the start).
+    CoreDialogs *dialogs;
     // T104.3: the operation `app.open` asks the application host (apphost.h) to open an application; null: this build has none. The answer is the operation's.
     int (*app_open)(CoreCtx *c, const char *app, const char *action, const char *file, char *msg, int msglen);
     // T228 R21: the action an application adds to one file when its actions are listed ("Run with App", FW user_file_interaction.cc:55-76), null: none. The application sets it.
@@ -103,6 +115,9 @@ struct CoreCtx {
     // (mediamounts.cc); null: nothing to store (tests of an engine alone).
     void (*mount_changed)(CoreCtx *c, int slot);
     bool mounts_ready;                    // the start has mounted what the .cfg stores; from here on a mount or unmount is stored
+    // SvcCtx::mount_notify (libsvc.cc) marks, any task: byte i = slot i of CoreDesc::mount_slots (the RISC-V build has no atomic instructions: one byte each, set by the
+    // notifier, cleared by mounts_pass before it reads the spec, so a mark that comes in meanwhile is stored again at the next pass).
+    volatile uint8_t mounts_dirty[32];
     // The machine is held and its caller releases it: the stored media are being mounted at the start, or a media set is being loaded. A mount then does not
     // reset or release the machine (boot_cold_reset applies the reset-time settings and returns, boot_finish does nothing), the caller does it once.
     bool media_restoring;
@@ -111,10 +126,43 @@ struct CoreCtx {
 // T198: the file the settings live in - the config of this run, else the core's own .cfg.
 static inline const char *ctx_settings_path(const CoreCtx *c) { return c->settings_path[0] ? c->settings_path : c->cfg_path; }
 
+// base 3.3 (svc_ctx.h target_path, libsvc.cc): where a new file of the menu goes: media_dir, else the first medium of the root except /flash; `ext` is added when `name` has none.
+// False when there is no medium (out is not written).
+bool ctx_target_path(CoreCtx *c, const char *name, const char *ext, char *out, int n);
+
+// A setting's value index by key (cheap after the first call: the key literal's address is the cache's key), `def` when the core has no such setting; and a text setting's
+// text with the leading blanks cut ("" when empty or unknown). settings.cc. The shorthand of svc_settings.h cfg_value and cfg_text for the application's own code.
+int cfg_value(CoreCtx *c, const char *key, int def);
+// A range setting's number (desc.h Setting::base + the chosen index: what its `apply` operation receives); `def` when the core has no such setting.
+int cfg_number(CoreCtx *c, const char *key, int def);
+const char *cfg_text(CoreCtx *c, const char *key);
+
 static inline void mount_notify(CoreCtx *c, int slot)
 {
     if (c->mount_changed) {
         c->mount_changed(c, slot);
+    }
+}
+
+// The index of the slot `name` in the core's [mount] list (MountSlots::names, compared without regard to case), -1 when the core has no such slot.
+static inline int mount_slot_index(const CoreCtx *c, const char *name)
+{
+    const MountSlots *ms = c && c->desc && name ? c->desc->mount_slots : 0;
+    for (int i = 0; ms && i < ms->n; i++) {
+        if (!strcasecmp(ms->names[i], name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// What the shared engines call (the cartridge port: "Cartridge", the drive library: "Drive A"): the slot is looked up by its name in the running core's list, so the core's order
+// does not matter. A name the core does not list: nothing is told.
+static inline void mount_notify_name(CoreCtx *c, const char *name)
+{
+    int i = mount_slot_index(c, name);
+    if (i >= 0) {
+        mount_notify(c, i);
     }
 }
 

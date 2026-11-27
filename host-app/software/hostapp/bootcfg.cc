@@ -11,6 +11,7 @@ void bootcfg_init(BootCfg *c)
     c->direct = 1;
     c->vid_sys = -1;
     c->vid_hdmi = -1;
+    c->vid_av = 1;
     c->lib_attempt = 0;
     c->def = -1;
 }
@@ -53,6 +54,8 @@ void bootcfg_parse(BootCfg *c, const char *text)
                 int hdmi = comma ? atoi(comma + 1) : -1;
                 c->vid_sys = (sys < 0 || sys > 5) ? -1 : sys;
                 c->vid_hdmi = (hdmi < 0 || hdmi >= 6) ? -1 : hdmi;
+                const char *comma2 = comma ? strchr(comma + 1, ',') : 0;
+                c->vid_av = (comma2 && comma2[1] == '0') ? 0 : 1;
             } else if (!strncmp(p, "lib_attempt=", 12)) {
                 int v = atoi(p + 12);
                 c->lib_attempt = (v < 0) ? 0 : (v > 99 ? 99 : v);
@@ -102,8 +105,11 @@ void bootcfg_parse(BootCfg *c, const char *text)
 
 int bootcfg_format(const BootCfg *c, char *out, int max)
 {
-    int n = snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d\n",
-                     c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi);
+    // T265 D9: the A/V field is written only when it is off; RGB on is the default, so a file without it stays byte for byte the old one
+    int n = c->vid_av ? snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d\n",
+                                 c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi)
+                      : snprintf(out, max, "# TRX64 boot menu\ncountdown=%d\nautostart_s=%d\ndirect=%d\ndefault=%d\nvideo=%d,%d,0\n",
+                                 c->countdown, c->autostart_s, c->direct ? 1 : 0, c->def, c->vid_sys, c->vid_hdmi);
     if (c->lib_attempt > 0 && n >= 0 && n < max) {
         n += snprintf(out + n, max - n, "lib_attempt=%d\n", c->lib_attempt);
     }

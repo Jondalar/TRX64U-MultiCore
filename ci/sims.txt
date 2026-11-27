@@ -38,7 +38,7 @@
 1|mig_arb|600|ci/sim_iv.sh tb_mig_arb.v host/ddr2_port.v host/sim/mig_ui_model.v
 1|drive_mem|600|sh host/sim/drive_mem/run.sh
 2|flash_gate|900|sh host/sim/flash_gate/run.sh
-2|flash_boot|900|sh host/sim/flash_boot/run.sh
+2|flash_boot|3600|sh host/sim/flash_boot/run.sh
 1|dma_bus|600|sh host/sim/dma_bus/run.sh
 1|vc20|900|sh cores/vc20/sim/run.sh
 1|vc20_pixw|1200|sh cores/vc20/sim/run_pixw.sh
@@ -132,7 +132,7 @@
 2|nes|1800|sh cores/nes/sim/run.sh frame pal norender nonmi tone win cpu inv pause
 2|nes_maps|1800|sh cores/nes/sim/run.sh banks2 banks3 mmc1 mmc2 mmc3 mmc4 vrc24 mmc66 mmc34 mmc71 mmc79
 2|atari_machine|5400|sh cores/atari800/sim/machine/run.sh boot
-# T108 D1: the real XL OS boots a disk through the application's own SIO responder (coreapp/cores/atari_sio.cc compiled into the
+# T108 D1: the real XL OS boots a disk through the application's own SIO responder (cores/atari800/app/lib/atari_sio.cc compiled into the
 # simulator). Measured on the Mac in a container of 2 cores, two benches at a time: the boot 64 min (2.3 s of simulated time). The empty D1: that has to end at READY needs
 # 6.6 s of simulated time and is not here: it is the one mode run by hand (T108 5.3).
 # Tier 3 = never in the pipeline (Alex, 2026-10-17: "Raus ... Nur auf Knopfdruck"): four of these at 46-65 min
@@ -304,18 +304,22 @@
 1|ddt_novic_pins|120|sh cores/ddt_mandel/sim/run_pins.sh ddt_novic
 # T164 WP8 (G1): host/hdmi_out.v end to end, the GTP words decoded back to pixels and InfoFrames in 1080p50 (VIC path) and 576p50 (gear 5, pixel layer)
 2|hdmi_out|9000|sh host/sim/hdmi_out/run.sh
+# T265 P4: host/av_rgb.v (RGB out of the host) with the real pix_layer second requester, mig_arb and the MIG model: raster per standard, csync, FB, 11/16 levels, two-line average, 1:1 and crop, 4:3 squeeze, flip, std follows the core, off; the HDMI side reads the same buffer
+2|avrgb|7200|sh host/sim/avrgb/run.sh
 # T164 WP8 (S8): the VIC raster stays locked in 1080p (vic_scaler on hdmi_timing's counters, PAL and NTSC model, FRAMES frames each, default 100)
 2|vicscale|9000|sh host/sim/vicscale/run.sh
 # T175 S1: the probe engine of the Port Diagnostics core through its register window against a loop-back model (exact WAIT / timestamps / pin pulse, EDGES at the window's edge, time-to-flip, FIFO overflow, LOOP, GO, release at END / ABORT, live pins)
 1|diag_probe|900|sh cores/diag/sim/probe/run.sh
 # T175 D2: the open-drain joystick pads (released = the old pure input, 1024 combinations; drive low only; decouple) and their wiring in mono/top.v, layer2_diag.v, pins.xdc
 1|diag_pins|300|sh cores/diag/sim/pins/run.sh
-# T175 co-check: the step words the core application compiles from the four example tests run on the real probe engine (iverilog), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
-1|diag_co|1500|sh cores/diag/sim/co/run.sh
+# T175 / T260 co-check: the step words the diag application compiles from the four example tests run on the real probe engine v2 (iverilog, the four side by side, cd32 about 15 minutes), the FIFO words / PCs / STATUS go to a file the application's own runner decodes (tests/coreapp/diag_co.cc); the result file is compared with the peripheral model
+1|diag_co|2400|sh cores/diag/sim/co/run.sh
 # T201 S1: the diag core's A/V test picture encoder (diag_avout.v + diag_yc.v) word for word against the unedited copy of the C128 encoder, four standards
 1|diag_avenc|600|sh cores/diag/sim/avenc/run.sh
 # T201 S2, S10: every A/V knob register (0x50-0x5F of diag_regs.v) changes the encoder words as specified, live; the sync knobs (D4) give the specified csync (tb_avsync, a second top of tb_avregs.v, run beside it)
 1|diag_avregs|1500|sh cores/diag/sim/avregs/run.sh
+# T259 S1, S2, S3: the diag core's channel map (names / scan groups), channel probe, RGB mode and SYNCn / FB knobs through the register bus, on the ball vectors (tb_avmap, 40 units)
+1|diag_avmap|1500|sh cores/diag/sim/avmap/run.sh
 # T159 (iverilog + wiring check, seconds): the 1541 drive LEDs reach drive_leds_n through cores/c1541/drive_leds_map.v (motor alone: floppy lit, hard disk dark), per core
 1|c1541leds_c128|120|sh cores/c1541/sim/run_leds.sh c128
 1|c1541leds_c264|120|sh cores/c1541/sim/run_leds.sh c264

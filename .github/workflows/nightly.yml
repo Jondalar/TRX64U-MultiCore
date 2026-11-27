@@ -46,6 +46,9 @@ jobs:
       - id: owners
         run: echo "owners=$(python3 ci/orchestrate.py owners --tier 2)" >> "$GITHUB_OUTPUT"
   sims:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Benches (tier 2)
     needs: owners
     strategy:
@@ -60,6 +63,9 @@ jobs:
   # T174 D2.6: the render benches and file benches of the applications also run once a night (a push of a branch runs them only when a fundamental file is
   # touched, ci/fundamental.txt); the stage's own PASS marker skips them when nothing they read changed.
   apptests:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Application tests, render and file benches
     needs: owners
     uses: ./.github/workflows/apptests.yml

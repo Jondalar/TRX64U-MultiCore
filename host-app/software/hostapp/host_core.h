@@ -163,6 +163,7 @@ void hc_picture_mirror_test(int sys, int hdmi);          // the bench's way to a
 bool hc_picture_keep(void);                              // any input during the question: keeps the mode and stores it; false when there was no question
 void hc_protect_set(bool on);
 void hc_ftp_set(bool on);
+void hc_av_set(bool on);                                 // T265 P4: the A/V port (RGB / off) stored in boot.cfg `video=` and written to the host at once
 
 
 // ---- the start sequence (T192.2 P3, D13) ---------------------------------------------------------------------------------------------------------

@@ -1,0 +1,260 @@
+# TOML A of the NES core (T239.3 D55, T239.5 D15): the gateware's registers as capabilities, written from what cores/nes/trx/nes_regs.v decodes (tools/rtl_check.py proves it against the RTL, code to
+# code: tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the
+# core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6
+# (0x101A6000-0x101A6FFF) is decoded by nes_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The core has no drive and no
+# IEC bus. desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the core are named nes_*: the shared native units compile the NES's library into one
+# driver table with the Atari 800 XL's library (tests/coreapp/nes_drv.sh), whose block names (machine, video, irq ...) are the same words.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "NES_"
+block = "ident"
+
+# 000-00B: the ID "NES_" (byte 0 first; a build with ID_TRX2 = 1 answers "TRX2", layer2_nes.v sets 0), the caps bytes (0xC0: page 6 and the RGB565 pixel layer, the host's; caps2 0x02: BUILD is there) and the build word (USR_ACCESS)
+[[block]]
+name = "ident"
+module = "nes_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x0C
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x05
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b5 a NES frame is complete, b6 the host's video frame start, b7 page flip done
+[[block]]
+name = "nes_irq"
+module = "nes_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x08
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "nes_ddr_cal"
+module = "nes_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x08
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x04
+  width = 32
+  dir = "r"
+
+# 0A0-0AD: the machine. ctrl b0 reset hold, b1 halt (Freeze); system b1:0 console type 0 NTSC, 1 PAL, 2 Dendy (set while the reset is held); joy b0 swaps the host's joystick ports 1 and 2 (live);
+# status b0 in reset, b1 held (Freeze); frames the NES frame counter (low 16 bits); cpuaddr the CPU's address bus (a sample)
+[[block]]
+name = "nes_machine"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0x0E
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "system"
+  offset = 0x01
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy"
+  offset = 0x02
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x04
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "frames"
+  offset = 0x08
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0x0C
+  width = 16
+  dir = "r"
+
+# 0B0-0BB: the line fetches of the PRG and CHR caches and the clocks the machine was held for a fetch
+[[block]]
+name = "nes_cache"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x0C
+  [[block.property]]
+  name = "miss_prg"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "miss_chr"
+  offset = 0x04
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "stall"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the
+# reset values of base_r and stride_r in nes_regs.v (the DDR2 window at 0x01000000 + 0xD00000, four buffers 1 MB apart)
+[[block]]
+name = "nes_video"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0x0C
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x00
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x01
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x02
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x04
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x08
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D0-0D4: the cartridge image. cart_base the DDR2 byte address of the image (PRG at +0, CHR at +0x200000; bits 3:0 ignored); win_page b4:0 the 64 KB page of the DMA window (nes_win)
+[[block]]
+name = "nes_cart"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0x05
+  [[block.property]]
+  name = "cart_base"
+  offset = 0x00
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01000000
+  [[block.property]]
+  name = "win_page"
+  offset = 0x04
+  width = 8
+  dir = "rw"
+
+# 0E0-0EF: the 16 bytes of the image's iNES header (byte 0 at 0E0); nes_flags makes the mapper word, the masks and the mirroring of them; written while ctrl.reset_hold holds the reset
+[[block]]
+name = "nes_ines"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00E0
+size = 0x10
+  [[block.property]]
+  name = "hdr"
+  offset = 0x00
+  width = 8
+  count = 16
+  dir = "rw"
+
+# 0F8, 0FA: the USB pad of player 1 and 2 (T156), written by the application on every report; bit 0 A, 1 B, 2 Select, 3 Start, 4 Up, 5 Down, 6 Left, 7 Right (the controller's own order)
+[[block]]
+name = "nes_pad"
+module = "nes_regs"
+owner = "core"
+address = 0x101A00F8
+size = 0x03
+  [[block.property]]
+  name = "pad1"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "pad2"
+  offset = 0x02
+  width = 8
+  dir = "rw"

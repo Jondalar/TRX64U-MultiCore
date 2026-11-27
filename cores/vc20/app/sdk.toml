@@ -1,0 +1,62 @@
+# TOML B of the VIC-20's app (T239.3 D28 point 3, D31, V-4): what its own app is linked from. The app is built from the SDK package alone (tools/sdk_core_app.sh, ci/trxapps.sh);
+# nothing else is in its link: the base's archives, the sources the base compiles for the core, the libraries named below and the blocks its TOML A names (tools/libtab.py mapcheck proves it
+# on the link map). The base's own tools read the same file: tools/app_build.py (the link), tools/libtab.py (the library table), tools/cor_pack.py --sizes (the heap figures, P4-1) and
+# tools/core_toml.py (the switch desc_record).
+[app]
+name = "vc20"
+# D25: the packers put desc.toml into the .cor as record 6 and the app takes the core's data from it (coreapp/src/bundle.cc)
+desc_record = true
+# the symbol of the core's descriptor (the library vc20 below defines it); the core table of this app holds this core only
+desc = "vc20_desc"
+# TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the VIC-20 runs on the host bitstream,
+# V-4b) that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (the VIC-20 is a partial core: it can return to the host), the IEC block,
+# whose version byte the board's IEC probe reads, and audio_master (the host's master volume and tone: the rows Volume and Tone, T239.3 D36, as the VIC-20 had them before V-4). The drive window is the VIC-20's own block drive_a (gateware.toml: the registers its drive_l2 has, no WD177x); the block drive_wd of the host is
+# not taken, so the drive library's WD177x code (d1541_wd.cc, the library's source as in the shared app's TOML B, S12) compiles to nothing: the whole file is inside #ifdef DRV_HAS_drive_wd. No block of the cartridge page (c64cart), the ring (c64_debug), the DMA window (dma) or cmd_if is named, so board.cc runs no
+# cartridge, ring, REU or command interface probe in this app.
+toml_a = "gateware.toml"
+base_toml_a = "host.toml"
+base_blocks = ["cart_regs", "icap_id", "icap_data", "icap_enable", "icap_count", "partition", "iec_status", "audio_master"]
+
+# The core's own code: its descriptor and hooks (init, release, the operations of the ROM and PRG handling, the register map). Its files are in cores/vc20/app/lib.
+[[library]]
+name = "vc20"
+sources = ["vc20.cc"]
+headers = ["vc20_regs.h"]
+needs = ["cbm1541", "cbmrun"]
+# T239.5 D4: the tests of the library, by the step of the matrix (units of tests/coreapp/run.sh, built as this app: vc20app): unit = 2 unit tests (the descriptor against the
+# model of its register block), service = 8 mock bitstream -> service, ui = 9 service -> UI, api = 10 service -> API: its operations through the service call the REST and
+# RPC transports make (svc_call; the VIC-20's cases of the shared tests, TEST_APP_VC20)
+tests = { unit = ["vc20"], service = ["vc20_descgen", "vc20_romreq"], ui = ["vc20_desc", "vc20_hotkeys", "vc20_createflow", "vc20_ledcores"], api = ["vc20_memops"] }
+
+# The 1541 drive A on the IEC bus (the VIC-20's drive_l2): the shared library, the same sources as trx64u's app links (S12)
+[[library]]
+name = "cbm1541"
+sources = ["cbm1541.cc", "d1541_drive.cc", "d1541_gcr.cc", "d1541_wd.cc", "cbm1541_exports.cc"]
+headers = ["cbm1541.h", "cbm1541_desc.h", "cbm1541_api.h", "d1541_drive.h", "d1541_gcr.h", "d1541_wd.h"]
+bind = "cbm1541_bind"
+exports = [{ name = "cbm1541", major = 1, table = "cbm1541_table" }]
+register_ops = "cbm1541_register"
+capability = "drive_a"
+needs = ["newfile"]
+# T239.5 D4: the drive library on this app's descriptor against the model of drive A (with the WD177x block: cbm1541_wd), and the mounts of its media engine
+tests = { unit = ["cbm1541", "cbm1541_wd"], service = ["vc20_mounts"] }
+
+# Run PRG and Load PRG (cbm_run.cc) on the BASIC loader of the CBM family
+[[library]]
+name = "cbmrun"
+sources = ["cbm_run.cc"]
+headers = ["cbm_run.h"]
+needs = ["cbmprg"]
+
+[[library]]
+name = "cbmprg"
+sources = ["cbm_prg.cc", "cbmprg_exports.cc"]
+headers = ["cbm_prg.h", "cbmprg_api.h"]
+bind = "cbmprg_bind"
+exports = [{ name = "cbmprg", major = 1, table = "cbmprg_table" }]
+
+# The shared rule of a new file's folder and name (T122 D2, T239.3 L-2): the drive library makes its blank disks with it (needs, as in the shared app's TOML B: S12)
+[[library]]
+name = "newfile"
+sources = ["newfile.cc"]
+headers = ["newfile.h"]

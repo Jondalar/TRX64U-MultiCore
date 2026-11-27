@@ -5,17 +5,32 @@
 
 #include "ctx.h"
 #include "menuctl.h"
+#include "overlay.h"
 
 // LVGL up and every view built; the layer stays off until the first show. False without the pixel layer (the application
 // then runs on the console log only).
 bool ui_open(const CoreDesc *desc);
+void ui_set_desc(const CoreDesc *desc);       // the core the shell names once it is known, when ui_open ran before the description was made (run.cc coreapp_open_early)
 // T164 D10a: the menu's canvas (960 x 540, or the mode's own size below 960 wide): the view, the port and the display take it, the next render lays the menu out for it.
 void ui_set_canvas(int w, int h);
 
 // The layer is LVGL's (menu or message up) / is given back to the core's picture.
 void ui_show(void);
 void ui_hide(void);
-void ui_paused_tag(bool on);          // the paused machine with the menu closed: a keyed screen with one tag
+void ui_paused_tag(bool on);          // the machine is paused: the PAUSED tag, an element of the base UI TOML, shown by the overlay service while the menu is closed
+// T256: the overlay service on LVGL. ui_overlay_start gives it the merged table of the core's elements and the board's host; from then on ui_show, ui_hide, ui_live_key and
+// the transparency go through it (the holder, key and alpha of the layer are its plan, overlay.h ovl_plan). ui_overlay_frozen: the machine is held for the menu. UI task. ui_overlay() is null before the first start.
+void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_picture);
+void ui_overlay_frozen(bool on);
+void ui_overlay_closing(void);        // the menu's close has begun: a library's still that goes now causes no new still of the base's (OverlaySvc::closing)
+int ui_canvas_w(void);                // the canvas LVGL draws on now (follows the video mode); the overlay service places the elements on it
+int ui_canvas_h(void);
+OverlaySvc *ui_overlay(void);
+bool ui_still_under(void);            // the still lies under the screen: a page that is keyed otherwise (Timewarp) is transparent there, the still shows through
+// The key colour of the layer on (the machine's picture shows through it) or off. Every screen switches it here; on each change, and only then,
+// ui_live_key_changed is called with the new value (run.cc: the core's menu_video hook, hookhost.h). Task: the main loop.
+void ui_live_key(bool on);
+extern void (*ui_live_key_changed)(bool behind);
 bool ui_available(void);
 
 // A message view (start phase, errors): title line, text, colour. Visible after the next ui_poll().
@@ -72,12 +87,10 @@ bool ui_list_probe(UiListProbe *p);
 bool ui_status_probe(int *x1, int *y1, int *x2, int *y2, char *txt, int n);
 // Window moves and changed rows served by writing the rows again instead of building the pane (T104, 2026-10-22).
 uint32_t ui_inplace_moves(void);
+uint32_t ui_listv_builds(void);                    // T262 D4: list pages built from scratch (a key on the page writes it in place)
 void ui_menu_forget_rows(void);
 
-// "Overlay Transparency" (0..3 = 0, 25, 50, 75 %) and "Color Scheme" (0..6, trxview.h trx_scheme_set): from any task; the UI task takes them at its next render.
-void ui_set_look(int transparency, int scheme);
-// "Filename overflow squeeze" (T228 R21; 0 None, 1 Beginning, 2 Middle, 3 End): how a file name too long for its row is cut (trx_fit_name).
-void ui_set_name_squeeze(int quarter);
+// How a file name too long for its row is cut (trx_fit_name quarter): -1, no setting sets it (T239.3 D56).
 int ui_name_squeeze(void);
 
 // One pass of LVGL (render what changed). Returns the ms until the next pass is wanted, -1 when the layer is gone.

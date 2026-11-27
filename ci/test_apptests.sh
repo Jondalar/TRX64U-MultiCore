@@ -38,15 +38,15 @@ echo "ok   key: tests/coreapp moves coreapp, not hostapp"
 G checkout -q tests/coreapp/run.sh
 
 # (1b) T174 D3: the core application tests are one suite per group - a change to one core's file moves that core's key and `cross`, no other group's
-a0="$(K coreapp:amiga)"; v0="$(K coreapp:vc20)"; x0="$(K coreapp:cross)"; sh0="$(K coreapp)"
-echo "int x_$RANDOM;" >> "$R/coreapp/cores/vc20.cc"
-[ "$(K coreapp:vc20)" != "$v0" ] || fail "a changed vc20.cc did not move the coreapp:vc20 key"
-[ "$(K coreapp:cross)" != "$x0" ] || fail "a changed vc20.cc did not move the coreapp:cross key (its units link every core)"
-[ "$(K coreapp:amiga)" = "$a0" ] || fail "a changed vc20.cc moved the coreapp:amiga key"
-[ "$(K coreapp)" = "$sh0" ] || fail "a changed vc20.cc moved the shared coreapp key"
-G checkout -q coreapp/cores/vc20.cc
+a0="$(K coreapp:snes)"; v0="$(K coreapp:apple2)"; x0="$(K coreapp:cross)"; sh0="$(K coreapp)"
+echo "int x_$RANDOM;" >> "$R/coreapp/cores/apple2.cc"
+[ "$(K coreapp:apple2)" != "$v0" ] || fail "a changed apple2.cc did not move the coreapp:apple2 key"
+[ "$(K coreapp:cross)" != "$x0" ] || fail "a changed apple2.cc did not move the coreapp:cross key (its units link every core)"
+[ "$(K coreapp:snes)" = "$a0" ] || fail "a changed apple2.cc moved the coreapp:snes key"
+[ "$(K coreapp)" = "$sh0" ] || fail "a changed apple2.cc moved the shared coreapp key"
+G checkout -q coreapp/cores/apple2.cc
 echo "int x_$RANDOM;" >> "$R/coreapp/src/ops.cc"
-for pair in "coreapp=$sh0" "coreapp:cross=$x0" "coreapp:vc20=$v0" "coreapp:amiga=$a0"; do
+for pair in "coreapp=$sh0" "coreapp:cross=$x0" "coreapp:apple2=$v0" "coreapp:snes=$a0"; do
   [ "$(K "${pair%%=*}")" != "${pair#*=}" ] || fail "a shared source (coreapp/src/ops.cc) did not move ${pair%%=*}"
 done
 G checkout -q coreapp/src/ops.cc
@@ -54,16 +54,16 @@ G checkout -q coreapp/src/ops.cc
 sed -i.bak '/core_excl "\${1#coreapp:}"/s/; core_excl "[^"]*"//' "$R/ci/apptests.sh"
 cmp -s "$R/ci/apptests.sh" "$R/ci/apptests.sh.bak" && fail "control: the sed changed nothing"
 rm -f "$R/ci/apptests.sh.bak"
-a1="$(K coreapp:amiga)"; echo "int x_$RANDOM;" >> "$R/coreapp/cores/vc20.cc"
-[ "$(K coreapp:amiga)" != "$a1" ] || fail "control: without the exclusions a vc20 change still left coreapp:amiga alone, the check cannot tell"
-G checkout -q coreapp/cores/vc20.cc ci/apptests.sh
+a1="$(K coreapp:snes)"; echo "int x_$RANDOM;" >> "$R/coreapp/cores/apple2.cc"
+[ "$(K coreapp:snes)" != "$a1" ] || fail "control: without the exclusions an apple2 change still left coreapp:snes alone, the check cannot tell"
+G checkout -q coreapp/cores/apple2.cc ci/apptests.sh
 # the harness is in a suite key by CC_KEY_VERSION: a comment-only edit of tests/ctlcache.sh moves nothing, a raised number moves every suite
 echo "# a comment $RANDOM" >> "$R/tests/ctlcache.sh"
-[ "$(K coreapp:vc20)" = "$v0" ] && [ "$(K hostapp)" = "$h0" ] || fail "a comment-only edit of tests/ctlcache.sh moved a suite key"
+[ "$(K coreapp:apple2)" = "$v0" ] && [ "$(K hostapp)" = "$h0" ] || fail "a comment-only edit of tests/ctlcache.sh moved a suite key"
 sed -i.bak 's/^CC_KEY_VERSION=\([0-9]*\)/CC_KEY_VERSION=9\1/' "$R/tests/ctlcache.sh"; rm -f "$R/tests/ctlcache.sh.bak"
-[ "$(K coreapp:vc20)" != "$v0" ] && [ "$(K hostapp)" != "$h0" ] || fail "control: a raised CC_KEY_VERSION did not move the suite keys"
+[ "$(K coreapp:apple2)" != "$v0" ] && [ "$(K hostapp)" != "$h0" ] || fail "control: a raised CC_KEY_VERSION did not move the suite keys"
 G checkout -q tests/ctlcache.sh
-echo "ok   groups: a core's file moves that core's suite and cross; a shared source moves all; control: whole-tree keys would move amiga"
+echo "ok   groups: a core's file moves that core's suite and cross; a shared source moves all; control: whole-tree keys would move snes"
 
 # (2) markers, with stub suites
 export CI_APPTESTS_OK="$W/ok"

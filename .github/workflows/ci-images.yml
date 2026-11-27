@@ -2,7 +2,7 @@ name: CI images
 
 # T239.1 D12, D23: the build image, the emulator image and the simulation image (lint, benches) of GitHub's runners, pushed to ghcr.io with GITHUB_TOKEN. A push builds them when a
 # Dockerfile of them or this file changes; by hand on request. Every action is pinned by its full commit SHA (the tag is in the comment).
-# Only a run on main, integration or t239.1 logs in and pushes (the PUSH expression); a run on any other ref builds only, to prove the Dockerfile. This is no
+# Only a run on main, integration, t239.1 or t239.3 (T261 D8) logs in and pushes (the PUSH expression); a run on any other ref builds only, to prove the Dockerfile. This is no
 # protection against an account with Write access: it can push a feature branch with its own copy of this file, whose jobs get packages: write and push as
 # they like. What keeps such an image out of the pipeline is that the workflows name the images by digest (ghcr.io/<owner>/trx64u-build@sha256:...), never
 # by the moving :ci tag (step 7), and that a digest changes only in a commit that a review merged.
@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build:
     env:
-      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' || github.ref == 'refs/heads/t239.3' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -79,7 +79,7 @@ jobs:
   # The simulation image (lint and the benches, ci/sim/Dockerfile, T31) has no dependency on the others.
   sim:
     env:
-      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' || github.ref == 'refs/heads/t239.3' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -118,12 +118,12 @@ jobs:
           docker run --rm "$IMAGE" sh -c 'yosys -V; ghdl --version | head -1; shellcheck --version | head -2; ruff --version; python3 -c "import yaml; print(\"yaml ok\")"'
 
   # The emulator image is built on top of the build image from the registry, so it is built where the build image was pushed (the build job's output
-  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration or t239.1).
+  # push); on other refs the job does not run (its Dockerfile is proved on the next push to main, integration, t239.1 or t239.3).
   emu:
     needs: build
     if: needs.build.outputs.push == 'true'
     env:
-      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' }}
+      PUSH: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/t239.1' || github.ref == 'refs/heads/t239.3' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

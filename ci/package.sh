@@ -10,9 +10,16 @@
 # leaves its file out; the others are packed (D9.6); the pipeline starts the package only when every job before it is green.
 #
 # trx64u.cor and trx64g.cor (T239.1 D43, replacing D16): the builder packs them from release/imports/*.pin (ci/imports.py) and publishes them as entries
-# imp-<id>-<key>; collect hands them over as bit-imports, and they get the version form of this run here, trx64u.cor this run's coreapp_trx64u.bin.
+# imp-<id>-<key>; collect hands them over as bit-imports. trx64u.cor is TRX64-Ultimate's file (T239.3 D21, P1-8): the package takes it by the sha256 of its pin
+# (release/imports/trx64u.pin) and changes no byte; trx64g.cor too since T239.3 D46 (release/imports/trx64g.pin).
 #
 # The 100T bitstream is not part of this: the builder's target ue2 makes it by hand (T239.1 D16).
+#
+# T239.5 D13, D14: the matrix's whole package (ci/lane.sh package package, .github/workflows/matrix.yml) runs this script with CI_LANE_COR set, the directory that
+# holds each core lane's deliverable (deliver-<id>/<id>.cor, ci/lane.sh core:<id> deliver). Its trxapps hand-over is what the SDK lane and the host menu lane built:
+# no coreapps/. A core with an app of its own (tools/core_toml.py lanes) then takes its .cor from its lane, unchanged and checked against this package's host; every
+# other .cor core whose core.toml says app = blueprint gets a copy of the shared image. Without CI_LANE_COR (a run outside the matrix) a large core with an app of
+# its own is left out, out loud.
 #
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -92,15 +99,13 @@ cp "$c64u/wns.txt" "$out/wns.c64u.txt"
 # which is how trx64mc-main-51e89821 ended up carrying an application nobody had built from its commit.
 trxapps="$(need_stage trxapps)"
 cp "$trxapps/hostapp.app" "$trxapps/hostapp.elf" "$trxapps/coreapp.bin" "$trxapps/coreapp.elf" "$out/"   # T221: the ELF is stamped beside the image (release_promote.py rewrites both)
-for f in "$trxapps"/coreapp_*.bin; do [ -e "$f" ] && cp "$f" "${f%.bin}.elf" "$out/"; done   # T228 R25: the images of their own (trx64u)
 # T180 D9: Unzip, the one application every core reads from <root>/cores/apps/; the release bundle takes it from here (tools/release_mc.sh)
 [ -s "$trxapps/unzip.u2a" ] && cp "$trxapps/unzip.u2a" "$out/" || mark_red package unzip "stage trxapps made no unzip.u2a"
-# T197 P5: the zip library unzip.u2a loads (apps/miniz); the updater copies every .u2a beside the update file into <cores>/apps
-[ -s "$trxapps/miniz.u2a" ] && cp "$trxapps/miniz.u2a" "$out/" || mark_red package miniz "stage trxapps made no miniz.u2a"
-# T228 R21: the cartridge tools and Softboot, shipped the same way (the updater copies every .u2a beside the update file into <cores>/apps)
-for a in trex_crt softboot; do
-  [ -s "$trxapps/$a.u2a" ] && cp "$trxapps/$a.u2a" "$out/" || mark_red package "$a" "stage trxapps made no $a.u2a"
-done
+# T261 D6/D7: trex_crt.u2a and online.u2a are TRX64-Ultimate's: they come with the bit-imports below (the pin's U2A field), not from this stage; softboot.u2a is not shipped.
+# T239.3 D17, T239.5 D14: the SDK package of this run (built by the stage trxapps or by the matrix's SDK lane; the SDK release of T261 D4 publishes it), beside the apps
+sdkpkg=("$trxapps"/trx64-sdk-*.tar.gz)
+if [ "${#sdkpkg[@]}" -eq 1 ] && [ -s "${sdkpkg[0]}" ]; then cp "${sdkpkg[0]}" "$out/"
+else mark_red package sdk "stage trxapps made no SDK package, or more than one (${sdkpkg[*]##*/})"; fi
 cp "$trxapps/trxapps_commit" "$out/trxapps_commit"
 # T172: the host app is cached by the content of its tree, so the version string it was built with is that of the run that filled the cache. The
 # copy that ships is stamped with this run's version (the field TRXVSTAMP: in the image, host-app/target/common/rules.mk), before the .txu and the
@@ -113,20 +118,42 @@ for fld in "TRXVSTAMP hostapp" "TRXHSTAMP host" "TRXBSTAMP bundle"; do
 done
 python3 -I "$ROOT/tools/stamp_version.py" stamp "$out/coreapp.bin" "$out/coreapp.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
   || mark_red package stamp "tools/stamp_version.py could not stamp the core app"
-for f in "$out"/coreapp_*.bin; do
-  [ -e "$f" ] || continue
-  python3 -I "$ROOT/tools/stamp_version.py" stamp "$f" "${f%.bin}.elf" --version "$("$ROOT/ci/version.sh" coreapp)" \
-    || mark_red package stamp "tools/stamp_version.py could not stamp $(basename "$f")"
-done
 
-# The applications the .cor bundles are packed with: the stage's blueprint image of every core that has a descriptor (stage trxapps, coreapps/). trx64 is a
+# T265 P2 (S10): hostrecovery.app is the host app of this run, byte for byte (the stamped copy, so it equals the app part of the .txu and the application the installer writes): the recovery
+# program starts it from the root of a stick or the SD card when another firmware's updater replaced the application in the flash. It must come after the stamp above.
+cp "$out/hostapp.app" "$out/hostrecovery.app"
+cmp -s "$out/hostapp.app" "$out/hostrecovery.app" || mark_red package recovery "hostrecovery.app is not a copy of hostapp.app"
+
+# The applications the .cor bundles are packed with (stage trxapps, coreapps/): the blueprint image of every blueprint core, and for a core with a TOML B of its own
+# (cores/<id>/app/sdk.toml, tools/core_toml.py list-own-app) its app linked from the SDK package (T239.3 V-5, D25: the other cores keep the shared image until each is pulled). trx64 is a
 # Gideon-base build that lives in another tree and is not built in this repository (T93 5.2); a core without an application is named and skipped by
 # pack_cores_mc.sh.
 coreapps="$out/.coreapps"
 mkdir -p "$coreapps"
-cp "$trxapps/coreapps"/*.app "$coreapps/"
-python3 -I "$ROOT/tools/stamp_version.py" stamp "$coreapps"/*.app --version "$("$ROOT/ci/version.sh" coreapp)" \
-  || mark_red package stamp "tools/stamp_version.py could not stamp the version into the blueprint core apps"
+lane_cor="${CI_LANE_COR:-}" own_lanes=""
+if [ -n "$lane_cor" ]; then
+  # T239.5 D14: the lanes hand over the shared image (the SDK lane) and no coreapps/: a copy of it for every .cor core that runs it (app = blueprint in its core.toml,
+  # and no core lane); the .cor of a core lane comes from its lane, below
+  own_lanes="$(python3 -I "$ROOT/tools/core_toml.py" lanes)" || { echo "tools/core_toml.py lanes failed" >&2; exit 1; }
+  for c in $(python3 -I "$ROOT/tools/core_toml.py" list-cor); do
+    if awk -v c="$c" '$1 == c { f = 1 } END { exit !f }' <<< "$own_lanes"; then continue; fi
+    app="$(python3 -I "$ROOT/tools/core_toml.py" get "$c" app)"
+    [ "$app" != blueprint ] || cp "$trxapps/coreapp.bin" "$coreapps/$c.app"
+  done
+else
+  cp "$trxapps/coreapps"/*.app "$coreapps/"
+  # V-5: a core with a TOML B of its own must have its linked app here, and it is not the blueprint image the others were copied from (the stage checks it too; a hand-over from the cache or an older run must not slip past)
+  own_apps="$(python3 -I "$ROOT/tools/core_toml.py" list-own-app)" || mark_red package own-app "core_toml.py list-own-app failed"
+  for c in $own_apps; do
+    [ -s "$coreapps/$c.app" ] || mark_red package "$c" "stage trxapps made no linked app for $c (TOML B of its own)"
+    ! cmp -s "$coreapps/$c.app" "$trxapps/coreapp.bin" || mark_red package "$c" "coreapps/$c.app is the shared image, not the app linked from the SDK package"
+  done
+fi
+apps=("$coreapps"/*.app)
+if [ -e "${apps[0]}" ]; then
+  python3 -I "$ROOT/tools/stamp_version.py" stamp "${apps[@]}" --version "$("$ROOT/ci/version.sh" coreapp)" \
+    || mark_red package stamp "tools/stamp_version.py could not stamp the version into the blueprint core apps"
+fi
 ls -l "$coreapps"
 
 # The .cor files of this package, packed here instead of by hand on the Mac (T100 §5, 2026-10-14).
@@ -166,6 +193,14 @@ if [ -n "$mono" ]; then
     [ -e "$bit" ] || continue
     core="$(basename "$bit" _mono.bit)"
     echo "=== large .cor of $core"
+    # T239.5 D13: a large core with an app of its own (its TOML B names its descriptor) is no longer in the shared image this stage packs with; its
+    # matrix lane packs it with its own app (ci/lane.sh core:<id> package). The matrix's whole package takes that .cor below (D14); the old pipeline's
+    # package has no lane to take it from and leaves it out, out loud.
+    if [ -n "$(python3 -I "$ROOT/tools/core_toml.py" sdk "$core" desc 2>/dev/null)" ]; then
+      if [ -n "$lane_cor" ]; then echo "$core has an app of its own (cores/$core/app/sdk.toml): its .cor comes from its matrix lane (below)"
+      else echo "LEFT OUT out loud: $core has an app of its own (cores/$core/app/sdk.toml); its .cor comes from its matrix lane, not from the shared image"; fi
+      continue
+    fi
     desc="$ROOT/cores/$core/mono/core.toml"
     # T255 D6: app = "none" (the core's bitstream has no CPU): the application record is a 128 byte placeholder, not the generic core application
     appbin="$out/coreapp.bin"
@@ -189,27 +224,70 @@ else
   echo "no large-core lane handed anything over: no large core in this package"
 fi
 
-# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). A pin without APP_FILE (trx64u) gets this run's stamped image
-# coreapp_<id>.bin (else coreapp.bin) and its commit; every one gets the version form of this run (ci/imports.py finish).
+# T239.5 D13, D14: the .cor of every core lane (a core with an app of its own, tools/core_toml.py lanes) as its lane packed it (ci/lane.sh core:<id> package): its own
+# app, no byte changed here. A partial core's .cor must name this package's host (the AXSS word of c64_basic.bit), as pack_cores_mc.sh checks the ones it packs.
+if [ -n "$lane_cor" ]; then
+  hk=""; [ ! -f "$out/c64_basic.bit" ] || hk="$(python3 "$ROOT/tools/cor_pack.py" hostkey "$out/c64_basic.bit")"
+  cv="$(cat "$ROOT/contract/VERSION")"
+  while read -r c kind; do
+    [ -n "$c" ] || continue
+    f="$lane_cor/deliver-$c/$c.cor" src="from its matrix lane"
+    # T239.5 D24: a lane this run did not start (the plan does not touch it): its .cor of the base's package (ci/base_cor.py, the artifact base-cor), checked as a lane's
+    if [ ! -s "$f" ] && [ -s "$HANDOFF/base-cor/$c.cor" ]; then f="$HANDOFF/base-cor/$c.cor" src="from the base's package ($(cut -c1-60 "$HANDOFF/base-cor/FROM" 2>/dev/null))"; fi
+    if [ ! -s "$f" ]; then mark_red package "cor-$c" "the lane core:$c delivered no $c.cor ($f)"; continue; fi
+    chk=()
+    if [ "$kind" = dfx ]; then
+      if [ -z "$hk" ]; then mark_red package "cor-$c" "no c64_basic.bit (the host is red): $c.cor cannot be checked against this package's host"; continue; fi
+      chk=(--contract "$cv" --host-key "$hk")
+    fi
+    if python3 "$ROOT/tools/cor_pack.py" check ${chk[@]+"${chk[@]}"} "$f" > /dev/null; then
+      cp "$f" "$out/$c.cor"
+      echo "=== $c.cor ($kind): $src, $(wc -c < "$f") bytes, checked ${chk[*]:-as a flat .cor}"
+      # D24: the SD files of a core taken from the base's package come from there too (a lane that ran delivers its own below)
+      if [ "$f" = "$HANDOFF/base-cor/$c.cor" ] && [ -d "$HANDOFF/base-cor/SD/cores/$c" ]; then
+        mkdir -p "$out/SD/cores"; cp -R "$HANDOFF/base-cor/SD/cores/$c" "$out/SD/cores/"
+        echo "=== SD/cores/$c/ from the base's package: $(find "$HANDOFF/base-cor/SD/cores/$c" -type f | wc -l | tr -d ' ') files"
+      fi
+    else
+      mark_red package "cor-$c" "$c.cor of the lane core:$c fails tools/cor_pack.py check ${chk[*]:-(a flat .cor)}"
+    fi
+  done <<< "$own_lanes"
+  # T239.5 D21: the files a core lane delivers for the SD card (deliver-<id>/SD/..., T260 D6) go into this package's SD/ tree as they are, for every core that delivers one
+  # (SD/cores/<id>/ is /SD/cores/<id>/ on the card); tools/make_release_mc.sh --release leaves out those of the cores with [app] release = false
+  for d in "$lane_cor"/deliver-*/SD; do
+    [ -d "$d" ] || continue
+    mkdir -p "$out/SD"; cp -R "$d/." "$out/SD/"
+    echo "=== SD/ of ${d%/SD}: $(find "$d" -type f | wc -l | tr -d ' ') files"
+  done
+fi
+
+# T239.1 D43: trx64u.cor and trx64g.cor from the builder's entries (collect: bit-imports). Both pins have COR_SHA256 (T239.3 D21, D46): each file is checked
+# against its sha256 and taken unchanged (ci/imports.py finish).
 if [ -f "$HANDOFF/bit-imports/DONE" ]; then
   for c in "$HANDOFF/bit-imports"/*.cor; do
     [ -e "$c" ] || continue
     id="$(basename "$c" .cor)"
-    if grep -q '^APP_FILE=' "$ROOT/release/imports/$id.pin" 2>/dev/null; then appargs=()
-    else
-      app="$out/coreapp_$id.bin"; [ -f "$app" ] || app="$out/coreapp.bin"
-      appargs=(--app "$app" --app-commit "$(cut -c1-8 "$trxapps/trxapps_commit")")
-    fi
-    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" ${appargs[@]+"${appargs[@]}"} \
+    python3 -I "$ROOT/ci/imports.py" finish "$c" -o "$out/$id.cor" \
       && python3 "$ROOT/tools/cor_pack.py" check "$out/$id.cor" > /dev/null \
       || { rm -f "$out/$id.cor"; mark_red package "cor-$id" "ci/imports.py could not finish $id.cor"; }
   done
+  # T261 D7: the .u2a files the pins list (U2A), unchanged from the release of their .cor; a pin without U2A lists none (today's pin: the package carries no trex_crt.u2a, no online.u2a)
+  if u2a_names="$(python3 -I "$ROOT/ci/imports.py" u2a)"; then
+    [ -n "$u2a_names" ] || echo "no pin lists a U2A file: the package carries no trex_crt.u2a and no online.u2a"
+    for a in $u2a_names; do
+      if [ -e "$out/$a" ]; then mark_red package "$a" "the package already holds $a: an imported .u2a does not replace it"
+      elif [ -s "$HANDOFF/bit-imports/$a" ]; then cp "$HANDOFF/bit-imports/$a" "$out/"
+      else mark_red package "$a" "bit-imports hold no $a that the pin lists"; fi
+    done
+  else
+    mark_red package u2a "ci/imports.py u2a failed"
+  fi
 else
-  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor"
+  echo "no bit-imports handed over: no trx64u.cor, no trx64g.cor, no .u2a of their pins"
 fi
 
 # T148 D8: ROMS.txt (what each core needs in its own folder, the legal sources; made from the descriptors' ROM table and the manual) is part of the
-# package, and the package holds .cor files only - never a core folder, which is the user's (tools/check_package_layout.py).
+# package, and the package holds .cor files only - never a core folder, which is the user's (tools/check_package_layout.py; its SD/ tree, T239.5 D21, is the lanes' delivered SD files, not a core folder).
 python3 "$ROOT/tools/gen_roms_txt.py" -o "$out/ROMS.txt" || mark_red package roms-txt "tools/gen_roms_txt.py failed"
 python3 "$ROOT/tools/check_package_layout.py" "$out" || mark_red package layout "the package holds a core folder"
 
@@ -245,7 +323,12 @@ def wns(name):
 rp = os.path.join(os.environ["HANDOFF_DIR"], "bit-releases.json")
 bitstreams = json.load(open(rp)) if os.path.exists(rp) else None
 files = {}
-for f in sorted(os.listdir(out)):
+names = sorted(os.listdir(out))
+for f in list(names):
+    if os.path.isdir(os.path.join(out, f)):       # T239.5 D21: SD/ (the lanes' SD files): every file of it by its path below the package
+        names.remove(f)
+        names += sorted(os.path.relpath(os.path.join(d, x), out) for d, _, xs in os.walk(os.path.join(out, f)) for x in xs)
+for f in names:
     if (f.endswith(".txt") and f.startswith("wns.")) or f in ("layers.json", "trxapps_commit"):
         continue
     data = open(os.path.join(out, f), "rb").read()
@@ -260,7 +343,7 @@ json.dump({"trx64_commit": full, "trxapps_commit": trxapps, "branch": branch, "v
            "files": files}, open(os.path.join(out, "manifest.json"), "w"), indent=2)
 PY
 rm -f "$out"/wns.*.txt "$out/layers.json" "$out/trxapps_commit"
-(cd "$out" && sha256sum $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+(cd "$out" && find . -type f ! -name SHA256SUMS ! -path './.*' | sed 's|^\./||' | sort | xargs sha256sum > SHA256SUMS)
 ls -l "$out"
 cat "$out/manifest.json"
 

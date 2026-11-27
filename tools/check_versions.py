@@ -4,6 +4,8 @@
 bundle.toml, contract/version.toml (host gateware), host-app/version.toml (host menu), coreapp/version.toml (generic core app), the `version` of every
 cores/<id>/core.toml and cores/<id>/mono/core.toml, and the SEMVER of every imported pin release/imports/*.pin that has one (x.y.z, or x.y.z-dev+<sha8> for a package that is no release, T230 P-1; a pin without it still
 shows the commit, T221 D15 open: it is listed, not failed). A source file never holds a build string: x.y.z only, `-dev+<sha8>` is made at build time.
+T239.3 S5: the base API version (coreapp/src/libfmt.h) is the one coreapp/version.toml shows as base_api and the one the SDK package carries, and a
+change of the public headers of the SDK under the same base API version is an error (coreapp/api_lock.toml, tools/sdk_api.py).
 """
 import glob
 import os
@@ -12,6 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import semver  # noqa: E402
+import sdk_api  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLAIN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -32,8 +35,11 @@ def main():
         if not PLAIN.match(v):
             errs.append("%s: version %r is not x.y.z (a build string is made at build time)" % (rel, v))
     for pin in sorted(glob.glob(os.path.join(ROOT, "release", "imports", "*.pin"))):
-        m = re.search(r'^SEMVER="?([^"\n]*)"?', open(pin, encoding="utf-8").read(), re.M)
+        text = open(pin, encoding="utf-8").read()
         rel = os.path.relpath(pin, ROOT)
+        if re.search(r"^COR_SHA256=", text, re.M):
+            continue                                                # a finished .cor of TRX64-Ultimate (T239.3 P1-8) carries its own version
+        m = re.search(r'^SEMVER="?([^"\n]*)"?', text, re.M)
         if not m:
             notes.append("%s: no SEMVER yet (D15: TRX64-Ultimate publishes it)" % rel)
             continue
@@ -41,12 +47,13 @@ def main():
             semver.parse(m.group(1))
         except ValueError as e:
             errs.append("%s: SEMVER %s" % (rel, e))
+    errs.extend(sdk_api.problems(ROOT))
     for n in notes:
         print("note: " + n)
     for e in errs:
         print("FAIL: " + e)
     if not errs:
-        print("versions ok: %d files" % len(files))
+        print("versions ok: %d files, base API %s" % (len(files), sdk_api.version(ROOT)))
     return 1 if errs else 0
 
 

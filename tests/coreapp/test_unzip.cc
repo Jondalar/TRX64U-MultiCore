@@ -1,10 +1,10 @@
 // T180 D9 (#43): "Unzip here" in every core. One copy of unzip.u2a in "<dir of the .cor>/apps" (APP_SHARED_FOLDER) serves every core; a core's own
 // "<core folder>/apps" wins on an equal name. What is real here: AppIndex::folders / scan over the FakeFs, the menu record of the file (packed by
-// tools/u2a_pack.py from apps/unzip/app.toml), the merge into the core's file types, the LibLoader that loads the file and its service tables, and the
-// code of the application (apps/unzip/src, glue.cc, app/sdk/u2p_compat.c) compiled for the Mac. What is not: that RISC-V instructions run - the image the
+// tools/u2a_pack.py from apps/unzip/app.toml), the merge into the core's file types, the LibLoader that loads the file and binds its needs to the slot table, and the
+// code of the application (apps/unzip/src, glue.cc, app/sdk/u2p_compat.c) compiled for the Mac, with miniz (apps/miniz), as the image of unzip.u2a carries it (T239.3 D60: the sub-app has its own miniz, no core app links one). What is not: that RISC-V instructions run - the image the
 // loader places is a fixture whose app_main is not called, LibHost::call_main runs the Mac build of the same sources (tests/loader does the same for libraries).
 //
-//   test_unzip FIXDIR      (FIXDIR: unzip.u2a, unzip2.u2a, t.zip, manifest.txt and files/ - tests/coreapp/run.sh makes them)
+//   test_unzip FIXDIR      (FIXDIR: unzip.u2a, unzip2.u2a, plain.u2a, ringapp.u2a, libfile.u2a, t.zip, manifest.txt and files/ - tests/coreapp/run.sh makes them)
 #include <string>
 #include <map>
 #include <vector>
@@ -19,47 +19,9 @@
 #include "appindex.h"
 #include "libload.h"
 
+
 const CoreDesc *const core_table[] = { &testcore::desc, 0 };
 extern "C" int app_main(const LibApi *api, AppCtx *ctx);               // apps/unzip/glue.cc, compiled for the Mac
-extern "C" int lib_register(const LibApi *api, LibRecord *out);        // apps/miniz/miniz_lib.cc: the library, the same source the board image is built from
-#include "zip_lib.h"
-
-// S2: a second application on the library. It carries no miniz: its only zip code is the table it is handed. Mac build of this function; the board image of the
-// same shape is what the size check in ci/trxapps.sh looks at.
-static std::string g_listing;
-static const LibApi *g_zl_api;
-static SvcFile *g_zl_file;
-static size_t zl_rd(void *, mz_uint64 off, void *buf, size_t n)
-{
-    return g_zl_api->fs->read(g_zl_file, off, buf, (uint32_t)n) ? n : 0;
-}
-static void *zl_alloc(void *, size_t a, size_t b) { return g_zl_api->mem->malloc((uint32_t)(a * b)); }
-static void zl_free(void *, void *p) { g_zl_api->mem->free(p); }
-static void *zl_realloc(void *, void *p, size_t a, size_t b) { return g_zl_api->mem->realloc(p, (uint32_t)(a * b)); }
-static int ziplist_main(const LibApi *api, AppCtx *ctx)
-{
-    uint32_t sz = 0;
-    const ZipLib *zt = (const ZipLib *)api->lib->find(ZIPLIB_NAME, ZIPLIB_VERSION, &sz);
-    if (!zt || !ZIPLIB_HAS(zt, file_stat)) return 2;
-    g_zl_api = api;
-    g_zl_file = api->fs->open(ctx->file, false);
-    if (!g_zl_file) return 3;
-    mz_zip_archive z;
-    memset(&z, 0, sizeof(z));
-    z.m_pAlloc = zl_alloc; z.m_pFree = zl_free; z.m_pRealloc = zl_realloc; z.m_pRead = zl_rd;
-    int rc = 4;
-    if (zt->reader_init(&z, api->fs->fsize(g_zl_file), 0)) {
-        g_listing.clear();
-        for (mz_uint i = 0; i < zt->get_num_files(&z); i++) {
-            mz_zip_archive_file_stat st;
-            if (zt->file_stat(&z, i, &st)) { g_listing += st.m_filename; g_listing += "\n"; }
-        }
-        zt->reader_end(&z);
-        rc = 0;
-    }
-    api->fs->close(g_zl_file);
-    return rc;
-}
 
 typedef std::vector<uint8_t> Bytes;
 static Bytes slurp(const std::string &p)
@@ -88,8 +50,8 @@ struct Host : DescLibHost {
     }
     uint32_t addr_of(const void *p) override { return (uint32_t)(uintptr_t)p; }
     void sync_code(void *, uint32_t) override { }
-    int call_register(const Entry &e, const LibApi *api, LibRecord *rec) override { return !strcmp(e.name, "miniz") ? lib_register(api, rec) : 0; }
-    int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return !strcmp(e.name, "ziplist") ? ziplist_main(api, ctx) : app_main(api, ctx); }
+    int call_register(const Entry &, const LibApi *, LibRecord *) override { return 0; }   // no library file is loaded (D58)
+    int call_main(const Entry &e, const LibApi *api, AppCtx *ctx) override { return app_main(api, ctx); }
 };
 
 // a heap with a size: the loader window as the board has it (room() = what is left); a load that does not fit gets null
@@ -130,8 +92,8 @@ int main(int argc, char **argv)
     setvbuf(stdout, 0, _IONBF, 0);
     CHECK(argc == 2);
     std::string dir = argv[1];
-    Bytes u1 = slurp(dir + "/unzip.u2a"), u2 = slurp(dir + "/unzip2.u2a"), zip = slurp(dir + "/t.zip"), mz = slurp(dir + "/miniz.u2a"), zl = slurp(dir + "/ziplist.u2a");
-    CHECK(u1.size() > 100 && u2.size() > 100 && zip.size() > 100 && mz.size() > 100 && zl.size() > 100);
+    Bytes u1 = slurp(dir + "/unzip.u2a"), u2 = slurp(dir + "/unzip2.u2a"), zip = slurp(dir + "/t.zip");
+    CHECK(u1.size() > 100 && u2.size() > 100 && zip.size() > 100);
     std::vector<std::string> names;
     {
         std::ifstream m((dir + "/manifest.txt").c_str());
@@ -145,8 +107,7 @@ int main(int argc, char **argv)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
-        fs.put("/sd/cores/apps/ziplist.u2a", zl);
+        fs.put("/sd/cores/apps/libfile.u2a", slurp(dir + "/libfile.u2a"));
         fs.put("/sd/games/t.zip", zip);
         CoreCtx c;
         ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
@@ -159,19 +120,28 @@ int main(int argc, char **argv)
         Log log;
         AppIndex idx;
         idx.scan(&fs, folders, nf, &log);
-        CHECK_EQ(idx.count(), 2);                                       // unzip and ziplist; the library is no application
-        CHECK_EQ(idx.nlibs(), 1);
-        CHECK(idx.find("miniz") == 0 && idx.find_lib("miniz") != 0);
-        CHECK(idx.find_lib("miniz", U2A3_VERSION(2, 0)) == 0);           // too old for a 2.0
+        CHECK_EQ(idx.count(), 1);                                       // unzip; the library file is no application and is not listed (D58)
+        CHECK(idx.find("libfile") == 0);
+        bool d58 = false;
+        for (size_t i = 0; i < log.lines.size(); i++) {
+            d58 |= log.lines[i].find("/sd/cores/apps/libfile.u2a: \"libfile\" is a library file; base 4.0 loads no library file") != std::string::npos;
+        }
+        CHECK(d58);
         const AppEntry *e = idx.find("unzip");
         CHECK(e != 0);
-        if (e) { CHECK_STR(e->path, "/sd/cores/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(1, 0)); }
+        if (e) { CHECK_STR(e->path, "/sd/cores/apps/unzip.u2a"); CHECK_EQ(e->version, U2A3_VERSION(1, 0)); CHECK_EQ(e->nneeds, 0); }   // the base is no entry of needs; unzip needs nothing else (D60)
 
         // the file types: ".zip" gets the three actions of apps/unzip/app.toml
         OpRegistry *reg = ops_of(&c);
         ops_register_base(*reg);
         Host host(&testcore::desc);
         LibLoader ld(&host, reg);
+        // unzip needs the base only: nothing to link, nothing to load
+        CHECK(e && idx.available(*e, &ld));
+        {
+            char err[LIB_ERR_MAX] = "";
+            CHECK(e && idx.needs_linked(*e, err, sizeof(err)));
+        }
         CoreDesc merged;
         static MenuMerge mm;
         int refused = bundle_merge(&c, &testcore::desc, 0, &ld, &log, &merged, &mm, &idx);
@@ -190,29 +160,28 @@ int main(int argc, char **argv)
         }
         CHECK(here); CHECK(folder); CHECK(one);
 
-        // S4 / D9 (e): the .zip actions are listed whenever unzip and miniz are in the folders, whatever the room is (the memory is checked at the press, S6);
-        // fits() still knows the need exactly; a library missing from the folders hides the actions.
+        // S4 / D9 (e): the .zip actions are listed whenever the need is linked, whatever the room is (the memory is checked at the press, S6); fits() knows the need
+        // exactly: the image and APP_WORK_BYTES, no library bytes (nothing is loaded for a need).
         {
-            uint32_t need = e->image_bytes + idx.find_lib("miniz")->image_bytes + APP_WORK_BYTES;
-            for (int pass = 0; pass < 3; pass++) {
+            uint32_t need = e->image_bytes + APP_WORK_BYTES;
+            for (int pass = 0; pass < 2; pass++) {
                 uint32_t room = pass == 0 ? need - 1 : need;
                 AppIndex idx2;
                 FakeFs fs2;
                 fs2.put("/sd/cores/apps/unzip.u2a", u1);
-                if (pass < 2) fs2.put("/sd/cores/apps/miniz.u2a", mz);
                 static char f2[APP_FOLDERS_MAX][APP_PATH_MAX];
                 CoreCtx c2;
                 ctx_for(&c2, &fs2, &io, "/sd/cores/vc20.cor");
                 int nf2 = AppIndex::folders(&c2, f2, APP_FOLDERS_MAX);
                 idx2.scan(&fs2, f2, nf2, &log);
-                idx2.set_room(room, &ld);                                // nothing is loaded in `ld` yet (the loader's service tables are one per process)
+                idx2.set_room(room, &ld);
                 CoreDesc merged2;
                 static MenuMerge mm2;
                 bundle_merge(&c2, &testcore::desc, 0, &ld, &log, &merged2, &mm2, &idx2);
                 int zip_actions = 0;
                 for (int i = 0; i < merged2.nfiletypes; i++) { if (!strcmp(merged2.filetypes[i].ext, ".zip")) zip_actions = merged2.filetypes[i].nactions; }
                 printf("S4 pass %d: room %u (need %u): %d zip action(s)\n", pass, (unsigned)room, (unsigned)need, zip_actions);
-                if (pass < 2) CHECK_EQ(zip_actions, 3); else CHECK_EQ(zip_actions, 0);
+                CHECK_EQ(zip_actions, 3);
                 const AppEntry *e2 = idx2.find("unzip");
                 CHECK(e2 != 0);
                 if (e2) CHECK_EQ(idx2.fits(*e2, room, &ld), pass == 1);
@@ -232,17 +201,13 @@ int main(int argc, char **argv)
             CoreFileSource src(cf);
             int h = -1;
             char err[240];
-            int rc = ld.load(&src, &h, err, sizeof(err));                // the library is not in memory yet: the loader says what is missing
-            CHECK_EQ(rc, LIB_NEEDS);
-            CHECK(strstr(err, "miniz") != 0);
+            CHECK(idx.prepare_open(&fs, &ld, *e, err, sizeof(err)));     // what AppHost::open_now does first: the room, then the needs; nothing is loaded
             CHECK_EQ(ld.count(), 0);
-            CHECK(idx.load_needs(&fs, &ld, *e, err, sizeof(err)));       // what AppHost::open_now does first
-            CHECK_EQ(ld.count(), 1);
-            CHECK(ld.handle_of("miniz") >= 0);
-            rc = ld.load(&src, &h, err, sizeof(err));
+            int rc = ld.load(&src, &h, err, sizeof(err));                // the need is the base
             fs.close(cf);
             if (rc != LIB_OK) printf("load: %d %s\n", rc, err);
             CHECK_EQ(rc, LIB_OK);
+            CHECK_EQ(ld.count(), 1);
             // a file the zip also holds, there before: Unzip writes over it without asking (what it does today; the report says so)
             fs.put("/sd/games/" + names[0], Bytes(5, 0x55));
             char reply[200] = "";
@@ -275,36 +240,16 @@ int main(int argc, char **argv)
             CHECK(fs.files.find("/sd/t.zip") == fs.files.end());          // nothing next to the wrong folder
             CHECK_EQ(fs.open_files, 0);                                   // every file the application opened is closed again
             ld.release(h, err, sizeof(err));
-            CHECK_EQ(ld.count(), 1);                                      // the library stays (resident)
-
-            // S2: a second application on the same loaded library lists the entries through the table; it holds no miniz of its own
-            const AppEntry *ze = idx.find("ziplist");
-            CHECK(ze != 0);
-            if (ze) {
-                CHECK(idx.load_needs(&fs, &ld, *ze, err, sizeof(err)));
-                CHECK_EQ(ld.count(), 1);                                  // miniz was there: nothing loaded twice
-                CoreFile *zf = fs.open(ze->path, false);
-                CoreFileSource zsrc(zf);
-                int zh = -1;
-                CHECK_EQ(ld.load(&zsrc, &zh, err, sizeof(err)), LIB_OK);
-                fs.close(zf);
-                g_listing.clear();
-                CHECK_EQ(ld.run(zh, "", "/sd/games/t.zip", reply, sizeof(reply), &app_rc, err, sizeof(err)), LIB_OK);
-                CHECK_EQ(app_rc, 0);
-                for (size_t i = 0; i < names.size(); i++) CHECK(g_listing.find(names[i] + "\n") != std::string::npos);
-                CHECK_EQ(fs.open_files, 0);
-            }
+            CHECK_EQ(ld.count(), 0);                                      // a transient application is gone; no library was ever loaded
         }
     }
 
-    // ---- S6 / S7 (T197 D8): memory short at the press. A model heap gives the loader window; the same AppIndex functions the board calls (prepare_open,
-    // use counts are the loader's) run over the real loader.
+    // ---- S6 (T197 D8): memory short at the press. A model heap gives the loader window; the same AppIndex functions the board calls (prepare_open) run over the
+    // real loader. Base 4.0 loads no library for a need, so the room is the image and APP_WORK_BYTES and nothing is evicted.
+    // (Dropped with D58: library eviction, library use counts, a library that declares a poll/menu/corehooks, a library imported by a library.)
     {
         FakeFs fs;
         fs.put("/sd/cores/apps/unzip.u2a", u1);
-        fs.put("/sd/cores/apps/miniz.u2a", mz);
-        fs.put("/sd/cores/apps/ziplist.u2a", zl);
-        fs.put("/sd/cores/apps/otherlib.u2a", slurp(dir + "/otherlib.u2a"));
         fs.put("/sd/cores/apps/plain.u2a", slurp(dir + "/plain.u2a"));
         CoreCtx c;
         ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
@@ -313,154 +258,38 @@ int main(int argc, char **argv)
         Log log;
         AppIndex idx;
         idx.scan(&fs, folders, nf, &log);
-        CHECK_EQ(idx.nlibs(), 2);
+        CHECK_EQ(idx.count(), 2);
         const AppEntry *uz = idx.find("unzip"), *pl = idx.find("plain");
         CHECK(uz != 0 && pl != 0);
-        const LibFile *mzf = idx.find_lib("miniz"), *olf = idx.find_lib("otherlib");
-        CHECK(mzf != 0 && olf != 0);
-        if (uz && pl && mzf && olf) {
+        if (uz && pl) {
             OpRegistry *reg = ops_of(&c);
             ops_register_base(*reg);
             char err[LIB_ERR_MAX];
-            // the heap holds exactly unzip + miniz + work, plus otherlib: after otherlib is loaded and miniz is not, unzip does not fit until otherlib is evicted
-            uint32_t need = uz->image_bytes + mzf->image_bytes + APP_WORK_BYTES;
-            uint32_t cap = need + olf->image_bytes - 1;
-            {
-                HeapHost hh(&testcore::desc, cap);
+            uint32_t need = uz->image_bytes + APP_WORK_BYTES;
+            {                                                               // a heap one byte short: refused with the figures; exactly enough: opens, nothing loaded
+                HeapHost hh(&testcore::desc, need - 1);
                 LibLoader ld(&hh, reg);
-                // (a) otherlib (count 0) is evicted, then unzip loads
-                CHECK(idx.load_needs(&fs, &ld, *pl, err, sizeof(err)));            // nothing to load for plain
-                CoreFile *of = fs.open(olf->path, false);
-                CoreFileSource osrc(of);
-                int oh = -1;
-                CHECK_EQ(ld.load(&osrc, &oh, err, sizeof(err)), LIB_OK);
-                fs.close(of);
                 CHECK(!idx.fits(*uz, ld.room(), &ld));
+                CHECK(!idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
+                CHECK(strstr(err, "Not enough memory for unzip (needs ") != 0);
+                hh.cap = need;
+                CHECK(idx.fits(*uz, ld.room(), &ld));
                 CHECK(idx.prepare_open(&fs, &ld, *uz, err, sizeof(err)));
-                CHECK(ld.handle_of("otherlib") < 0);
-                CHECK(ld.handle_of("miniz") >= 0);
-                printf("S6a: otherlib evicted, miniz loaded, room %u\n", (unsigned)ld.room());
-                // (d) the count: taken by the loader when unzip loads, back to 0 when it is released
-                CoreFile *uf = fs.open(uz->path, false);
-                CoreFileSource usrc(uf);
-                int uh = -1;
-                CHECK_EQ(ld.load(&usrc, &uh, err, sizeof(err)), LIB_OK);
-                fs.close(uf);
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
-                // (b) in use: never evicted, even when plain needs the room
-                CHECK_EQ(ld.unload(ld.handle_of("miniz"), err, sizeof(err)), LIB_STATE);
-                CHECK(ld.handle_of("miniz") >= 0);
-                // (c) still too small after eviction: nothing loads, the message has the numbers
-                {
-                    HeapHost tiny(&testcore::desc, pl->image_bytes + APP_WORK_BYTES - 1);
-                    LibLoader ld2(&tiny, reg);
-                    CHECK(!idx.prepare_open(&fs, &ld2, *pl, err, sizeof(err)));
-                    char want[160];
-                    snprintf(want, sizeof(want), "Not enough memory for plain (needs %u KB, %u KB free).", (unsigned)((pl->image_bytes + APP_WORK_BYTES + 1023) / 1024),
-                             (unsigned)(tiny.room() / 1024));
-                    CHECK_STR(err, want);
-                    CHECK_EQ(ld2.count(), 0);
-                    printf("S6c: %s\n", err);
-                }
-                CHECK_EQ(ld.release(uh, err, sizeof(err)), LIB_OK);
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 0);                       // (d)
+                CHECK_EQ(ld.count(), 0);
+                printf("S6: unzip needs %u bytes, refused one byte short, opens at the exact room\n", (unsigned)need);
             }
-            // (b) refusal while in use: a heap that holds unzip + miniz and nothing else; plain would need more than is left, miniz is held by unzip
-            {
-                HeapHost hh(&testcore::desc, mzf->image_bytes + pl->image_bytes + APP_WORK_BYTES - 1);
-                LibLoader ld(&hh, reg);
-                CHECK(idx.load_needs(&fs, &ld, *uz, err, sizeof(err)));            // miniz is in; unzip itself is not loaded in this model
-                ld.use(ld.handle_of("miniz"));                                     // a loaded application counts it (the loader does that at load)
-                uint32_t room_before = ld.room();
-                CHECK(pl->image_bytes + APP_WORK_BYTES > room_before);             // plain does not fit beside the held miniz
-                CHECK(!idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
-                CHECK(strstr(err, "Not enough memory for plain") != 0);
-                CHECK(ld.handle_of("miniz") >= 0);                                 // in use: kept
-                CHECK_EQ(ld.room(), room_before);
-                // the application ended: miniz has count 0, the same open now clears it away and plain loads
-                ld.unuse(ld.handle_of("miniz"));
-                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
-                CHECK(ld.handle_of("miniz") < 0);
-                printf("S6b/S7: in use kept, freed after the end, then evicted\n");
+            {                                                               // the message has the numbers
+                HeapHost tiny(&testcore::desc, pl->image_bytes + APP_WORK_BYTES - 1);
+                LibLoader ld2(&tiny, reg);
+                CHECK(!idx.prepare_open(&fs, &ld2, *pl, err, sizeof(err)));
+                char want[160];
+                snprintf(want, sizeof(want), "Not enough memory for plain (needs %u KB, %u KB free).", (unsigned)((pl->image_bytes + APP_WORK_BYTES + 1023) / 1024),
+                         (unsigned)(tiny.room() / 1024));
+                CHECK_STR(err, want);
+                CHECK_EQ(ld2.count(), 0);
+                printf("S6c: %s\n", err);
             }
-        }
-    }
-
-    // ---- T197 D8 review fixes: a resident application and a library imported by a library keep their library; the refusal numbers
-    {
-        FakeFs fs;
-        const char *names[] = { "unzip", "miniz", "ziplist", "otherlib", "plain", "outerlib", "resapp" };
-        for (int i = 0; i < 7; i++) {
-            fs.put(std::string("/sd/cores/apps/") + names[i] + ".u2a", slurp(dir + "/" + names[i] + ".u2a"));
-        }
-        CoreCtx c;
-        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
-        static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
-        int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
-        AppIndex idx;
-        idx.scan(&fs, folders, nf, 0);
-        const AppEntry *ra = idx.find("resapp"), *pl = idx.find("plain");
-        const LibFile *olf = idx.find_lib("outerlib");
-        CHECK(ra != 0 && pl != 0 && olf != 0);
-        if (ra && pl && olf) {
-            OpRegistry *reg = ops_of(&c);
-            ops_register_base(*reg);
-            char err[LIB_ERR_MAX];
-            // (1) a resident application: its hold is the loader's, so it survives the end of the AppHost's session and a later open evicts around it
-            {
-                HeapHost hh(&testcore::desc, 1u << 20);
-                LibLoader ld(&hh, reg);
-                CHECK(idx.prepare_open(&fs, &ld, *ra, err, sizeof(err)));
-                CoreFile *f = fs.open(ra->path, false);
-                CoreFileSource src(f);
-                int rh = -1;
-                CHECK_EQ(ld.load(&src, &rh, err, sizeof(err)), LIB_OK);
-                fs.close(f);
-                int mh = ld.handle_of("miniz");
-                CHECK_EQ(ld.uses(mh), 1);
-                CHECK_EQ(ld.release(rh, err, sizeof(err)), LIB_STATE);             // resident: end_application does not free it, so nothing gives the hold back
-                CHECK_EQ(ld.uses(mh), 1);
-                CHECK_EQ(ld.unload(mh, err, sizeof(err)), LIB_STATE);              // not evictable under it
-                // reopen of the resident application: it is found loaded, its library is still there and still held (no second count, none lost)
-                CHECK_EQ(ld.handle_of("resapp"), rh);
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 1);
-                // evicting pass for a bigger app on a tight heap leaves it alone
-                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
-                CHECK(ld.handle_of("miniz") >= 0);
-            }
-            // (2) a library imported by a library: outerlib holds miniz while loaded; unloading outerlib frees it
-            {
-                HeapHost hh(&testcore::desc, 1u << 20);
-                LibLoader ld(&hh, reg);
-                CHECK(idx.load_needs(&fs, &ld, *idx.find("ziplist"), err, sizeof(err)));       // miniz
-                CoreFile *f = fs.open(olf->path, false);
-                CoreFileSource src(f);
-                int oh = -1;
-                CHECK_EQ(ld.load(&src, &oh, err, sizeof(err)), LIB_OK);
-                fs.close(f);
-                int mh = ld.handle_of("miniz");
-                CHECK_EQ(ld.uses(mh), 1);
-                CHECK_EQ(ld.unload(mh, err, sizeof(err)), LIB_STATE);              // imported by outerlib
-                CHECK_EQ(ld.unload(oh, err, sizeof(err)), LIB_OK);
-                CHECK_EQ(ld.uses(ld.handle_of("miniz")), 0);
-                CHECK_EQ(ld.unload(ld.handle_of("miniz"), err, sizeof(err)), LIB_OK);
-                // eviction under room pressure: outerlib (unused) goes first, then miniz it alone held, in one prepare_open
-                CoreFile *g = fs.open(idx.find_lib("miniz")->path, false);
-                CoreFileSource gs(g);
-                int mh2 = -1;
-                CHECK_EQ(ld.load(&gs, &mh2, err, sizeof(err)), LIB_OK);
-                fs.close(g);
-                f = fs.open(olf->path, false);
-                CoreFileSource src2(f);
-                CHECK_EQ(ld.load(&src2, &oh, err, sizeof(err)), LIB_OK);
-                fs.close(f);
-                uint32_t cap = hh.used + pl->image_bytes + APP_WORK_BYTES - 1;       // plain does not fit beside the two libraries
-                hh.cap = cap;
-                CHECK(idx.prepare_open(&fs, &ld, *pl, err, sizeof(err)));
-                CHECK(ld.handle_of("outerlib") < 0 && ld.handle_of("miniz") < 0);
-                printf("D8: lib imported by lib kept while the importer is loaded, both evicted when idle\n");
-            }
-            // (3) the refusal: needs (rounded up) is always above free (rounded down), also when the bytes differ by one
+            // the refusal: needs (rounded up) is always above free (rounded down), also when the bytes differ by one
             for (uint32_t over = 1; over <= 1024; over += 511) {
                 HeapHost tiny(&testcore::desc, pl->image_bytes + APP_WORK_BYTES - over);
                 LibLoader ld(&tiny, reg);
@@ -470,6 +299,44 @@ int main(int argc, char **argv)
                 CHECK(nk > fk);
             }
         }
+    }
+
+    // ---- a need no slot answers (T239.3 D58): the app is not available, needs_linked and prepare_open name the need, and the loader refuses the file (LIB_NEEDS)
+    // (Dropped with D58: the provider of a need being a library file of the apps folder, found by an export name.)
+    {
+        FakeFs fs;
+        fs.put("/sd/cores/apps/ringapp.u2a", slurp(dir + "/ringapp.u2a"));
+        CoreCtx c;
+        ctx_for(&c, &fs, &io, "/sd/cores/vc20.cor");
+        static char folders[APP_FOLDERS_MAX][APP_PATH_MAX];
+        int nf = AppIndex::folders(&c, folders, APP_FOLDERS_MAX);
+        Log log;
+        AppIndex idx;
+        idx.scan(&fs, folders, nf, &log);
+        const AppEntry *ra = idx.find("ringapp");
+        CHECK(ra != 0 && ra->nneeds == 1);
+        OpRegistry *reg = ops_of(&c);
+        ops_register_base(*reg);
+        char err[LIB_ERR_MAX];
+        HeapHost hh(&testcore::desc, 1u << 24);
+        LibLoader ld(&hh, reg);
+        CHECK(ra && !idx.available(*ra, &ld));
+        CHECK(ra && !idx.fits(*ra, 1u << 24, &ld));
+        CHECK(ra && !idx.needs_linked(*ra, err, sizeof(err)));
+        CHECK_STR(err, "ringapp needs \"ring\" 2.0, which this core's app is not linked with.");
+        CHECK(ra && !idx.prepare_open(&fs, &ld, *ra, err, sizeof(err)));
+        CHECK(strstr(err, "\"ring\" 2.0") != 0);
+        CoreFile *f = ra ? fs.open(ra->path, false) : 0;
+        CHECK(f != 0);
+        if (f) {
+            CoreFileSource src(f);
+            int h = -1;
+            CHECK_EQ(ld.load(&src, &h, err, sizeof(err)), LIB_NEEDS);
+            CHECK(strstr(err, "ring") != 0);
+            CHECK_EQ(ld.count(), 0);
+            fs.close(f);
+        }
+        printf("D58: ringapp is not available, its need ring 2.0 is named\n");
     }
 
     // ---- no shared folder on the medium: a core does not find Unzip (the control for the above)

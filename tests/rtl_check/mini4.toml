@@ -1,0 +1,43 @@
+# A fixture TOML A for the miniature design of tests/rtl_check/mini4 (T239.3 V-1d): the block ctl is decoded by the VHDL module, the block dev by a Verilog module whose source holds a pattern the check does not know.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "ctl"
+module = "ctl"
+owner = "base"
+address = 0x10000000
+size = 0x2
+
+  [[block.property]]
+  name = "ctl"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "tag"
+  offset = 0x0
+  width = 8
+  count = 2
+  dir = "r"
+
+[[block]]
+name = "dev"
+module = "dev"
+owner = "base"
+address = 0x10000110
+size = 0x2
+
+  [[block.property]]
+  name = "a"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "id"
+  offset = 0x1
+  width = 8
+  dir = "r"

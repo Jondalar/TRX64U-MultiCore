@@ -6,6 +6,7 @@
 #include "ui.h"
 #include "picmodes.h"
 #include "trx_lv_port.h"
+#include "overlay.h"
 #include "video.h"
 #include "lvgl.h"
 #include "trxview.h"
@@ -28,12 +29,13 @@ static lv_obj_t *scr;
 static bool msg_up;
 static lv_obj_t *g_msg_label, *g_msg_panel;                  // the message pane's text and box while it stands (the picture question updates the text in place)
 static bool pq_up;                                  // T187 F1: the picture question owns the pane; a menu render in the same pass (the NES waiting menu) must not paint over it
-static char msg_title_s[80], msg_text_s[400];
+static char msg_title_s[80], msg_text_s[720];
 static bool msg_bad;
 static const CoreDesc *g_desc;
-static volatile int g_look_t = 1, g_look_scheme = 1;           // "Overlay Transparency" and "Color Scheme" (ui_set_look)
+static const int g_look_t = 1, g_look_scheme = 1;                // the menu's transparency (position 1 = 25 %) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
 static volatile bool g_look_dirty = true;
 static void apply_alpha(void);
+static bool ov_on(void);
 
 // The route the shell draws, built from the tree once a menu is rendered. The strings are the tree's, which
 // lives in MenuCtl for as long as the application runs.
@@ -114,6 +116,11 @@ bool ui_open(const CoreDesc *desc)
     trx_skin_set(TRX_SKIN_PANEL);
     single_buffer();
     return true;
+}
+
+void ui_set_desc(const CoreDesc *desc)
+{
+    g_desc = desc;
 }
 
 // The information lines menu_info_labels[] names, in its order; the two the top bar shows as chips.
@@ -208,13 +215,15 @@ static bool layout_has(const char *layout, const char *key, char *out = 0, int n
     return w && ui_attr(w + 1, key, out, n);
 }
 
-static void build_route(const MenuTree &tr, bool app_mode)
+static void build_route(MenuCtl &m)
 {
+    const MenuTree &tr = m.tree();
+    const bool app_mode = m.app_mode();
     for (int a = 0; a < tr.nareas && a < TRX_AREAS_MAX; a++) {
         int nv = 0;
         for (int b = 0; b < tr.a[a].ntabs && b < MENU_TABS_MAX; b++) {
             vis_map[a][b] = -1;
-            if (tr.a[a].tabs[b].page || layout_has(tr.a[a].tabs[b].layout, "hidden")) {      // T187 D2: a page a row opens has no place on the strip
+            if (m.tab_is_hidden(a, b)) {      // T187 D2: a page a row opens, a screen that is no tab, a tab whose `show` state is empty (T262 P3): no place on the strip
                 continue;
             }
             if (nv >= TRX_TABS_MAX) {
@@ -281,6 +290,20 @@ static uint32_t g_inplace;                         // window moves and value cha
 static lv_obj_t *g_pos;                            // the "a-b of n" label of the kept list
 static lv_obj_t *g_status;                         // the status line at the pane's foot
 static lv_obj_t *g_title;                          // the pane's title line (the tab's name, or the browser's path)
+// The pane's title line is one line (UX R5): a long path is cut in the middle to the room the line has, never wrapped into the rows below it.
+static const char *title_fit(const char *s, char *buf, int n)
+{
+    return trx_fit_mid(s, trx_content_w() - 2 * trx_theme().space_lg - 240 - 4, trx_theme().display, buf, n);
+}
+static void title_set(lv_obj_t *l, const char *s)
+{
+    const int room = trx_content_w() - 2 * trx_theme().space_lg - 240;
+    const int tw = trx_text_w(s, trx_theme().display) + 4;
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_CLIP);
+    lv_label_set_text(l, s);
+    lv_obj_set_width(l, tw < room ? tw : room);
+}
+
 static bool g_status_bad;
 #define UI_HOME_MAX 24
 static lv_obj_t *g_home[UI_HOME_MAX];                // the Home panel's status rows, kept so a selection move there restyles two of them
@@ -294,8 +317,18 @@ static uint32_t g_shape;                           // the pane's structure: titl
 static uint32_t g_cheap;                           // selection moves served without rebuilding the pane
 static int g_first, g_last_area = -1, g_last_tab = -1;   // the list window, read by list_signature()
 
+// T262 D4: the page of a `list` node keeps its row objects: a key writes the rows and the side panel in place instead of building the page again (a build of it was ~365,000 px,
+// a quarter of a second blank on the board, for every RETURN and for every status line that changed later).
+static bool g_lv_valid;
+static lv_obj_t *g_lv_row[UI_ROWS_MAX];
+static lv_obj_t *g_lv_sp;                                    // the side panel's card
+static int g_lv_n, g_lv_sel = -1, g_lv_sw, g_lv_ch, g_lv_rw;
+static uint32_t g_lv_shape, g_lv_h[UI_ROWS_MAX], g_lv_ph;
+static uint32_t g_lv_builds;                                 // pages built from scratch (the bench's count)
+
 uint32_t ui_cheap_moves(void) { return g_cheap; }
 uint32_t ui_inplace_moves(void) { return g_inplace; }
+uint32_t ui_listv_builds(void) { return g_lv_builds; }
 
 static uint32_t sig_str(uint32_t h, const char *s)
 {
@@ -482,29 +515,30 @@ static void status_set(const char *st, bool bad)
     }
 }
 
-// Does the pane stand as it is - same title, status, row count, window size and row kinds - so that the rows alone may be
-// written again? Fills the per-row hashes of what each row shows. (T104, board 2026-10-22: scrolling past the window's last
-// row rebuilt the whole pane per step; the rows are the same objects, only their text moved.)
+// Does the pane stand as it is - same title, status, whether the window is shorter than the list - so that the rows alone may be written again?
+// Fills the per-row hashes of what each row shows. (T104, board 2026-10-22: scrolling past the window's last row rebuilt the whole pane per step;
+// the rows are the same objects, only their text moved.) What a row is - a heading or a setting, with the ring or not - and how many rows the window
+// has (a heading never ends it) are not the pane's shape: the row objects are changed, made or taken away one by one (the in-place pass of
+// ui_menu_render), and a row that cannot be changed in place makes the pane be built again.
 static bool list_inplace(MenuCtl &m, TrxWindow *w_out, uint32_t *rowh, uint32_t *shape_out)
 {
     int room;
     TrxWindow w = list_window(m, &room);
-    if (w.count != g_rown || w.count > UI_ROWS_MAX) {
+    if (w.count < 1 || w.count > UI_ROWS_MAX) {
         return false;
     }
     uint32_t sh = 2166136261u;                                          // the title is written in place (a folder with as many rows is the same pane)
-    sh = (sh ^ (uint32_t)w.count) * 16777619u;
     sh = (sh ^ (uint32_t)(w.count < m.rows())) * 16777619u;
     sh = (sh ^ (uint32_t)status_extra(m)) * 16777619u;                  // the lines of the status note: the label stands higher and the window is shorter
     char left[120], right[120];
     bool active;
     for (int i = 0; i < w.count; i++) {
         m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
-        sh = (sh ^ (uint32_t)((m.heading(w.first + i) ? 3 : 1) | (m.row_reset(w.first + i) ? 4 : 0))) * 16777619u;     // a heading, a row, with the ring or not (a value is made or removed in place)
         uint32_t h = 2166136261u;
         h = sig_str(h, left);
         h = sig_str(h, right);
-        h = (h ^ (uint32_t)active ^ (uint32_t)((w.first + i == m.selected()) << 1)) * 16777619u;
+        h = (h ^ (uint32_t)active ^ (uint32_t)((w.first + i == m.selected()) << 1) ^ (uint32_t)(m.title_row(w.first + i) << 2) ^
+             (uint32_t)(m.row_reset(w.first + i) << 3)) * 16777619u;      // a heading proper and a ring are drawn another way (trx_row_retext)
         rowh[i] = h;
     }
     *w_out = w;
@@ -578,6 +612,7 @@ bool ui_list_probe(UiListProbe *p)
 
 void ui_menu_forget_rows(void)
 {
+    g_lv_valid = false;
     g_rown = 0;
     g_rowsel = -1;
     g_rowsig = 0;
@@ -588,6 +623,210 @@ void ui_menu_forget_rows(void)
     g_status = 0;
     g_title = 0;
     screens_forget();
+}
+
+// T262 P1: the page of a `list` node: one line per row (dot and name, the right column in the row's tone) in a card, the selected row's side lines in the panel at its
+// right (the look of the F3 browser's SELECTED panel). The window is as many fixed-height lines as the card holds.
+static int listv_side_w(void) { return trx_compact() ? 170 : 230; }
+
+static int listv_card_h(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    int h = trx_content_h() - (t.space_md + 26) - list_foot(m) - t.space_sm;
+    return h < trx_status_row_h() + 2 * t.space_sm ? trx_status_row_h() + 2 * t.space_sm : h;
+}
+
+static TrxWindow listv_window(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    int rows = (listv_card_h(m) - 2 * t.space_sm) / trx_status_row_h();
+    int first = (g_last_area != m.area() || g_last_tab != m.tab()) ? m.first_hint() : g_first;
+    TrxWindow w = trx_window(m.rows(), m.selected(), first, rows < 1 ? 1 : rows);
+    m.note_first(w.first);
+    return w;
+}
+
+static uint32_t lv_hi(uint32_t h, int v) { return (h ^ (uint32_t)v) * 16777619u; }
+
+// What the side panel shows for the selected row: its name, right column, tone and side lines.
+static uint32_t listv_panel_hash(MenuCtl &m, int sel)
+{
+    uint32_t h = 2166136261u;
+    h = lv_hi(h, m.rows() > 0);
+    if (m.rows() > 0) {
+        char left[120], right[120];
+        bool active;
+        m.row(sel, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        h = sig_str(h, left);
+        h = sig_str(h, right);
+        h = lv_hi(h, m.list_tone(sel) + 1);
+        for (int k = 0; k < m.list_side_n(sel); k++) {
+            char line[80];
+            m.list_side(sel, k, line, sizeof(line));
+            h = sig_str(h, line);
+        }
+    }
+    return h;
+}
+
+static void listv_panel(lv_obj_t *sp, MenuCtl &m, int sel, int sw, int ch)
+{
+    const TrxTheme &t = trx_theme();
+    trx_kicker(sp, t.space_md, t.space_sm, "SELECTED");
+    if (m.rows() > 0) {
+        char left[120], right[120];
+        bool active;
+        m.row(sel, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        const int pw = sw - 2 * t.space_md;
+        int py = 30;
+        lv_obj_t *nl = trx_txt(sp, t.space_md, py, left, t.body, t.ink, pw);
+        lv_label_set_long_mode(nl, LV_LABEL_LONG_MODE_WRAP);
+        lv_obj_update_layout(nl);
+        py += lv_obj_get_height(nl) + t.space_sm;
+        const int tone = m.list_tone(sel);
+        if (right[0]) {
+            lv_obj_t *vl = trx_txt(sp, t.space_md, py, right, t.caption, tone >= 0 && tone < 5 ? trx_tone_color((TrxTone)tone) : t.muted, pw);
+            lv_label_set_long_mode(vl, LV_LABEL_LONG_MODE_WRAP);
+            lv_obj_update_layout(vl);
+            py += lv_obj_get_height(vl) + t.space_sm;
+        }
+        for (int k = 0; k < m.list_side_n(sel); k++) {
+            char line[80];
+            m.list_side(sel, k, line, sizeof(line));
+            if (py + lv_font_get_line_height(t.caption) > ch - t.space_sm) {
+                break;
+            }
+            lv_obj_t *sl = trx_txt(sp, t.space_md, py, line, t.caption, t.muted, pw);
+            lv_label_set_long_mode(sl, LV_LABEL_LONG_MODE_WRAP);
+            lv_obj_update_layout(sl);
+            py += lv_obj_get_height(sl) + t.space_xs;
+        }
+    }
+}
+
+// What a row of the list page shows: its words, tone, dimness and whether it is the selected one.
+static uint32_t listv_row_hash(MenuCtl &m, int idx, int sel)
+{
+    char left[120], right[120];
+    bool active;
+    m.row(idx, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+    uint32_t h = sig_str(2166136261u, left);
+    h = sig_str(h, right);
+    return lv_hi(h, (m.list_tone(idx) + 1) | active << 4 | (idx == sel) << 5);
+}
+
+// The page's shape: what the frame, the window and the foot hold. A change of it is a new page.
+static uint32_t listv_shape(MenuCtl &m, const TrxWindow &w)
+{
+    uint32_t h = lv_hi(2166136261u, w.count);
+    h = lv_hi(h, w.count < m.rows());
+    h = lv_hi(h, status_extra(m));
+    return lv_hi(h, listv_card_h(m));
+}
+
+static void ui_listv(lv_obj_t *c, MenuCtl &m, int x, int y)
+{
+    const TrxTheme &t = trx_theme();
+    const int W = trx_content_w() - 2 * x, sw = listv_side_w(), lw = W - sw - t.space_lg, ch = listv_card_h(m);
+    const int sel = m.selected();
+    TrxWindow w = listv_window(m);
+    g_first = w.first;
+    lv_obj_t *card = trx_card(c, x, y, lw, ch, false);
+    int ry = t.space_sm;
+    g_lv_n = w.count <= UI_ROWS_MAX ? w.count : 0;                     // a window of more rows than the table holds is never written in place
+    g_lv_rw = lw - 2 * t.space_md;
+    for (int i = 0; i < w.count; i++) {
+        const int idx = w.first + i;
+        char left[120], right[120], sub[8];
+        bool active;
+        m.row(idx, left, sizeof(left), right, sizeof(right), &active, sub, sizeof(sub));
+        const int tone = m.list_tone(idx);
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 && tone < 5 ? (TrxTone)tone : TT_MUTED, idx == sel, !active };
+        lv_obj_t *ro = trx_status_row(card, t.space_md, ry, lw - 2 * t.space_md, r, &ry);
+        if (i < UI_ROWS_MAX) {
+            g_lv_row[i] = ro;
+            g_lv_h[i] = listv_row_hash(m, idx, sel);
+        }
+    }
+    lv_obj_t *sp = trx_card(c, x + lw + t.space_lg, y, sw, ch, true);
+    listv_panel(sp, m, sel, sw, ch);
+    g_lv_sp = sp;
+    g_lv_ph = listv_panel_hash(m, sel);
+    g_rowlist = false;                                       // the generic list's cheap path is not this page's: its own is listv_inplace
+    g_rown = 0;
+    {
+        const char *st = status_line(m);
+        const int room = trx_content_w() - 2 * x;
+        g_status = trx_txt(c, x, trx_content_h() - 20 - status_extra(m), st, t.caption, m.status_bad() ? t.bad : t.muted, room);
+        lv_label_set_long_mode(g_status, LV_LABEL_LONG_MODE_WRAP);
+        g_status_bad = m.status_bad();
+        lv_obj_set_width(g_status, trx_text_w(st, t.caption) + 4 < room ? trx_text_w(st, t.caption) + 4 : room);
+    }
+    if (w.count < m.rows()) {
+        char pos[64];
+        pos_text(pos, sizeof(pos), w, m);
+        g_pos = trx_txt(c, trx_content_w() - x - trx_text_w(pos, t.caption), t.space_md + 4, pos, t.caption, t.muted);
+    }
+    g_lv_sel = sel;
+    g_lv_sw = sw;
+    g_lv_ch = ch;
+    g_lv_shape = listv_shape(m, w);
+    g_lv_valid = g_lv_n == w.count;
+    g_lv_builds++;
+}
+
+// The page stands (same frame, same window length, same foot): the rows whose words moved are written again, the selection moves between two rows, the panel is made again
+// only when what it says changed. False: the page has to be built again.
+static bool listv_inplace(MenuCtl &m)
+{
+    const TrxTheme &t = trx_theme();
+    const int sel = m.selected();
+    TrxWindow w = listv_window(m);
+    if (!g_lv_valid || w.count != g_lv_n || listv_shape(m, w) != g_lv_shape || !g_status) {
+        return false;
+    }
+    g_first = w.first;
+    for (int i = 0; i < w.count; i++) {
+        const uint32_t h = listv_row_hash(m, w.first + i, sel);
+        if (h == g_lv_h[i]) {
+            continue;
+        }
+        char left[120], right[120];
+        bool active;
+        m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
+        const int tone = m.list_tone(w.first + i);
+        TrxStatusRow r = { left, right[0] ? right : 0, tone >= 0 && tone < 5 ? (TrxTone)tone : TT_MUTED, w.first + i == sel, !active };
+        if (!trx_status_row_retext(g_lv_row[i], r, g_lv_rw)) {
+            return false;
+        }
+        trx_row_select(g_lv_row[i], w.first + i == sel);
+        g_lv_h[i] = h;
+    }
+    if (g_title) {
+        char tb[320];
+        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+        if (strcmp(lv_label_get_text(g_title), ft)) {
+            title_set(g_title, ft);
+        }
+    }
+    if (g_pos && w.count < m.rows()) {
+        char pos[64];
+        pos_text(pos, sizeof(pos), w, m);
+        if (strcmp(lv_label_get_text(g_pos), pos)) {
+            lv_label_set_text(g_pos, pos);
+            lv_obj_set_x(g_pos, trx_content_w() - t.space_lg - trx_text_w(pos, t.caption));
+        }
+    }
+    status_set(status_line(m), m.status_bad());
+    const uint32_t ph = listv_panel_hash(m, sel);
+    if (ph != g_lv_ph && g_lv_sp) {
+        lv_obj_clean(g_lv_sp);
+        listv_panel(g_lv_sp, m, sel, g_lv_sw, g_lv_ch);
+        g_lv_ph = ph;
+    }
+    g_lv_sel = sel;
+    g_inplace++;
+    return true;
 }
 
 void ui_menu_render(MenuCtl &m)
@@ -606,11 +845,11 @@ void ui_menu_render(MenuCtl &m)
         apply_alpha();
     }
     const TrxTheme &t = trx_theme();
-    build_route(m.tree(), m.app_mode());
+    build_route(m);
 
     if (!screens_wanted(m) && !m.is_home()) {                       // T209 D4: the foot names the paging keys of a list longer than its window; the window is known before the shell is made
         int room0;
-        TrxWindow w0 = list_window(m, &room0);
+        TrxWindow w0 = m.list_view() ? listv_window(m) : list_window(m, &room0);
         m.note_paged(w0.count < m.rows());
     }
     TrxShellInfo info;
@@ -671,7 +910,10 @@ void ui_menu_render(MenuCtl &m)
             return;
         }
     }
-    if (g_rowlist && !m.is_home() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
+    if (m.list_view() && g_lv_valid && g_last_area == m.area() && g_last_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && listv_inplace(m)) {
+        return;                                                     // T262 D4: the list page stands, its rows and panel were written in place
+    }
+    if (g_rowlist && !m.is_home() && !m.list_view() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m))) {
         int sel = m.selected();
         int o = g_rowsel - g_rowfirst, nw = sel - g_rowfirst;
 #ifdef UI_CHEAP_DEBUG
@@ -698,8 +940,15 @@ void ui_menu_render(MenuCtl &m)
                 char left[120], right[120];
                 bool active, ok = true;
                 int cw = trx_content_w() - 2 * t.space_lg;
+                lv_obj_t *par = lv_obj_get_parent(g_row[0]);
+                const int rx = lv_obj_get_x(g_row[0]), ry = lv_obj_get_y(g_row[0]), rw = lv_obj_get_width(g_row[0]);
+                for (int i = w.count; i < g_rown; i++) {                 // the window is shorter now (a heading never ends it): the rows below it go
+                    lv_obj_delete(g_row[i]);
+                    g_row[i] = 0;
+                }
                 for (int i = 0; ok && i < w.count; i++) {
-                    if (rowh[i] == g_rowh[i]) {
+                    const bool made = i >= g_rown;
+                    if (!made && rowh[i] == g_rowh[i]) {
                         continue;
                     }
                     m.row(w.first + i, left, sizeof(left), right, sizeof(right), &active, 0, 0);
@@ -711,14 +960,21 @@ void ui_menu_render(MenuCtl &m)
                     r.dim = !active;
                     r.mark = m.row_reset(w.first + i);
                     r.heading = m.title_row(w.first + i);                // an information line is a row with its value, only a heading proper is drawn quiet
-                    ok = trx_row_retext(g_row[i], r, cw);
+                    if (made) {                                          // the window is longer now: the row is built as the pane's build makes it, below the last
+                        r.selected = r.strong = r.selected && !m.heading(w.first + i);
+                        g_row[i] = trx_row_at(par, rx, ry + i * (trx_row_h() + 1), rw, r, 0);
+                    } else {
+                        ok = trx_row_retext(g_row[i], r, cw);
+                    }
                 }
+                g_rown = w.count;
                 if (ok) {
-                    if (g_title && strcmp(lv_label_get_text(g_title), m.title())) {
-                        int room = trx_content_w() - 2 * t.space_lg - 240;
-                        int tw = trx_text_w(m.title(), t.display) + 4;
-                        lv_obj_set_width(g_title, tw < room ? tw : room);
-                        lv_label_set_text(g_title, m.title());
+                    if (g_title) {
+                        char tb[320];
+                        const char *ft = title_fit(m.title(), tb, sizeof(tb));
+                        if (strcmp(lv_label_get_text(g_title), ft)) {
+                            title_set(g_title, ft);
+                        }
                     }
                     if (g_pos && w.count < m.rows()) {
                         char pos[64];
@@ -730,6 +986,10 @@ void ui_menu_render(MenuCtl &m)
                     }
                     status_set(status_line(m), m.status_bad());
                     memcpy(g_rowh, rowh, sizeof(uint32_t) * w.count);
+                    for (int i = 0; i < w.count; i++) {                  // the kinds of the rows the window shows now (the bench's probe)
+                        g_rowhead[i] = m.heading(w.first + i);
+                        g_rowtitle[i] = m.title_row(w.first + i);
+                    }
                     g_first = w.first;
                     g_rowfirst = w.first;
                     g_rowsel = m.selected();
@@ -747,9 +1007,9 @@ void ui_menu_render(MenuCtl &m)
     // the title line of the pane: the tab's name, or the browser's path
     int x = t.space_lg;
     int y = t.space_md;
-    int title_room = trx_content_w() - 2 * x - 240;
-    lv_obj_t *title = trx_txt(c, x, y, m.title(), t.display, t.ink, title_room);
-    lv_obj_set_width(title, trx_text_w(m.title(), t.display) + 4 < title_room ? trx_text_w(m.title(), t.display) + 4 : title_room);
+    char tb0[320];
+    lv_obj_t *title = trx_txt(c, x, y, "", t.display, t.ink, 0);
+    title_set(title, title_fit(m.title(), tb0, sizeof(tb0)));
     y += 26;
 
     // Home is the prototype's dashboard, not a list: the running machine on the left, the status rows
@@ -759,6 +1019,13 @@ void ui_menu_render(MenuCtl &m)
         return;
     }
 
+    if (m.list_view()) {
+        g_title = title;
+        ui_listv(c, m, x, y);
+        g_last_area = m.area();
+        g_last_tab = m.tab();
+        return;
+    }
     int n = m.rows();
     int sel = m.selected();
     if (g_last_area != m.area() || g_last_tab != m.tab()) {
@@ -965,6 +1232,9 @@ static uint32_t question_sig(const DlgView &v)
     add(&v.rows, sizeof(v.rows));
     for (int i = 0; i < v.rows && i < DLG_ITEMS_MAX; i++) {
         add(v.row[i], strlen(v.row[i]) + 1);
+        if (v.row_val[i]) {
+            add(v.row_val[i], strlen(v.row_val[i]) + 1);
+        }
         add(&v.row_dir[i], 1);
     }
     add(&v.buttons, sizeof(v.buttons));
@@ -982,7 +1252,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
         for (const char *p = v.text; *p; p++) {
             lines += *p == '\n';
         }
-        int rows = (v.kind == DK_CHOOSE || v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER) ? (v.rows < 1 ? 1 : v.rows) : 0;
+        int rows = (v.kind == DK_CHOOSE || v.kind == DK_EDIT || v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER) ? (v.rows < 1 ? 1 : v.rows) : 0;
         int h = 22 + 30 + (v.text[0] ? 16 * (lines < 14 ? lines : 14) + 8 : 0) + (rows ? rows * (trx_row_h() + 1) + 24 : 0) +
                 (v.kind == DK_TEXT ? 44 : 0) + (v.kind == DK_BUTTONS || v.kind == DK_MESSAGE ? 44 : 0) + 34;
         if (h > SH - 70) {
@@ -1008,7 +1278,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             cy += 40;
         }
         if (rows) {
-            if (v.kind != DK_CHOOSE) {
+            if (v.kind != DK_CHOOSE && v.kind != DK_EDIT) {
                 trx_txt(card, t.space_lg, cy, v.input, t.caption, t.accent, w - 2 * t.space_lg);
                 cy += 18;
             }
@@ -1016,6 +1286,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
                 TrxRow r;
                 memset(&r, 0, sizeof(r));
                 r.label = v.row[i];
+                r.value = v.row_val[i];
                 r.selected = r.strong = (v.first + i == v.sel);
                 trx_row_at(card, t.space_lg, cy, w - 2 * t.space_lg, r, &cy);
             }
@@ -1042,6 +1313,7 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
             }
         }
         const char *hint = v.kind == DK_CHOOSE ? "UP/DOWN  MOVE   RETURN  CHOOSE   <-  CANCEL"
+                         : v.kind == DK_EDIT ? "UP/DOWN  ROW   LEFT/RIGHT  CHANGE   RETURN  DO   <-  CLOSE"
                          : v.kind == DK_TEXT ? "TYPE   DEL  BACK   RETURN  OK   <-  CANCEL"
                          : v.kind == DK_PICK_FILE || v.kind == DK_PICK_FOLDER ? "RETURN  OPEN OR PICK   <-  ONE FOLDER UP   R/S  CANCEL"
                          : v.kind == DK_BUTTONS ? "LEFT/RIGHT  FOCUS   RETURN  ANSWER   Y  YES   N  NO"
@@ -1258,70 +1530,299 @@ void ui_message_clear(void)
     }
 }
 
-void ui_set_look(int transparency, int scheme)
+int ui_name_squeeze(void) { return -1; }                     // no setting sets it (T239.3 D56): trx_fit_name takes -1, T209's "start...end.ext" cut
+
+// ---- the overlay service on LVGL (T256) -------------------------------------------------------------------------------------------------------------------------------
+// The service (overlay.cc) decides; this is its layer: the holder, the key and the alpha go to the port, the still lies on LVGL's bottom layer, the elements are images on the screen
+// (while the menu is closed), and the menu is blended over the still with the screen's opacity. Until a core runs (ui_overlay_start) the functions below act on the port as before.
+static OverlaySvc *g_svc;
+static bool g_ov_ui;                                         // the service gave LVGL the layer
+static bool g_scene;                                         // the screen shows the still and the elements, no menu widget
+static bool g_scr_saved;
+static lv_color_t g_scr_color;
+static lv_opa_t g_scr_opa;
+static lv_obj_t *g_still_img;                                // on the display's bottom layer
+static lv_obj_t *g_el_img[OVL_ELEMENTS_MAX];
+static const uint16_t *g_el_px[OVL_ELEMENTS_MAX];
+static uint32_t g_el_serial[OVL_ELEMENTS_MAX];
+static lv_image_dsc_t g_el_dsc[OVL_ELEMENTS_MAX], g_still_dsc;
+static const uint16_t *g_still_px;
+static uint32_t g_still_serial;
+
+static bool ov_on(void) { return g_svc && g_svc->enabled(); }
+
+// The image cache is off in lv_conf.h (LV_CACHE_DEF_SIZE is not set, so 0): a surface changed in place is read again by the next draw, nothing is decoded or kept.
+static void dsc_set(lv_image_dsc_t *d, const OvDraw &o)
 {
-    g_look_t = transparency < 0 ? 0 : (transparency > 3 ? 3 : transparency);
-    g_look_scheme = scheme;
-    g_look_dirty = true;
+    memset(d, 0, sizeof(*d));
+    d->header.magic = LV_IMAGE_HEADER_MAGIC;
+    d->header.cf = LV_COLOR_FORMAT_RGB565;
+    d->header.w = (uint32_t)o.w;
+    d->header.h = (uint32_t)o.h;
+    d->header.stride = (uint32_t)o.w * 2;
+    d->data_size = (uint32_t)o.w * (uint32_t)o.h * 2;
+    d->data = (const uint8_t *)o.px;
 }
 
-static volatile int g_squeeze = -1;                          // -1: no such setting in this core, T209's "start...end.ext" cut stays
-void ui_set_name_squeeze(int quarter)
+static void el_clear(int i)
 {
-    g_squeeze = quarter < 0 || quarter > 3 ? -1 : quarter;
-    g_look_dirty = true;
+    if (g_el_img[i]) {
+        lv_obj_delete(g_el_img[i]);
+        g_el_img[i] = 0;
+    }
+    g_el_px[i] = 0;
 }
-int ui_name_squeeze(void) { return g_squeeze; }
 
-// the layer's global alpha from the transparency (Gideon "Overlay Transparency": 0, 25, 50, 75 %)
+static void still_clear(void)
+{
+    if (g_still_img) {
+        lv_obj_delete(g_still_img);
+        g_still_img = 0;
+    }
+    g_still_px = 0;
+}
+
+static void scr_forget(void)
+{
+    msg_up = false;
+    pq_up = false;
+    g_msg_label = g_msg_panel = 0;
+    trx_shell_forget();
+    ui_menu_forget_rows();
+    lv_obj_clean(scr);
+    memset(g_el_img, 0, sizeof(g_el_img));                  // lv_obj_clean deleted them with the screen's children
+    memset(g_el_px, 0, sizeof(g_el_px));
+}
+
+static void ov_apply(const OvPlan &p, const OvScene &sc)
+{
+    if (!have_ui) {
+        return;
+    }
+    if (!g_scr_saved) {
+        g_scr_saved = true;
+        g_scr_color = lv_obj_get_style_bg_color(scr, LV_PART_MAIN);
+        g_scr_opa = lv_obj_get_style_bg_opa(scr, LV_PART_MAIN);
+    }
+    if (p.holder == OVH_UI) {
+        trx_lv_resume();
+        g_ov_ui = true;
+    }
+    trx_lv_set_key(p.key, p.key ? TRX_LIVE_KEY_565 : 0);
+    trx_lv_set_alpha(p.alpha);
+    // the still, on the bottom layer, under the screen
+    if (p.draw_still && sc.has_still) {
+        lv_obj_t *bl = lv_display_get_layer_bottom(lv_display_get_default());
+        if (!g_still_img) {
+            g_still_img = lv_image_create(bl);
+            lv_obj_set_flag(g_still_img, LV_OBJ_FLAG_CLICKABLE, false);
+            g_still_px = 0;
+        }
+        if (g_still_px != sc.still.px || g_still_serial != sc.still.serial) {
+            dsc_set(&g_still_dsc, sc.still);
+            lv_image_set_src(g_still_img, &g_still_dsc);
+            lv_obj_set_pos(g_still_img, sc.still.x, sc.still.y);
+            lv_obj_invalidate(g_still_img);
+            g_still_px = sc.still.px;
+            g_still_serial = sc.still.serial;
+        }
+    } else {
+        still_clear();
+    }
+    // the screen: the open menu (its own widgets, blended over the still), or the scene
+    if (p.scene != g_scene) {
+        scr_forget();
+        g_scene = p.scene;
+        lv_obj_set_style_bg_color(scr, g_scene ? lv_color_hex(TRX_LIVE_KEY_RGB) : g_scr_color, 0);
+        lv_obj_set_style_bg_opa(scr, g_scene ? LV_OPA_COVER : g_scr_opa, 0);
+        g_look_dirty = !g_scene;                              // the menu is built again for the new screen
+    }
+    if (g_scene) {
+        lv_obj_set_style_bg_opa(scr, p.draw_still ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // over the still the screen is transparent; else the key colour lets the picture through
+        lv_obj_set_style_opa(scr, LV_OPA_COVER, 0);
+        for (int i = 0; i < OVL_ELEMENTS_MAX; i++) {
+            if (i >= sc.n || !p.draw_elems) {
+                el_clear(i);
+                continue;
+            }
+            const OvDraw &o = sc.el[i];
+            if (g_el_img[i] && g_el_px[i] == o.px && g_el_serial[i] == o.serial) {
+                continue;
+            }
+            if (!g_el_img[i]) {
+                g_el_img[i] = lv_image_create(scr);
+                lv_obj_set_flag(g_el_img[i], LV_OBJ_FLAG_CLICKABLE, false);
+            }
+            dsc_set(&g_el_dsc[i], o);
+            lv_image_set_src(g_el_img[i], &g_el_dsc[i]);
+            lv_obj_set_pos(g_el_img[i], o.x, o.y);
+            lv_obj_invalidate(g_el_img[i]);
+            g_el_px[i] = o.px;
+            g_el_serial[i] = o.serial;
+        }
+    } else {
+        lv_obj_set_style_opa(scr, p.draw_still ? (lv_opa_t)p.menu_opa : LV_OPA_COVER, 0);
+    }
+    if (p.holder == OVH_CORE) {
+        trx_lv_suspend();
+        g_ov_ui = false;
+    }
+    lv_obj_invalidate(scr);
+}
+
+// Text into a library's surface with the font of the menu's captions: LVGL's label drawing on a layer made over the library's buffer (what lv_canvas does, without the widget).
+static void ov_text(const SvcSurface &sf, int x, int y, const char *s, uint16_t colour)
+{
+    lv_display_t *d = lv_display_get_default();
+    if (!have_ui || !d || !sf.px || !sf.w || !sf.h) {
+        return;
+    }
+    lv_draw_buf_t buf;
+    if (lv_draw_buf_init(&buf, sf.w, sf.h, LV_COLOR_FORMAT_RGB565, (uint32_t)sf.w * 2, sf.px, sf.bytes) != LV_RESULT_OK) {
+        return;
+    }
+    const lv_area_t full = { 0, 0, (int32_t)sf.w - 1, (int32_t)sf.h - 1 };
+    lv_layer_t layer;
+    lv_layer_init(&layer);
+    layer.draw_buf = &buf;
+    layer.display = d;
+    layer.color_format = LV_COLOR_FORMAT_RGB565;
+    layer.buf_area = full;
+    layer._clip_area = full;
+    layer.phy_clip_area = full;
+    lv_draw_label_dsc_t ld;
+    lv_draw_label_dsc_init(&ld);
+    ld.font = trx_theme().caption;
+    ld.color = lv_color_make((uint8_t)(((colour >> 11) & 31) * 255 / 31), (uint8_t)(((colour >> 5) & 63) * 255 / 63), (uint8_t)((colour & 31) * 255 / 31));
+    ld.text = s;
+    const lv_area_t at = { x, y, (int32_t)sf.w - 1, (int32_t)sf.h - 1 };
+    lv_draw_label(&layer, &ld, &at);
+    layer.all_tasks_added = true;
+    while (layer.draw_task_head) {
+        lv_draw_dispatch_wait_for_request();
+        if (!lv_draw_dispatch_layer(d, &layer)) {
+            lv_draw_wait_for_finish();
+            lv_draw_dispatch_request();
+        }
+    }
+}
+
+class UiLayer : public OverlayLayer {
+public:
+    void apply(const OvPlan &p, const OvScene &s) { ov_apply(p, s); }
+    void text(const SvcSurface &sf, int x, int y, const char *s, uint16_t colour) { ov_text(sf, x, y, s, colour); }
+};
+static UiLayer g_ui_layer;
+
+OverlaySvc *ui_overlay(void) { return g_svc; }
+bool ui_still_under(void) { return g_svc && g_svc->enabled() && g_svc->plan().draw_still; }
+
+void ui_overlay_start(OverlayHost *host, const UiElements *table, bool own_picture)
+{
+    if (!g_svc) {
+        g_svc = new OverlaySvc(&g_ui_layer, host);
+    }
+    g_svc->look((uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0)));
+    g_svc->set_table(table, own_picture);
+}
+
+int ui_canvas_w(void) { return trx_canvas_w(); }
+int ui_canvas_h(void) { return trx_canvas_h(); }
+
+void ui_overlay_frozen(bool on)
+{
+    if (ov_on()) {
+        g_svc->frozen(on);
+    }
+}
+
+void ui_overlay_closing(void)
+{
+    if (ov_on()) {
+        g_svc->closing();
+    }
+}
+
+// the layer's global alpha from the fixed transparency (position 1 of 0, 25, 50, 75 % = 25 %)
 static void apply_alpha(void)
 {
-    trx_lv_set_alpha((uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0)));
+    const uint8_t a = (uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0));
+    if (ov_on()) {
+        g_svc->look(a);
+    } else {
+        trx_lv_set_alpha(a);
+    }
 }
 
 void ui_show(void)
 {
     if (have_ui) {
-        trx_lv_resume();
+        if (ov_on()) {
+            g_svc->menu(true);
+        } else {
+            trx_lv_resume();
+        }
         apply_alpha();
     }
 }
 
-// The machine stands and the menu is closed: the layer stays up as a keyed screen (the C64's last picture shows through it) with one small tag in the corner.
-static bool g_tag;
+void (*ui_live_key_changed)(bool behind) = 0;
+static bool g_key_on;
+void ui_live_key(bool on)
+{
+    if (ov_on()) {
+        g_svc->live_key(on);
+    } else {
+        trx_lv_set_key(on, on ? TRX_LIVE_KEY_565 : 0);
+    }
+    if (on != g_key_on) {
+        g_key_on = on;
+        if (ui_live_key_changed) {
+            ui_live_key_changed(on);
+        }
+    }
+}
+
+// The machine is paused with the menu closed: the PAUSED tag is an element of the base UI TOML (D5), shown through the service like a library's. Its surface is painted here, with the
+// base's own text call. Over the running picture of a C64-type core and over a layer core's picture the tag shows only while the machine stands.
+static uint16_t g_tag_px[126 * 30];
+static int g_tag_el;
+static SvcSurface g_tag_sf = { g_tag_px, sizeof(g_tag_px), 126, 30 };
 void ui_paused_tag(bool on)
 {
-    if (!have_ui) {
+    if (!have_ui || !ov_on()) {
         return;
     }
-    if (on) {
-        g_msg_label = g_msg_panel = 0;
-        pq_up = false;
-        trx_shell_forget();
-        ui_menu_forget_rows();
-        lv_obj_clean(scr);
-        lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-        lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-        const TrxTheme &t = trx_theme();
-        lv_obj_t *b = trx_box(scr, SW - 250, 14, 236, 30, 0x101018);
-        trx_txt(b, 12, 6, "PAUSED   P RESUME", t.caption, 0xFFFFFF);
-        trx_lv_set_key(true, TRX_LIVE_KEY_565);
-        trx_lv_resume();
-        trx_lv_set_alpha(255);
-        g_tag = true;
-        trx_lv_refresh_now();
-    } else if (g_tag) {
-        g_tag = false;
-        trx_lv_set_key(false, 0);
-        lv_obj_clean(scr);
-        trx_lv_suspend();                       // the layer is the core's again until the menu takes it with ui_show()
+    if (on && g_tag_el <= 0) {
+        const uint16_t box = 0x1082;                                           // 0x101018 as RGB565
+        for (unsigned i = 0; i < sizeof(g_tag_px) / 2; i++) {
+            g_tag_px[i] = box;
+        }
+        g_svc->text(OVL_OWNER_BASE, &g_tag_sf, 12, 6, "PAUSED", 0xFFFF);
+        g_tag_el = g_svc->show(OVL_OWNER_BASE, "paused", &g_tag_sf);
+        if (g_tag_el <= 0) {
+            int ew = 0, eh = 0;
+            g_svc->size_of("paused", &ew, &eh);
+            printf("[overlay] the PAUSED tag is not shown: %s (the element \"paused\" of the UI TOML is %d x %d, the tag's surface %d x %d)\n", OverlaySvc::error(g_tag_el), ew, eh, g_tag_sf.w, g_tag_sf.h);
+            g_tag_el = 0;
+        }
+        g_svc->frame();                                                        // the text is in the surface before the layer draws it
+    }
+    g_svc->paused(on);
+    if (!on && g_tag_el > 0) {
+        g_svc->remove(OVL_OWNER_BASE, g_tag_el);
+        g_tag_el = 0;
     }
 }
 
 void ui_hide(void)
 {
     if (have_ui) {
-        trx_lv_suspend();
+        if (ov_on()) {
+            g_svc->menu(false);
+        } else {
+            trx_lv_suspend();
+        }
     }
 }
 

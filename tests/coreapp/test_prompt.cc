@@ -1,19 +1,54 @@
 // T104.2 D6: the address prompt of "Load PRG and start from". A file action with `ask` shows one row - the prompt, the address in hex, a cursor -
 // takes hex digits, BACK, RETURN and ESC, starts on the word the file itself holds, and hands the number to the operation through the
-// binding. While it is up a digit is a digit, never a tab. The C64 descriptor and the C64 model are the real ones.
+// binding. While it is up a digit is a digit, never a tab. The core is the Atari descriptor with two file types of a test's own (.prg: Run and
+// Load-and-start-from; .p00: the same with the 0x1A byte header before the load address) whose operations record what they were given
+// (T239.3 P1-8: this was made on the trx64u descriptor and its machine, which are TRX64-Ultimate's now; the prompt is the base's).
 #include <string>
 #include "check.h"
-#include "c64_rig.h"
+#include "sio_model.h"
 #include "menuctl.h"
+#include "cores.h"
 #include "keyboard.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
-const CoreDesc *const core_table[] = { &atari800_desc, &nes_desc, &c64_desc, 0 };
+const CoreDesc *const core_table[] = { &atari800_desc, 0 };
+
+static int g_runs = 0, g_loads = 0;
+static std::string g_path;
+static int g_start = -1;
+static int op_run(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    uint64_t sz; bool dir;
+    if (!c->fs->stat(a.s(0), &sz, &dir)) { snprintf(o.msg, o.msglen, "no such file"); return OPE_FAILED; }
+    g_runs++; g_path = a.s(0);
+    return OPE_OK;
+}
+static int op_load(CoreCtx *c, const OpArgs &a, OpOut &o)
+{
+    uint64_t sz; bool dir;
+    if (!c->fs->stat(a.s(0), &sz, &dir)) { snprintf(o.msg, o.msglen, "no such file"); return OPE_FAILED; }
+    g_loads++; g_path = a.s(0); g_start = a.i(1);
+    return OPE_OK;
+}
+static const ArgSpec run_args[] = { ARG_PATH("path") };
+static const ArgSpec load_args[] = { ARG_PATH("path"), ARG_INT("start", 0, 65535) };
+static void reg(OpRegistry &r)
+{
+    atari800_desc.register_ops(r);
+    r.contributor("prompttest");
+    r.add_op("prompt.run", run_args, 1, op_run);
+    r.add_op("prompt.load", load_args, 2, op_load);
+}
+static const OpBind run_bind[] = { B_FILE("path") };
+static const OpBind load_bind[] = { B_FILE("path"), B_ASK("start") };
+static const FileAction prg_actions[] = { { "Run PRG", "prompt.run", run_bind, 1, true, 0, 0 }, { "Load PRG and start from", "prompt.load", load_bind, 2, true, "Start address", 0 } };
+static const FileAction p00_actions[] = { { "Run PRG", "prompt.run", run_bind, 1, true, 0, 0 }, { "Load PRG and start from", "prompt.load", load_bind, 2, true, "Start address", 0x1A } };
+static const FileType prompt_types[] = { { ".prg", prg_actions, 2, 0, 0, 0 }, { ".p00", p00_actions, 2, 0, 0, 0 } };
 
 struct Host : MenuHost {
     void info(int, char *out, int n) { snprintf(out, n, "x"); }
     bool return_to_host(char *msg, int n) { snprintf(msg, n, "no"); return false; }
 };
-
 static std::string row0(MenuCtl &m, std::string *sub = 0)
 {
     char l[100], r[100], s[100];
@@ -32,24 +67,33 @@ static std::vector<uint8_t> prg(uint16_t load, size_t n)
 
 int main()
 {
-    C64Rig r;
-    r.put_roms();
-    CHECK(r.boot());
-    r.c.started = true;
-    r.fs.put("/usb0/x.prg", prg(0xC000, 64));
+    CoreDesc d = atari800_desc;
+    d.register_ops = reg;
+    d.filetypes = prompt_types;
+    d.nfiletypes = 2;
+    SioModel io; FakeFs fs; PxRec px;
+    CoreCtx c;
+    memset(&c, 0, sizeof(c));
+    c.desc = &d; c.io = &io; c.fs = &fs;
+    Settings st(d.settings, d.nsettings, d.store, &fs, "/usb0/cores/atari800.cfg", 0);
+    c.settings = &st;
+    Video vid(d.video, &px, &io);
+    c.video = &vid;
+    st.load();
+    c.started = true;
+    fs.put("/usb0/x.prg", prg(0xC000, 64));
     std::vector<uint8_t> p00(0x1A, 0);
     std::vector<uint8_t> inner = prg(0x2000, 16);
     p00.insert(p00.end(), inner.begin(), inner.end());
-    r.fs.put("/usb0/y.p00", p00);
-    r.fs.put("/usb0/z.prg", prg(0x0000, 0x2000));
+    fs.put("/usb0/y.p00", p00);
+    fs.put("/usb0/z.prg", prg(0x0000, 0x2000));
     Host host;
-    MenuCtl m(&r.c, &host);
+    MenuCtl m(&c, &host);
     m.open();
-    m.key(KEY_F3);                                          // the browser: it opens on the media level (T104.2); the stick is /usb0
+    m.key(KEY_F3);                                          // the browser: it opens on the media level; the stick is /usb0
     { char l[100], r_[100]; bool a_; for (int i = 0; i < m.rows(); i++) { m.row(i, l, 100, r_, 100, &a_); if (!strcmp(l, "usb0/")) { while (m.selected() < i) m.key(KEY_DOWN); } } }
     m.key(KEY_RETURN);
     CHECK(m.rows() >= 3);
-
     auto select = [&](const char *name) {
         char l[100], rr[100]; bool a;
         for (int i = 0; i < m.rows(); i++) { m.row(i, l, 100, rr, 100, &a); if (!strcmp(l, name)) { while (m.selected() > i) m.key(KEY_UP); while (m.selected() < i) m.key(KEY_DOWN); return true; } }
@@ -101,41 +145,35 @@ int main()
     CHECK_STR(row0(m).c_str(), "Start address|$100_");
     m.key('0');
     // nothing has run yet
-    CHECK(r.io.cmds.empty());
-    uint32_t releases = (uint32_t)r.io.release_t.size();
+    CHECK_EQ(g_loads + g_runs, 0);
     // RETURN takes it: the operation gets $1000
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
     CHECK(!m.entering());
-    CHECK_EQ(r.io.exec_pc, 0x1000);
-    CHECK_EQ(r.io.ram[0xC000], 0xEA);
-    CHECK(r.io.release_t.size() == releases + 1);            // the machine was reset for it
+    CHECK_EQ(g_loads, 1);
+    CHECK_EQ(g_start, 0x1000);
+    CHECK_STR(g_path.c_str(), "/usb0/x.prg");
     CHECK(strstr(m.status(), "Load PRG and start from") != 0);
 
     // ESC cancels: nothing happens
     to_prompt("x.prg");
-    size_t cmds = r.io.cmds.size();
-    uint16_t pc = r.io.exec_pc;
+    int loads = g_loads;
     m.key('4'); m.key('2');
     CHECK_EQ(m.key(KEY_ESCAPE), MenuCtl::R_REDRAW);
     CHECK(!m.entering());
     CHECK(m.chooser());                                      // back where it came from
     m.key(KEY_ESCAPE);
     CHECK(!m.chooser());
-    CHECK_EQ(r.io.cmds.size(), cmds);
-    CHECK_EQ(r.io.exec_pc, pc);
+    CHECK_EQ(g_loads, loads);
 
     // RETURN without a digit takes the default; so does a field typed empty again
     to_prompt("x.prg");
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
-    CHECK_EQ(r.io.exec_pc, 0xC000);
+    CHECK_EQ(g_start, 0xC000);
     to_prompt("x.prg");
     m.key('7'); m.key(KEY_BACK);
     CHECK_STR(row0(m).c_str(), "Start address|$_");
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
-    CHECK_EQ(r.io.exec_pc, 0xC000);
+    CHECK_EQ(g_start, 0xC000);
 
     // a .P00: the default is the word behind its header
     to_prompt("y.p00");
@@ -158,33 +196,21 @@ int main()
     // Run PRG from the chooser runs at once
     select("x.prg");
     m.key(KEY_RETURN);
+    int runs = g_runs;
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
     CHECK(!m.entering());
-    CHECK(std::string((const char *)&r.io.ram[0x0277], r.io.ram[0xC6]) == "SYS49152\r");
+    CHECK_EQ(g_runs, runs + 1);
 
-    // a file over the zero page started at an address of its own
+    // a file whose own load address is 0 is started at an address of its own
     to_prompt("z.prg");
+    CHECK_STR(row0(m).c_str(), "Start address|$0000");
     m.key('2'); m.key('0'); m.key('0'); m.key('0');
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
-    CHECK_EQ(r.io.exec_pc, 0x2000);
+    CHECK_EQ(g_start, 0x2000);
 
-    // a start that fails later (the machine does not stop on an instruction boundary) is told on the screen of the next menu; the prompt
-    // itself is long gone and the menu has closed
-    r.io.pause_after_ms = -1;
+    // a file the operation cannot start is refused at the prompt's RETURN, the menu stays
     to_prompt("x.prg");
-    CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_CLOSE);
-    r.menu_closed();
-    CHECK(!m.entering());
-    CHECK(r.c.notice_pending && strstr(r.c.notice, "instruction boundary") != 0);
-    m.open();                                                // the next time the menu opens, it says so
-    CHECK(m.status_bad());
-    CHECK(strstr(m.status(), "instruction boundary") != 0);
-    m.key(KEY_F3);
-    // a file the machine cannot be started with at all is refused at the prompt's RETURN, the menu stays
-    to_prompt("x.prg");
-    r.fs.remove("/usb0/x.prg");
+    fs.remove("/usb0/x.prg");
     CHECK_EQ(m.key(KEY_RETURN), MenuCtl::R_REDRAW);
     CHECK(m.status_bad());
     DONE("test_prompt");

@@ -417,7 +417,7 @@ module tb;
         wait (dut.running && gt_ready);
         // status register (the module on the bus, not the sequence)
         ovl_rd(15'h4F04, rd); if (rd !== 8'h48) fail("status magic 0x4F04", rd, 8'h48);
-        ovl_rd(15'h4F05, rd); if (rd !== 8'd1) fail("status version 0x4F05", rd, 1);
+        ovl_rd(15'h4F05, rd); if (rd !== 8'd2) fail("status version 0x4F05", rd, 2);   // T265 P4: version 2 adds the A/V register 0x4F0A
         ovl_rd(15'h4F06, rd); if (rd[2:0] !== 3'b111) fail("status flags 0x4F06 (running, pix_locked, gt_ready)", rd, 7);
         if (MODE == 0) begin
             ovl_wr(15'h4F00, 8'd0);                                  // 576p50

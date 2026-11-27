@@ -1,5 +1,6 @@
 #include "writeback.h"
 #include "corefolder.h"
+#include "mediamounts.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -284,6 +285,8 @@ void wb_unregister(void)
 
 bool wb_active(void) { return g.have; }
 const char *wb_path(void) { return g.have ? g.m.path : ""; }
+void *wb_user(void) { return g.have ? g.m.user : 0; }
+CoreCtx *wb_ctx(void) { return g.ctx; }
 
 void wb_mark(uint32_t off, uint32_t len)
 {
@@ -401,6 +404,28 @@ static int op_mode(CoreCtx *, const OpArgs &a, OpOut &)
 static int op_poll(CoreCtx *c, const OpArgs &, OpOut &)
 {
     wb_poll(c);
+    mounts_pass(c);                                            // the slots that a library notified (SvcCtx::mount_notify)
+    return OPE_OK;
+}
+
+// T239.3 D51: the API's and an application's way to write the registered medium now: the setting decides (Off and Ask leave the change pending and say so in the answer's text),
+// and only this medium is written, not every medium of the core (media.flush_for_core).
+static int op_flush(CoreCtx *c, const OpArgs &, OpOut &o)
+{
+    if (!wb_pending()) {
+        return OPE_OK;
+    }
+    if (g.mode != WB_AUTO) {
+        snprintf(o.msg, o.msglen, "%s changed, not written: Save Changed Cartridge is %s", g.m.name, g.mode == WB_OFF ? "Off" : "Ask (the person is asked at the menu)");
+        return OPE_OK;
+    }
+    if (wb_flush(c, WB_WHY_MENU, o.msg, o.msglen)) {
+        return OPE_FAILED;
+    }
+    if (wb_pending()) {
+        snprintf(o.msg, o.msglen, "%s changed, but its file cannot be written", g.m.name);
+        return OPE_FAILED;
+    }
     return OPE_OK;
 }
 
@@ -441,6 +466,7 @@ void wb_register_ops(OpRegistry &r)
 {
     r.add_op("writeback.mode", mode_args, 1, op_mode);
     r.add_op("writeback.poll", 0, 0, op_poll);
+    r.add_op("writeback.flush", 0, 0, op_flush);
     r.add_op("writeback.open", 0, 0, op_open);
     r.add_op("writeback.answer", answer_args, 1, op_answer);
     r.add_op("writeback.leave", 0, 0, op_leave);
@@ -497,3 +523,139 @@ int wb_raw_load(CoreCtx *c, const char *path, void *buf, uint32_t size)
     int n = c->fs->load(path, buf, size);
     return n < 0 ? 0 : n;
 }
+
+// ---- the service for libraries (T239.3 D51, svc_wb.h) ---------------------------------------------------------------------------------------
+// One medium for the whole service: a library's medium is the service's own, registered with a writer that calls the library's C writer. Who owns it is told by the `user` the
+// service holds (g_lib's address), so a medium that the base's driver registered over it, or that was unregistered, is never mistaken for the library's.
+namespace {
+
+struct LibMedium {
+    bool used;
+    int owner;
+    SvcWbWriter write;
+    void *user;
+    void (*hold)(void *user, bool on);
+};
+LibMedium g_lib;
+
+int lib_writer(CoreCtx *, void *user, CoreFile *old, CoreFile *out, const WbDirty &d, char *msg, int msglen)
+{
+    LibMedium *r = (LibMedium *)user;
+    SvcWbFile fo = { old }, fn = { out };
+    SvcWbDirty sd = { WB_BLOCK_SHIFT, WB_BLOCKS_MAX, d.blocks, d.aux ? 1 : 0 };
+    return r->write(r->user, old ? &fo : 0, &fn, &sd, msg, msglen);
+}
+
+void lib_hold(void *user, bool on)
+{
+    LibMedium *r = (LibMedium *)user;
+    if (r->hold) {
+        r->hold(r->user, on);
+    }
+}
+
+bool lib_mine(int owner) { return g_lib.used && g.have && g.m.user == &g_lib && g_lib.owner == owner; }
+
+// The change goes to the file first when the setting is Auto (the same rule as a core change, an eject): 0, or 1 when the write failed.
+int lib_flush_before_drop(void)
+{
+    char m[160];
+    return g.ctx ? wb_flush(g.ctx, WB_WHY_CORE, m, sizeof(m)) : 0;
+}
+
+class LibSvcImpl : public WbLibSvc {
+public:
+    int add(int owner, const SvcWbMedium *m)
+    {
+        if (!g.port || !g.ctx) {
+            return SVCWB_E_NOSERVICE;
+        }
+        if (!m || m->size < sizeof(SvcWbMedium) || !m->path || !m->path[0] || strlen(m->path) >= FS_PATH_MAX || !m->write) {
+            return SVCWB_E_ARG;
+        }
+        if (g.have) {
+            if (!lib_mine(owner)) {
+                return SVCWB_E_TAKEN;                                  // the base's driver or another image holds the medium: nothing changes
+            }
+            if (lib_flush_before_drop()) {
+                return SVCWB_E_FAILED;                                 // registering drops what is pending: it is not dropped unwritten
+            }
+        }
+        g_lib.used = true;
+        g_lib.owner = owner;
+        g_lib.write = m->write;
+        g_lib.user = m->user;
+        g_lib.hold = m->hold;
+        WbMedium w;
+        memset(&w, 0, sizeof(w));
+        snprintf(w.path, sizeof(w.path), "%s", m->path);
+        snprintf(w.name, sizeof(w.name), "%s", m->name && m->name[0] ? m->name : "the medium");
+        w.write = lib_writer;
+        w.user = &g_lib;
+        w.may_create = m->may_create;
+        w.hold = m->hold ? lib_hold : 0;
+        wb_register(w);
+        return SVCWB_OK;
+    }
+    int remove(int owner)
+    {
+        if (!lib_mine(owner)) {
+            return SVCWB_E_NOTMINE;
+        }
+        int bad = lib_flush_before_drop();
+        wb_unregister();
+        g_lib.used = false;
+        return bad ? SVCWB_E_FAILED : SVCWB_OK;
+    }
+    int write_now(int owner, char *msg, int msglen)
+    {
+        if (msg && msglen > 0) {
+            msg[0] = 0;
+        }
+        if (!lib_mine(owner)) {
+            return SVCWB_E_NOTMINE;
+        }
+        if (!wb_pending()) {
+            return SVCWB_OK;
+        }
+        if (g.mode == WB_OFF || g.mode == WB_ASK) {
+            return g.mode == WB_OFF ? SVCWB_OFF : SVCWB_ASK;
+        }
+        char m[160];
+        int rc = wb_flush(g.ctx, WB_WHY_MENU, m, sizeof(m));
+        if (!rc && wb_pending()) {
+            snprintf(m, sizeof(m), "%s changed, but its file cannot be written", g.m.name);
+            rc = 1;
+        }
+        if (msg && msglen > 0) {
+            snprintf(msg, msglen, "%s", m);
+        }
+        return rc ? SVCWB_E_FAILED : SVCWB_OK;
+    }
+    int pending(int owner) { return lib_mine(owner) && wb_pending() ? 1 : 0; }
+    void mark(uint32_t off, uint32_t len)
+    {
+        if (g_lib.used && g.m.user == &g_lib) {
+            wb_mark(off, len);
+        }
+    }
+    void mark_aux()
+    {
+        if (g_lib.used && g.m.user == &g_lib) {
+            wb_mark_aux();
+        }
+    }
+    void drop_owner(int owner)
+    {
+        if (lib_mine(owner)) {
+            lib_flush_before_drop();                                   // a failure is told (the notice of try_write); the writer is gone with the image
+            wb_unregister();
+            g_lib.used = false;
+        }
+    }
+};
+LibSvcImpl g_lib_svc;
+
+}  // namespace
+
+WbLibSvc *wb_lib_svc(void) { return &g_lib_svc; }

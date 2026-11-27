@@ -3,6 +3,8 @@
 #include "glue.h"
 #include "zip_lib.h"
 
+extern const void *miniz_table(void);   // miniz_lib.cc
+
 extern "C" int unzip_main(const u2p_api_t *api, const u2p_app_context_t *ctx);
 extern "C" void unzip_set_zip(const ZipLib *t);
 
@@ -12,13 +14,7 @@ static int reply_fn(const char *text) { return u2p_reply_into(g_base, text); }
 extern "C" int app_main(const LibApi *api, AppCtx *ctx)
 {
     g_base = ctx;
-    uint32_t zsize = 0;
-    const ZipLib *zt = api->lib ? static_cast<const ZipLib *>(api->lib->find(ZIPLIB_NAME, ZIPLIB_VERSION, &zsize)) : 0;
-    if (!zt || zsize < sizeof(uint32_t) || !ZIPLIB_HAS(zt, extract_to_callback)) {
-        u2p_reply_into(ctx, "The zip library (miniz.u2a) is not loaded.");
-        return 1;
-    }
-    unzip_set_zip(zt);
+    unzip_set_zip(static_cast<const ZipLib *>(miniz_table()));      // miniz is linked into this image (Makefile, T239.3 D60)
     const u2p_api_t *u = u2p_compat_init(reinterpret_cast<const LibApi *>(api));
     char path[200];
     if (!ctx->file[0]) {                                  // the entry of the Tools area names no file: ask for one

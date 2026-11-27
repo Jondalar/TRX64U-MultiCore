@@ -44,17 +44,17 @@ CORES = [
          sources="cores/ddt_mandel/mono/core.toml (a large core without an application: no ROM list)"),
     dict(id="ddt_novic", match=("no vic",), title="DDT Look Ma, No VIC", folder="ddt_novic",
          files="none", needed="nothing",
-         sources="coreapp/cores/ddt_novic.cc (no ROM list in the descriptor)"),
+         sources="cores/ddt_novic/app/lib/ddt_novic.cc (no ROM list in the descriptor)"),
     dict(id="vc20", match=("vic-20", "vc20"), title="VIC-20", folder="vc20",
          files="`kernal.bin` 8,192, `basic.bin` 8,192, `char.bin` 4,096 bytes", needed="all three",
-         sources="coreapp/cores/vc20.cc (roms[], names and sizes); coreapp/cores/vc20_regs.h"),
+         sources="cores/vc20/app/lib/vc20.cc (roms[], names and sizes); cores/vc20/app/lib/vc20_regs.h"),
     dict(id="c264", match=("commodore 264", "c264", "c16"), title="Commodore 264 (C16, Plus/4)", folder="c16",
          files="`kernal.bin` and `basic.bin` 16,384 each; Plus/4: `3plus1lo.bin`, `3plus1hi.bin` 16,384 each",
          needed="Kernal and Basic; the two function ROMs for the Plus/4",
-         sources="coreapp/cores/c264.cc (roms[], names and sizes); coreapp/cores/c264_regs.h"),
+         sources="cores/c264/app/lib/c264.cc (roms[], names and sizes); cores/c264/app/lib/c264_regs.h"),
     dict(id="amiga1200", match=("amiga 1200",), title="Amiga 1200 (AGA, 68020)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 3.1", needed="one Kickstart (3.x for the hard disk)",
-         sources="coreapp/cores/amiga.cc:34,223 (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
+         sources="cores/amiga1200/app/lib/amiga1200.cc (KS_VER_31, folder amiga); coreapp/src/romset.cc"),
     dict(id="c64scpu", match=("supercpu",), title="C64 with SuperCPU", folder="c64scpu",
          files="the SuperCPU ROM of 131,072, 65,536 or 262,144 bytes (`scpu64.rom`, `scpu.rom`, `supercpu.rom` or `scpu64-v2.04.rom`); "
                "`basic-901226-01.bin` (8,192), `kernal-901227-03.bin` (8,192), `chargen-901225-01.bin` (4,096); optional: the 1541 ROM "
@@ -64,27 +64,27 @@ CORES = [
     dict(id="c128", match=("commodore 128",), title="Commodore 128", folder="c128",
          files="one system ROM image of 73,728 bytes: `boot0.rom`, `c128.rom`, `c128-system.rom` or `c128_system.rom`",
          needed="the system ROM image",
-         sources="coreapp/cores/c128.cc:168-172 (roms[]); coreapp/cores/c128_regs.h:50 (C128_ROM_BYTES)"),
+         sources="cores/c128/app/lib/c128.cc (roms[]); cores/c128/app/lib/c128_regs.h (C128_ROM_BYTES)"),
     dict(id="pet", match=("commodore pet",), title="Commodore PET", folder="pet",
          files="per model: BASIC (8,192 or 12,288), Editor (2,048), KERNAL (4,096), Characters (2,048 or 4,096) bytes, VICE's file names (`basic-4.901465-23-20-21.bin`, `edit-4-40-n-60Hz.901499-01.bin`, `kernal-4.901465-22.bin`, `characters.901640-01.bin` and the 2 / 1 / 8032 variants) or `basic.bin`, `edit.bin`, `kernal.bin`, `chargen.bin`; optional: disk drive DOS and controller ROMs, SuperPET Waterloo ROMs",
          needed="BASIC, Editor, KERNAL and Characters of the chosen model; the drive and Waterloo ROMs only for those features",
-         sources="coreapp/cores/pet.cc (roms[], names and sizes)"),
+         sources="cores/pet/app/lib/pet.cc (roms[], names and sizes)"),
     dict(id="amiga", match=("amiga (ocs", "amiga 500"), title="Amiga (OCS/ECS, 68000)", folder="amiga",
          files="any `.rom` of 262,144 or 524,288 bytes (Kickstart); Auto takes 1.3", needed="one Kickstart",
-         sources="coreapp/cores/amiga.cc:32,148-154,181; coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
+         sources="cores/amiga/app/lib/amiga.cc (variant table, Kickstart, folder); coreapp/src/romset.cc:39-126; app/loaders/kickstart.cc:11-58"),
     dict(id="atari800", match=("atari",), title="Atari 800 XL", folder="atari800",
          files="`ATARIXL.ROM` 16,384; `BASIC.ROM` or `ATARIBAS.ROM` 8,192 bytes", needed="both",
-         sources="coreapp/cores/atari800.cc:72-75; coreapp/cores/atari800_regs.h:39-40; coreapp/src/romfind.cc:59-130"),
+         sources="cores/atari800/app/lib/atari800.cc:72-75; cores/atari800/app/lib/atari800_regs.h:43-44; coreapp/src/romfind.cc:59-130"),
     dict(id="snes", match=("super nintendo",), title="Super Nintendo", folder="snes",
          files="none: the S-SMP's 64 byte boot ROM is embedded in the application",
          needed="nothing",
          sources="coreapp/cores/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
     dict(id="nes", match=("nintendo",), title="Nintendo Entertainment System", folder="nes",
          files="none", needed="nothing",
-         sources="coreapp/cores/nes.cc:139-160 (no ROM list in the descriptor)"),
+         sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),
     dict(id="diag", match=("port diagnostics",), title="Port Diagnostics", folder="diag",
          files="none", needed="nothing",
-         sources="coreapp/cores/portdiag.cc (the folders `tests/` and `results/` under the core folder; the files of record 8 of diag.cor, the example tests, are written when missing), cores/diag/mono/core.toml (no ROM, no media)"),
+         sources="cores/diag/app/lib/portdiag.cc (the folders `tests/`, `panels/`, `presets/` and `results/` under the core folder); T260 D6, P6; T239.5 D21 (the tests, panels and presets are the repository folder cores/diag/sd; a package and a pre-release carry them as SD/cores/diag/ (SD.zip), diag.cor does not, and a release bundle carries neither the core nor them); cores/diag/mono/core.toml (no ROM, no media)"),
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",
@@ -92,18 +92,18 @@ CORES = [
     dict(id="zxnext", match=("spectrum next",), title="ZX Spectrum Next", folder="zxnext",
          files="`next.img`: a whole SD card image (FAT, MBR) with the Next's system files on it (any size the machine reads; it is written back)",
          needed="the image; without it the machine's boot ROM shows its own error",
-         sources="coreapp/cores/zxnext.cc (mount_default, sd_card); coreapp/cores/zxnext_regs.h"),
+         sources="cores/zxnext/app/lib/zxnext.cc (mount_default, sd_card); cores/zxnext/app/lib/zxnext_regs.h"),
     dict(id="neogeo", match=("neo geo",), title="SNK Neo Geo (MVS / AES)", folder="neogeo",
          files="`sp-s2.sp1` (MVS) or `neo-epo.sp1` (AES) or `uni-bios.rom`, 131,072 bytes each; `000-lo.lo` 65,536 bytes (zoom table); `sfix.sfix` 131,072 bytes; `romsets.xml`",
          needed="one BIOS, the zoom table and the fix ROM; a game set for anything to run",
-         sources="coreapp/cores/neogeo.cc (roms); coreapp/cores/neoset.cc"),
+         sources="cores/neogeo/app/lib/neogeo.cc (roms); cores/neogeo/app/lib/neoset.cc"),
     dict(id="zx", match=("spectrum",), title="ZX Spectrum 48K / 128K", folder="zx",
          files="`48.rom` 16,384 bytes (48K); `128.rom` 32,768 bytes (128K)", needed="one of the two (each gives its model)",
-         sources="coreapp/cores/zx.cc:131-135; coreapp/cores/zx_regs.h:42-43; coreapp/src/romfind.cc (sets)"),
+         sources="cores/zx/app/lib/zx.cc (roms[]); cores/zx/app/lib/zx_regs.h (the sizes); coreapp/src/romfind.cc (sets)"),
     dict(id="cpc", match=("amstrad",), title="Amstrad CPC 464 / 664 / 6128", folder="cpc",
          files="464: `os464.rom`, `basic464.rom`; 664: `os664.rom`, `basic664.rom`, `amsdos.rom`; 6128: `os6128.rom`, `basic6128.rom`, `amsdos.rom` (16,384 bytes each)",
          needed="the files of one model (a disk drive needs `amsdos.rom`)",
-         sources="coreapp/cores/cpc.cc:135-145; coreapp/cores/cpc_regs.h:42; coreapp/src/romfind.cc (sets)"),
+         sources="cores/cpc/app/lib/cpc.cc (roms[]); cores/cpc/app/lib/cpc_regs.h (the sizes); coreapp/src/romfind.cc (sets)"),
 ]
 
 
@@ -262,7 +262,8 @@ PARAS = {
     ],
     "diag": [
         "Needs no ROM file. The core has no machine: it measures the joystick and paddle ports from test files (`.toml`, in `cores/diag/tests/` on the stick or the card).",
-        "The example tests are written there at the first start (a file that is there already is never overwritten, so an edited test stays).",
+        "The tests, panels and presets are not in `diag.cor`: they are in `SD.zip` of this pre-release (the folder `SD/cores/diag/` of the CI package). Unzip it at the root of the medium whose `cores/` folder holds `diag.cor` (the SD card or the stick): the entries are `cores/diag/...`, so `tests/`, `panels/` and `presets/` land in `cores/diag/` beside the core, where it looks for them.",
+        "A new test is one more `.toml` file in `cores/diag/tests/`; it needs no new build.",
         "A test says what to plug in, what to press and what to measure; the result is written next to it in `cores/diag/results/` as a `.toml` and a readable `.txt`.",
     ],
     "zxnext": [
@@ -357,10 +358,7 @@ def render(a, cors, bit_len, alen, dest):
     trx = {os.path.basename(f) for f, m in cors}
     if "trx64g.cor" in trx:
         w("The exceptions are inside the TRX64 files: `trx64g.cor` carries the C64 BASIC ROM and the MOD player cartridge image that Gideon's")
-        w("Ultimate application links, as his firmware does%s." % ("; `trx64u.cor` carries the MOD player image for Play MOD" if "trx64u.cor" in trx else ""))
-        w("")
-    elif "trx64u.cor" in trx:
-        w("The exception is inside `trx64u.cor`: the MOD player cartridge image for Play MOD.")
+        w("Ultimate application links, as his firmware does.")
         w("")
     w("## 1. What you need")
     w("")
@@ -380,6 +378,8 @@ def render(a, cors, bit_len, alen, dest):
     w("| `%s.ue2` | the same package without the pre-header, for a machine that still runs Gideon's |" % a.name)
     if getattr(a, "txu", ""):
         w("| `%s` | the same host as an update for a board that already runs a TRX64 MultiCore host (section 3a) |" % a.txu)
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
+        w("| `hostrecovery.app` | the host's own application, for the recovery: copy it to the **root** of a USB stick or the SD card (section 4) |")
     for f, m in cors:
         if m.get("kind") == "large":     # T115 7: a whole bitstream, started on its own (the host reloads itself after it)
             w("| `%s` | %s %s, **large core**: a full bitstream of %s bytes + its application %s bytes |"
@@ -390,6 +390,10 @@ def render(a, cors, bit_len, alen, dest):
     u2as = sorted(f for f in os.listdir(a.cor_dir) if f.endswith(".u2a"))   # T180 D9: applications every core reads
     for f in u2as:
         w("| `%s` | an application for every core: **Unzip here** on a `.zip` in the F3 browser (section 4) |" % f)
+    if os.path.exists(os.path.join(a.cor_dir, "SD.zip")):   # T239.5 D21: the files the core lanes deliver for the card (diag's tests, presets, panels)
+        import zipfile
+        sdc = sorted({e.split("/")[1] for e in zipfile.ZipFile(os.path.join(a.cor_dir, "SD.zip")).namelist() if e.startswith("cores/") and e.count("/") >= 2})
+        w("| `SD.zip` | the files of the cores %s for the SD card, entries `cores/<core>/...`: unzip it at the root of the medium whose `cores/` folder holds the `.cor` files |" % ", ".join("`%s`" % c for c in sdc))
     w("| `SHA256SUMS` | checksum of every file above |")
     w("")
     w("The installer writes two things, nothing else in the flash changes:")
@@ -448,14 +452,16 @@ def render(a, cors, bit_len, alen, dest):
     w("")
     w("Prepare the stick (or the SD card) on the PC like this:")
     w("")
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
+        w("**Copy `hostrecovery.app` to the root of the stick or the SD card** (not into a folder: the zip has a top folder, take the file out of it). If another firmware's updater ever")
+        w("replaces the host in the flash, the board repairs itself from this file (or from its copy on the board's own drive) at the next power-on; without it a USB-Blaster is the way back.")
+        w("")
     w("```")
     w("/cores/                      the .cor files of this bundle, and any .cfw full firmware")
     w("    trx64u.cor  trx64g.cor  vc20.cor  amiga.cor  ...")
     if u2as:
         w("    apps/                    applications every core reads (T180 D9), from this bundle; never a core's folder:")
         w("        unzip.u2a            Unzip here / Unzip to folder / Extract one file, on a .zip in the F3 browser")
-        if "miniz.u2a" in u2as:
-            w("        miniz.u2a            the zip library Unzip loads (T197); it has no menu entry, and any application that reads a .zip can use it")
     w("    <name>/                  one folder per core, made by the core at its first start; never part of a release:")
     w("        <name>.cfg           its settings")
     w("        roms/                its ROM files (section 5)")
@@ -474,8 +480,6 @@ def render(a, cors, bit_len, alen, dest):
         w("- **Unzip (all cores):** the installer (section 3) writes `unzip.u2a` to `/cores/apps/unzip.u2a`; after the update in 3a, or by hand, copy it there yourself; every core finds it there, no copy per core folder. A `unzip.u2a`")
         w("  in a core's own `/cores/<name>/apps/` wins over that one. Then ENTER on a `.zip` in the File Browser (F3) offers **Unzip here**, **Unzip to folder**")
         w("  and **Extract one file**.")
-        if "miniz.u2a" in u2as:
-            w("  Unzip needs the zip library `miniz.u2a` in the same folder (`/cores/apps/` or the core's own `apps/`); copy both.")
     w("- **Media** (disks, games, images) can lie anywhere; you browse to them from the core's menu.")
     w("- **Settings:** the cores on the common application (Amiga, Amiga 1200, Atari 800 XL, NES, Apple IIe, ZX Spectrum, Amstrad CPC, ZX Spectrum Next, VIC-20, Commodore 264) keep")
     w("  them in `<name>.cfg` in the core's folder, `/cores/<name>/<name>.cfg`.")
@@ -583,6 +587,10 @@ def render(a, cors, bit_len, alen, dest):
     w("## 9. Known problems")
     w("")
     w("- Every core except TRX64 is experimental: expect rough edges.")
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
+        w("- The board stays dark after an updater of another firmware (for example a firmware's own flash patch run inside a started firmware): the host recovery starts by itself at the next")
+        w("  power-on, from its copy on the board's drive, the SD card or a USB stick. Put `hostrecovery.app` in the root of a stick or the SD card, switch the power off and on, and wait")
+        w("  about a minute. The host menu then says that it repaired the flash.")
     for c in present:
         if c["id"] in KNOWN:
             w("- " + KNOWN[c["id"]])

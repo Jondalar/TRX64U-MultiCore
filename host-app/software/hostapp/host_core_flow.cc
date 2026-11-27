@@ -7,6 +7,7 @@
 #include "cor.h"
 #include "semver.h"
 #include "txu.h"
+#include "guard.h"
 #include "keyboard.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -524,6 +525,7 @@ struct UpDone {
     uint32_t bit_len, app_len;
     bool host_key_changes;
     int broken;
+    char warn[124];           // T265: the recovery copy or the record could not be written ("" when both are)
 };
 
 // What the write did, as a page (built and drawn; the waiting is the job's). The ok page ends in the restart page's steps.
@@ -548,6 +550,9 @@ void up_result_page_ok(HcPage &pg, int &rl, const UpDone &d, const FwWriteResult
             snprintf(a, sizeof(a), "No core on the media needs a rebuild.");
         }
         hp_line(&pg, n++, d.broken ? HCT_WARN : HCT_MUTED, a);
+    }
+    if (d.warn[0]) {
+        hp_line(&pg, n++, HCT_WARN, d.warn);
     }
     n++;                                                    // a blank row: the one thing to do stands apart
     rl = n++;
@@ -786,6 +791,22 @@ bool UpdateJob::run()
              (unsigned)(w_app ? img.app_len : 0), (unsigned)FW_APP_ADDR);
         t0 = env.now(env.ctx);
         fw_write_parts(fl, img, parts, up_write_cb, &u, &wr);
+        done.warn[0] = 0;
+        if (wr.ok && w_app && guard_active()) {                   // T265 P3: the order is the application, the recovery copy, the record
+            u.phase = FWP_READBACK;
+            u.done = u.rb_pages;
+            snprintf(u.detail, sizeof(u.detail), "Writing the recovery copy");
+            up_run_page(u, true);
+            GuardOut go;
+            guard_after_update(fl, img.app, img.app_len, &go);
+            flog(env, "[host] guard: copy %s (%s), record %s (%s)", go.copy_ok ? "ok" : "FAILED", go.copy_why, go.record_ok ? "ok" : "FAILED", go.record_why);
+            if (!go.copy_ok) {
+                snprintf(done.warn, sizeof(done.warn), "%s", go.copy_room ? "The recovery copy does not fit on the flash drive. Delete files from it, then restart."
+                                                                          : "The recovery copy could not be written. Restart the board to try again.");
+            } else if (!go.record_ok) {
+                snprintf(done.warn, sizeof(done.warn), "The recovery information could not be written. Restart the board to try again.");
+            }
+        }
         ms = env.now(env.ctx) - t0;
         flog(env, "[host] update write: %s after %u ms (%u erases, %u programs): %s", wr.ok ? "ok" : "FAILED", (unsigned)ms, (unsigned)wr.erases,
              (unsigned)wr.programs, wr.why ? wr.why : "");

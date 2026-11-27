@@ -3,7 +3,7 @@ id           = "c264"
 name         = "Commodore 264 (C16, Plus/4)"
 version      = "0.1.0"
 contract     = 2
-app          = "blueprint"     # the T104 generic application (coreapp/cores/c264.cc); Alex 2026-10-22: "apart from trx64 and c64u, switch everything to the generic core app for now". Supersedes T84 D12; no 1541 drive until the cbm1541 library exists (T90 section 5)
+app          = "blueprint"     # the generic core application; the 264's record is c264_desc: its own app cores/c264/app (T239.5 D15), not the shared one (cores/c264/app/lib/c264.cc); Alex 2026-10-22: "apart from trx64 and c64u, switch everything to the generic core app for now". Supersedes T84 D12; no 1541 drive until the cbm1541 library exists (T90 section 5)
 order        = 7
 delivery     = "cfw"           # a LARGE core since 2026-11-01 (T164 Q1: pb_l2 is X0-49 rows 0-99 with 40 block RAM tiles, this core needs 43; Alex: "whatever does not fit becomes a
                                # large core"): this file is the only descriptor, no DFX lane; cores/c264/mono/build_mono.tcl, lane large-c264

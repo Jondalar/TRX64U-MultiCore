@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Which optional parts a run does, one answer per call.
 #
-#   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-* and integration, release/tags,
+#   ci/select.sh sims-tier   0 (no sims) on main and feature branches since 2026-11-08 (Alex: sims only on demand); 2 on integ-* and integration, release/* (a v* tag runs no tests, T239.5 D51),
 #                            SIMS_INPUT=true (GitHub: the dispatch choice `extra` with sims, T239.1 D39; Gitea: the dispatch input `sims`), or "[sims]" in the head commit. The nightly workflow passes tier 2 itself.
 #   ci/select.sh ue2         yes only when UE2_INPUT=true: the builder's manual dispatch of the 100T host (T239.1 D16); no workflow of this repository sets it.
-#   ci/select.sh update      yes on integ-m1, integration, main, t239.1 (during T239.1 D9) and tags v* (the tester update files are built for
+#   ci/select.sh update      yes on integ-m1, integration, main and tags v* (the tester update files are built for
 #                            every commit there), or when UPDATE_FORCE=true (GitHub: the dispatch choice `extra` with update, T239.1 D39;
 #                            Gitea: the dispatch input `update`), or BUNDLE_INPUT=true (Gitea: the dispatch input `bundle`, T172; until the switch),
 #                            or the head commit message contains
@@ -31,7 +31,7 @@ case "${1:?sims-tier, ue2 or update}" in
     # name cannot be checked, a called workflow sees "workflow_call" there; a tag or a release/* branch alone no longer asks (2026-11-18)
     if [ "${UE2_INPUT:-}" = true ]; then echo yes; else echo no; fi ;;
   update)
-    if [ "$ref" = integ-m1 ] || [ "$ref" = integration ] || [ "$ref" = t239.1 ] || [ "$ref" = main ] || [ "${GITHUB_REF_TYPE:-}" = tag ] || [ "${UPDATE_FORCE:-}" = true ] \
+    if [ "$ref" = integ-m1 ] || [ "$ref" = integration ] || [ "$ref" = main ] || [ "${GITHUB_REF_TYPE:-}" = tag ] || [ "${UPDATE_FORCE:-}" = true ] \
        || [ "${BUNDLE_INPUT:-}" = true ] || [[ "$msg" == *"[bundle]"* ]]; then echo yes; else echo no; fi ;;
   *) echo "unknown question $1" >&2; exit 2 ;;
 esac

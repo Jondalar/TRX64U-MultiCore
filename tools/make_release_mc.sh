@@ -6,6 +6,9 @@
 #       --bit-commit <sha> --app-commit <sha> --cor <file> [--cor <file> ...] [--out <dir>] [--name <base>]
 #       [--update <file.cfw> --update-ue2 <file.ue2>]   the update file the pipeline already built
 #       [--u2a <file.u2a> ...]                          applications every core reads from /cores/apps/ (T180 D9: unzip.u2a)
+#       [--sd <dir>]                                    the package's SD/ tree (files the core lanes deliver for the card, SD/cores/<id>/...): packed as SD.zip (entries cores/<id>/..., without the SD/ level)
+#       [--release]                                     the bundle of a release (T239.5 D21): every core whose TOML B says [app] release = false (tools/core_toml.py
+#                                                       pre-release-only) is left out - its .cor and its SD/cores/<id>/ folder; without it they stay
 #       [--txu <file.txu>]                              the host's own update (T152) for boards already on a MultiCore host
 #                                                       (ci/update.sh); without it one is built here,
 #                                                       which needs the RISC-V toolchain image
@@ -24,6 +27,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 OUT="$ROOT/dist"
+SD="" RELEASE=0
 ID="" BIT="" APP="" BITC="" APPC="" NAME="" UPD_CFW="" UPD_UE2="" TXU=""
 CORS=()
 U2AS=()
@@ -43,11 +47,23 @@ while [ $# -gt 0 ]; do
         --update) UPD_CFW="$2"; shift 2;;
         --update-ue2) UPD_UE2="$2"; shift 2;;
         --txu) TXU="$2"; shift 2;;
+        --sd) SD="$2"; shift 2;;
+        --release) RELEASE=1; shift;;
         -h|--help) usage;;
         *) echo "unknown option $1" >&2; usage;;
     esac
 done
 [ -n "$ID" ] && [ -n "$BIT" ] && [ -n "$APP" ] && [ -n "$BITC" ] && [ -n "$APPC" ] || usage
+# T239.5 D21: a release bundle is made without the cores that are for the pre-release only ([app] release = false in their TOML B)
+NOREL=""
+if [ "$RELEASE" = 1 ]; then
+    NOREL="$(python3 -I "$HERE/core_toml.py" pre-release-only)"
+    keep=()
+    for c in "${CORS[@]}"; do
+        if printf '%s\n' "$NOREL" | grep -qx "$(basename "$c" .cor)"; then echo "    release bundle: $(basename "$c") left out (release = false)"; else keep+=("$c"); fi
+    done
+    CORS=(${keep[@]+"${keep[@]}"})
+fi
 [ "${#CORS[@]}" -gt 0 ] || { echo "at least one --cor is required" >&2; exit 2; }
 if [ -n "$UPD_CFW" ] || [ -n "$UPD_UE2" ]; then
     [ -s "$UPD_CFW" ] && [ -s "$UPD_UE2" ] || { echo "--update needs both the .cfw and the .ue2" >&2; exit 2; }
@@ -71,7 +87,34 @@ for c in "${CORS[@]}"; do
     cp "$c" "$D/$(basename "$c")"
 done
 
+# T239.5 D21: the SD/ tree of the package as one SD.zip (a pre-release holds flat files only; the entries are cores/<id>/..., unzipped at the root of the medium whose cores/ folder holds the .cor it puts cores/<id>/ beside it), without the folder of a core left out above
+if [ -n "$SD" ] && [ -d "$SD" ]; then
+    python3 - "$SD" "$D/SD.zip" "$NOREL" <<'PY'
+import os, sys, zipfile
+sd, out, norel = sys.argv[1], sys.argv[2], sys.argv[3].split()
+files = []
+for d, _, fs in os.walk(sd):
+    for f in fs:
+        rel = os.path.relpath(os.path.join(d, f), sd).replace(os.sep, "/")
+        parts = rel.split("/")
+        if parts[0].lower() == "cores" and len(parts) > 2 and parts[1] in norel:
+            continue
+        files.append(rel)
+if files:
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for rel in sorted(files):
+            zi = zipfile.ZipInfo(rel, date_time=(2026, 1, 1, 0, 0, 0))
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            zi.external_attr = 0o644 << 16
+            z.writestr(zi, open(os.path.join(sd, rel), "rb").read())
+PY
+fi
+
 for u in ${U2AS[@]+"${U2AS[@]}"}; do cp "$u" "$D/$(basename "$u")"; done
+
+# T265 P2 (S10): the recovery program starts this file from the root of a stick or the SD card when another firmware replaced the host application in the flash; it is the host app of the
+# bundle byte for byte (ci/package.sh makes it from the stamped app, and --app is that file)
+cp "$APP" "$D/hostrecovery.app"
 
 if [ -n "$UPD_CFW" ]; then
     # Built by the pipeline (ci/update.sh), which is where it belongs: no RISC-V toolchain needed here.

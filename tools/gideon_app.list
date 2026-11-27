@@ -346,16 +346,12 @@ tools/checksum.c
 tools/hex2bin.c
 tools/parse_nano.py
 tools/swap.c
-# the applications of the fork that apps/unzip, apps/softboot, apps/trex_crt and coreapp/src/trxmon are copies of, and the files the
+# the application of the fork that apps/unzip is a copy of, and the files the
 # PROVENANCE lines of coreapp/ and app/sdk/ name as their origin: kept so that the statement "copy of X" can be checked against X
-apps/trxmon/src
 apps/unzip/src
-apps/softboot/src
-apps/trex_crt/src
 software/u64/u64_config.cc
 software/app_loader/app_api_impl.cc
 software/app_loader/app_api_net.cc
-software/io/c64/trx_ring.cc
 software/io/c64/trx_lens.c
 software/io/c64/trx_lens.h
 software/io/c64/trx_cart_desc.h

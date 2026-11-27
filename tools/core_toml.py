@@ -13,6 +13,13 @@ what ci/lib.sh hashes into that core's keys.
   (a core with `pipeline = false` is left out of all three lists: T92 D-17e)
   tools/core_toml.py sources <name>       the core's pathspecs, one per line
   tools/core_toml.py env <name>           the core's mono_env, one NAME=value per line (a value may hold spaces)
+  tools/core_toml.py list-own-app         the DFX cores whose TOML B names a descriptor symbol ([app] desc): their app is linked from the SDK package (T239.3 V-5);
+                                          the stages of the old pipeline read this list (ci/trxapps.sh, ci/package.sh), so a large core is not in it (T213.3 P6)
+  tools/core_toml.py lanes                every core whose TOML B names a descriptor symbol, "<name> dfx" or "<name> large" (a large core has only
+                                          cores/<name>/mono/core.toml): the core lanes of the matrix (ci/dispatch.py, ci/lane.sh; T239.5, T213.3 P5)
+  tools/core_toml.py pre-release-only     the cores whose TOML B says [app] release = false (T239.5 D21): in every package and pre-release, left out of the release bundle
+                                          (tools/make_release_mc.sh --release drops their .cor and their SD/cores/<id>/ folder)
+  tools/core_toml.py sdk <name> <key>     one value of the [app] table of cores/<name>/app/sdk.toml (T239.3 D25, V-4)
   tools/core_toml.py get <name> <key>     one value ("true"/"false" for a flag)
   tools/core_toml.py --check              every descriptor against the schema below
 
@@ -76,7 +83,22 @@ SCHEMA = {
     # ci/plan.py, ci/sims.sh without a bench named, ci/orchestrate.py check, tools/gen_roms_txt.py leave it out). Default true. --check, get, sources and env
     # still read it; the core application keeps its code (table.cc) and its unit tests (tests/coreapp/run.sh) still run.
     "pipeline":     ("bool", False),
+    # T239.3 D15 (D11, D13): the core's heap in bytes. The packer writes it into the heap word of the core's copy of the application image
+    # (tools/cor_pack.py --heap, coreapp/src/heapcfg.c) and the application defines its FreeRTOS heap_5 region of that size at start; the board
+    # parses no TOML. Absent = HEAP_DEFAULT, the heap every core had before. 0 = the region left behind the linked image and the stack reserve (P4-1). Otherwise at
+    # least HEAP_MIN, a multiple of 16, at most HEAP_MAX; whether the image fits with it is the packer's check.
+    "heap":         ("int",  False),
 }
+# T239.3 D25, V-4: cores/<id>/app/sdk.toml, the TOML B of a core's app (tools/libtab.py, tools/app_build.py read the tables [[library]] and [sizes]) and, in its [app] table, the switches of
+# a core on its way onto the SDK. It lies in the core's app part (cores/*/app/** is no part of a bitstream key), not in
+# core.toml (cores/<id> is). In [app]: desc_record = true: the packers put cores/<id>/app/desc.toml into the .cor as record 6 and the application takes the core's data from it
+# (coreapp/src/bundle.cc). Absent file, absent key or false: the file rests in the tree (test_descgen keeps it equal to the C tables), the .cor carries no record and the core runs on
+# its compiled-in descriptor. True needs the file.
+SDK_SCHEMA = {"release": "bool", "sd": "str", "desc_record": "bool", "name": "str", "desc": "str", "toml_a": "str", "base_toml_a": "str", "base_blocks": "list", "base_sources": "list", "sources": "list"}   # [app] of a TOML B (tools/app_build.py)
+SDK_TABLES = ("app", "library", "sizes")
+HEAP_DEFAULT = 0x7A0000
+HEAP_MIN = 0x10000
+HEAP_MAX = 0xE60000                           # the application region's length (host-app/target/u64ii/riscv/coreapp/linker.x)
 APPS = ("blueprint", "ultimate", "none")
 DELIVERIES = ("cor", "cfw")
 
@@ -103,8 +125,8 @@ def parse(path):
             out[key] = [v.strip().strip('"') for v in val[1:val.rindex("]")].split(",") if v.strip()]
         elif val in ("true", "false"):
             out[key] = val == "true"
-        elif re.match(r"^-?\d+$", val):
-            out[key] = int(val)
+        elif re.match(r"^(-?\d+|0x[0-9a-fA-F]+)$", val):     # T239.3 D15: a size may be written 0x7A0000
+            out[key] = int(val, 16) if val.startswith("0x") else int(val)
         elif val.startswith('"'):
             out[key] = val[1:val.rindex('"')]
         else:
@@ -115,6 +137,20 @@ def parse(path):
 def in_pipeline(table):
     """T92 D-17e: a core with `pipeline = false` is out of the gateware build, packing and benches; the default is in."""
     return table.get("pipeline", True) is not False
+
+
+def own_app_cores():
+    """T239.3 V-5 (D25): the cores in the pipeline whose TOML B names a descriptor ([app] desc); their app is linked from the SDK package."""
+    return [n for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+
+
+def own_app_lanes():
+    """T239.5, T213.3 P5: (name, kind) of every core in the pipeline whose TOML B names a descriptor: kind "dfx" for a core.toml, "large" for a core
+    that has only cores/<name>/mono/core.toml (the flat build)."""
+    dfx = [(n, "dfx") for n, _, t in descriptors() if in_pipeline(t) and sdk_table(n).get("desc")]
+    have = set(n for n, _ in dfx)
+    large = [(n, "large") for n, _, t in large_descriptors() if n not in have and in_pipeline(t) and sdk_table(n).get("desc")]
+    return dfx + large
 
 
 def delivery_of(table):
@@ -133,7 +169,7 @@ def descriptors():
 
 def large_descriptors():
     """(name, path, table) of the cores that carry a LARGE-core descriptor cores/<name>/mono/core.toml next to (or instead of) the core.toml.
-    No pipeline stage reads these (the lists and sources above do not); the flat build of the core does, through TRX_CORE_DESC (below)."""
+    The flat build reads them through TRX_CORE_DESC (below); the matrix reads them for a large core with an app of its own (lanes, ci/lib.sh mono_specs)."""
     out = []
     for name in sorted(os.listdir(CORES)):
         p = os.path.join(CORES, name, "mono", "core.toml")
@@ -157,8 +193,49 @@ def table_of(name):
     return dict((n, t) for n, _, t in large_descriptors())[name]
 
 
-def check():
+def _sdk_doc(p):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import descrec
+    try:
+        return descrec.toml_loads(open(p, encoding="utf-8").read())
+    except descrec.DescError as e:
+        raise SystemExit("%s: %s" % (p, e))
+
+
+def sdk_table(name):
+    """The [app] table of cores/<name>/app/sdk.toml ({} when there is no file or no table)."""
+    p = os.path.join(CORES, name, "app", "sdk.toml")
+    return dict(_sdk_doc(p).get("app", {})) if os.path.isfile(p) else {}
+
+
+def check_sdk():
     bad = 0
+    for name in sorted(os.listdir(CORES)):
+        p = os.path.join(CORES, name, "app", "sdk.toml")
+        if not os.path.isfile(p):
+            continue
+        rel = p.replace(ROOT + "/", "")
+        doc = _sdk_doc(p)
+        for key in doc:
+            if key not in SDK_TABLES:
+                print("%s: %s is not a table of the format (the tables are %s)" % (rel, key, ", ".join(SDK_TABLES)))
+                bad += 1
+        for key, v in doc.get("app", {}).items():
+            kind = SDK_SCHEMA.get(key)
+            if kind is None:
+                print("%s: %s is not a field of [app]" % (rel, key))
+                bad += 1
+            elif {"bool": bool, "str": str, "list": list}[kind] is not type(v):
+                print("%s: %s is not a %s" % (rel, key, kind))
+                bad += 1
+        if doc.get("app", {}).get("desc_record") is True and not os.path.isfile(os.path.join(CORES, name, "app", "desc.toml")):
+            print("%s: desc_record = true, but cores/%s/app/desc.toml does not exist" % (rel, name))
+            bad += 1
+    return bad
+
+
+def check():
+    bad = check_sdk()
     seen = {}
     large = large_descriptors()
     for name, path, t in descriptors() + large:
@@ -183,6 +260,8 @@ def check():
             bad += err("name %r is %d characters, at most 30 (T209 D17: it is the row's text in the boot menu)" % (t["name"], len(t["name"])))
         if "short" in t and not re.fullmatch(r"[A-Za-z0-9+/.]{1,4}", str(t["short"])):
             bad += err("short %r is not 1 to 4 of A-Z a-z 0-9 + / ." % (t["short"],))
+        if isinstance(t.get("heap"), int) and not isinstance(t.get("heap"), bool) and not (t["heap"] == 0 or (HEAP_MIN <= t["heap"] <= HEAP_MAX and t["heap"] % 16 == 0)):
+            bad += err("heap 0x%x is not 0 (the region left) or a multiple of 16 between 0x%x and 0x%x" % (t["heap"], HEAP_MIN, HEAP_MAX))
         if t.get("id") != name:
             bad += err("id %r is not the directory name %r" % (t.get("id"), name))
         if t.get("app") not in APPS and "app" in t:
@@ -242,11 +321,22 @@ def main():
         print("\n".join(names))
     elif a[:1] == ["list-cor"]:
         print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and not t.get("flash_filler") and not t.get("build_only") and delivery_of(t) != "cfw"))
+    elif a[:1] == ["flash-fillers"]:        # T265 P5: the cores that fill the flash image with the host (ci/order.py, ci/fetch_bits.py target host)
+        print("\n".join(n for n, _, t in descriptors() if in_pipeline(t) and t.get("flash_filler")))
+    elif a[:1] == ["list-own-app"]:
+        print("\n".join(own_app_cores()))
+    elif a[:1] == ["pre-release-only"]:
+        print("\n".join(n for n in sorted(os.listdir(CORES)) if sdk_table(n).get("release") is False))
+    elif a[:1] == ["lanes"]:
+        print("\n".join("%s %s" % e for e in own_app_lanes()))
     elif a[:1] == ["sources"] and len(a) == 2:
         print("\n".join(table_of(a[1]).get("sources", [])))
     elif a[:1] == ["env"] and len(a) == 2:
         t = table_of(a[1])
         print("\n".join(t.get("mono_env", [])))
+    elif a[:1] == ["sdk"] and len(a) == 3:          # one value of cores/<name>/app/sdk.toml ("" when there is none)
+        v = sdk_table(a[1]).get(a[2], "")
+        print("true" if v is True else "false" if v is False else " ".join(v) if isinstance(v, list) else v)
     elif a[:1] == ["get"] and len(a) == 3:
         t = table_of(a[1])
         v = t.get(a[2], "")

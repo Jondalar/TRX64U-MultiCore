@@ -1,0 +1,74 @@
+# T239.3 D17 part 2: what no compiled-in descriptor of the application has together, to prove the other sections and the hooks: a ROM whose content the core's code checks,
+# a second picture, a core that takes the keys that are down, a ROM set whose format the core's code does not provide, and a media slot with a replace action.
+# tests/coreapp/test_descsec.cc reads it and asserts the values below.
+[core]
+id = "XTRA"
+name = "Extra"
+title = "Extra Core"
+short_title = "XTRA"
+folder = "extra"
+store = "Extra Settings"
+
+[[rom]]
+role = "OS"
+names = ["os.rom"]
+sizes = [16384]
+required = true
+put_op = "extra.put_os"
+check = true
+
+[[rom]]
+role = "BASIC"
+names = ["basic.rom", "basic.bin"]
+sizes = [8192, 16384]
+put_op = "extra.put_basic"
+
+[alt_video]
+w = 640
+h = 200
+scale = 2
+x0 = -8
+y0 = 40
+fb_base = 0x02000000
+fb_stride = 0x00080000
+nbuf = 3
+reg_latest = 0x0D0
+reg_seq = 0x0D1
+reg_fb_base = 0x0D4
+reg_fb_stride = 0x0D8
+bpp = 2
+h60 = 192
+
+[rawkeys]
+held = true
+caps_usage = 0xFF
+
+[romset]
+role = "ROM"
+ext = ".rom"
+sizes = [8192]
+size_text = "8K"
+example = "a.rom"
+max = 4
+choice_key = "ROM file"
+auto_label = "Auto"
+want = 3
+head_bytes = 16
+window_off = 0x1000
+mirror_size = 0
+mirror_stride = 0
+clear_below = 0
+
+[[media]]
+name = "Cartridge"
+state = "extra.cart"
+replace = "Replace Cartridge"
+
+[[media]]
+name = "Tape"
+state = "extra.tape"
+
+[[media]]
+name = "Disk"
+state = "extra.disk"
+replace = "Replace Disk"

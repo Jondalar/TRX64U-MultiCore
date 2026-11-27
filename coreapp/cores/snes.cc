@@ -9,7 +9,7 @@
 #include "memops.h"
 #include "boot.h"
 #include "romfind.h"
-#include "newfile.h"
+#include "textcopy.h"
 #include "snes_regs.h"
 #include "snes_rom.h"
 #include "cores.h"

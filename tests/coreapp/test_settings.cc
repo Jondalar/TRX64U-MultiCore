@@ -1,10 +1,12 @@
 // T93 D10, S5, S6: the settings layers (descriptor default < flash < <name>.cfg), the one place that is written, and a medium
 // that cannot be written.
 #include <string>
+#include <ctype.h>
 #include "check.h"
 #include "fakes.h"
 #include "settings.h"
 #include "cores.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 // The flash as the application sees it: a byte image that only get() reads. There is no write method to call - the test
 // proves the image is the same after a whole session (S5, "read back and hashed" on the board).
@@ -174,6 +176,51 @@ int main()
         Settings t(it, n, STORE, &fs2, CFG, 0);
         t.load();
         CHECK_EQ(t.value(spd), it[spd].def);         // the next start reads the stored values, the override is gone
+    }
+
+    // ---- find: the name-hash index (base 3.3). Every key is found at its own index in any case, a name that is none is -1, the first of two equal keys wins, a rebind keeps the answers,
+    // and a lookup costs about one key comparison where the scan it replaced cost one per setting before the hit (the figures are printed: the linear count is the old algorithm's)
+    {
+        static char names[SETTINGS_MAX][20];
+        static Setting many[SETTINGS_MAX];
+        static const char *const two[] = { "A", "B" };
+        for (int i = 0; i < SETTINGS_MAX; i++) {
+            snprintf(names[i], sizeof(names[i]), i == 7 ? "Setting 5" : "Setting %d", i);      // the item 7 repeats the key of item 5
+            many[i] = Setting{ names[i], two, 2, 0, WHEN_LIVE, 0, 0 };
+        }
+        FakeFs fsm;
+        Settings m(many, SETTINGS_MAX, "Many", &fsm, "", 0);
+        Settings::find_stats_reset();
+        for (int i = 0; i < SETTINGS_MAX; i++) {
+            int want = i == 7 ? 5 : i;
+            CHECK_EQ(m.find(names[i]), want);
+            char up[20];
+            snprintf(up, sizeof(up), "%s", names[i]);
+            for (char *c = up; *c; c++) *c = (char)toupper((unsigned char)*c);
+            CHECK_EQ(m.find(up), want);                                                       // the case does not matter
+        }
+        Settings::FindStats hit = Settings::find_stats();
+        CHECK_EQ(hit.calls, 2u * SETTINGS_MAX);
+        CHECK(hit.compares >= hit.calls && hit.compares <= hit.calls * 2);                    // about one comparison a call: the table holds a third of its slots
+        CHECK(hit.linear > hit.compares * 20);                                                // the scan paid 170 comparisons a call on average
+        Settings::find_stats_reset();
+        CHECK_EQ(m.find("No such setting"), -1);
+        CHECK_EQ(m.find("Setting 340"), -1);
+        CHECK_EQ(m.find(""), -1);
+        CHECK_EQ(m.find(0), -1);
+        Settings::FindStats miss = Settings::find_stats();
+        CHECK_EQ(miss.calls, 4u);
+        CHECK(miss.compares <= 4u && miss.linear == 4u * SETTINGS_MAX);
+        uint32_t g0 = m.generation();
+        m.rebind("");
+        CHECK(m.generation() != g0);
+        CHECK_EQ(m.find("setting 339"), 339);
+        CHECK_EQ(m.find("Setting 5"), 5);
+        printf("find on %d settings, %d lookups: %u key comparisons (linear scan: %u), %.2f against %.1f a call; a miss: %u against %u\n", SETTINGS_MAX, (int)hit.calls, hit.compares, hit.linear,
+               (double)hit.compares / hit.calls, (double)hit.linear / hit.calls, miss.compares / 4, miss.linear / 4);
+        // a real descriptor, every key of it
+        Settings a(it, n, STORE, &fs, CFG, 0);
+        for (int i = 0; i < n; i++) CHECK_EQ(a.find(it[i].key), i);
     }
     DONE("test_settings");
 }

@@ -4,7 +4,15 @@
 instruction; §1 and §2 amended 2026-10-31 (the package namespace, both sides and Alex); §3's page tail added by
 MultiCore (T191, T198); MultiCore T230, proposed by both sides 2026-11-16, waiting for Alex's go: §1 the ownership
 table, §2 the version, §7 the start file, §8 what the bitstream offers an application, §10 the target split, and the two copies
-made the same text again.
+made the same text again. §7 and §8 amended 2026-11-24 by both sides on Alex's go (MultiCore T239.3 D37: the way back
+from a large core).
+§1, §2, §5 and §10 amended 2026-11-24 by both sides on Alex's decision (MultiCore T239.3 D21, D44 and D46, step P1-8:
+TRX64-Ultimate builds, tests and delivers `trx64u.cor` and `trx64g.cor`, MultiCore's package takes them by their SHA-256).
+§10 rewritten 2026-11-24 by both sides on Alex's go ("Yes, you may!", translated): T230's target split (the features of
+`trx64u` as generic modules of MultiCore) is replaced by the split of MultiCore T239.3 D21 and D44.
+§1 and §2 amended 2026-11-25 (T261 D5, agreed with TRX64-Ultimate session 2026-11-25): `trx64u.cor` is the asset `trx64u.cor` of
+TRX64-Ultimate's GitHub pre-release `fw-<branch>-<sha8>` in the builds repository, replacing `trx64u_<sha8>.cor` of the Gitea package; the pin accepts both forms
+until their first `fw-*` pre-release exists.
 Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX/TRX64-Ultimate` and
 `TREX/TRX64U-MultiCore` at `docs/contracts/trx64u-firmware-handover.md`; a `diff` of the two is the check.
 
@@ -13,7 +21,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Area | TRX64-Ultimate | TRX64U-MultiCore |
 |---|---|---|
 | Bitstream (`c64_basic.bit`, the monolith) | builds it; what it offers an application is §8 | reads it from the package, never builds it |
-| Gideon's application (`ultimate.app`, the core `trx64g`) | builds it, its settings (§4), its behaviour | packs it into `trx64g.cor` |
+| Gideon's application (`ultimate.app`, the core `trx64g`) | builds it, its settings (§4), its behaviour; packs it with the bitstream into `trx64g.cor` (T239.3 D46) | takes `trx64g.cor` by its SHA-256 into the package, changes no byte |
 | The firmware's version | `APPL_VERSION_NUMBER` (`software/application/versions.h` of the application), set by hand per release; the releases | shows it in the boot menu (§2) |
 | Package `trx64-ultimate` (§1, §2) | its CI alone publishes it, with `manifest.json` `"version"` | reads `<branch>-<sha8>` |
 | Package `trx64u-multicore` | never writes it | its CI alone publishes it |
@@ -21,7 +29,9 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 | Host, boot menu, core start | - | owns them |
 | Hand-over page (§3) | reads it (Gideon's application, §4) | its layout and the host that writes it |
 | Start file (§7) | Gideon's application ignores it | writes it (host) and reads it (generic coreapp) |
-| Generic coreapp on `trx64u` (config at start, persist, autostart, `menu.toml`) | - | owns it |
+| The way back (§7) | the ICAP loader in `c64_basic` (§8) | the menu marker and the IPROG (generic coreapp), the host's menu |
+| `trx64u.cor` (T239.3 D21, T261 D5) | builds it, tests it, delivers it as the asset `trx64u.cor` of its pre-release `fw-<branch>-<sha8>` of the builds repository (agreed with TRX64-Ultimate session 2026-11-25, T261 D5; until then the file `trx64u_<sha8>.cor` of its Gitea package) | takes it by its SHA-256 into the package, changes no byte |
+| The generic coreapp and the SDK (config at start, persist, autostart, the TOML schemas, the op list) | - | owns and delivers them |
 | Foreign firmware as a core entry (§5) | - | owns it |
 | DDR2 windows (§6) | `0x03800000..0x03A00000` (debug service) | `STAGE_APP`, `STAGE_PART`, the update window of the coreapp |
 | This text | both sides, with Alex | both sides, with Alex |
@@ -33,7 +43,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   (packages built before that commit have no such field). A package between two releases repeats the last
   release's number: the field names the release line, not this package; the release is the Gitea release
   `trx64-<branch>-<sha8>` of that package version.
-- TRX64U-MultiCore packs the `.cor` files. It does not build the application; it takes the published files.
+- TRX64U-MultiCore packs the `.cor` files of the other cores. `trx64u.cor` and `trx64g.cor` it does not pack: TRX64-Ultimate builds, tests and delivers both (T239.3 D21, D46) as files of one version of its generic package `trx64-ultimate`, and MultiCore's package takes each by its SHA-256.
 - Neither side pushes into the other's CI. ADR-0058 of TRX64-Ultimate stands: MultiCore loads TRX64 Ultimate's
   firmware, it does not build it.
 - **The package namespace is split** (Alex, 2026-10-31). `trx64-ultimate` is written by TRX64-Ultimate's CI
@@ -59,10 +69,16 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   fails when the `x.y.z` part differs from the manifest. A package without `"version"` is pinned with the version
   taken by hand from the release.
 - The two cores:
-  - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp.
-    Pins `BIT_FILE=c64_basic.bit` and `BIT_SHA256`.
+  - `trx64u` — NAME "TRX64U", file `trx64u.cor`: TRX64-Ultimate's bitstream with MultiCore's generic coreapp and its menu,
+    built by TRX64-Ultimate. The pin names the finished file: `COR_FILE`, `COR_SHA256`, `COR_SIZE`, and where it is fetched from, in one of two forms
+    (agreed with TRX64-Ultimate session 2026-11-25, T261 D5): the release form `RELEASE=fw-<branch>-<sha8>` with `COR_FILE=trx64u.cor` (the asset of that
+    pre-release of the builds repository), or the Gitea form `PACKAGE`, `VERSION` with `COR_FILE=trx64u_<sha8>.cor`, accepted until their first `fw-*`
+    pre-release exists. `RELEASE` wins when both are set.
+    (T261 D7) A release-form pin (any core) takes one more field, `U2A="trex_crt.u2a:<sha256>:<size> online.u2a:<sha256>:<size>"`: applications that are assets of the same
+    pre-release (names `^[a-z0-9_]+\.u2a$`, size 1 to 64 MiB in ASCII digits). MultiCore fetches each, checks size and SHA-256, and puts it into its package unchanged beside the `.cor`.
+    Refused: a Gitea-form pin with `U2A`, a name twice (in one pin or across pins), and the names MultiCore's own build makes (`unzip.u2a`, `miniz.u2a`, `testlib.u2a`).
   - `trx64g` — NAME "TRX64 Ultimate (Gideon app)", file `trx64g.cor`: TRX64-Ultimate's bitstream with its own
-    application. Pins `BIT_FILE`, `APP_FILE=ultimate.app` and both hashes.
+    application, packed by TRX64-Ultimate (T239.3 D46). The pin names the finished file as for `trx64u`.
 
 ## 3. The hand-over block
 
@@ -118,7 +134,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   means read from this board's flash.
 - Its purpose is firmware that exists only as a `.cfw` (Gideon 3.15a, Commodore 1.1.0), so the core list has one
   kind of entry instead of two.
-- It is **not** the path for `trx64g`/`trx64u`. Those are packed from `c64_basic.bit` + `ultimate.app`, which are
+- It is **not** the path for `trx64g`/`trx64u`. Both are TRX64-Ultimate's finished files; `c64_basic.bit` and `ultimate.app` are
   published beside the `.cfw` and are byte-equal to what it contains — `tools/trx_pkg_check.py` proves that on
   every build.
 
@@ -138,7 +154,7 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
   starts**. The updater's claim wins; an update reboots anyway.
 - Agreed between the two sessions on 2026-10-30.
 
-## 7. The start file (MultiCore T223 D4)
+## 7. The start file (MultiCore T223 D4) and the way back (MultiCore T239.3 D37)
 
 - A large core is started as full firmware, and its hand-over page may not survive the bitstream change. So the
   host also writes `<medium of the .cor>/trx64-start.txt` (`startfile_path()`: the first path element of the
@@ -154,6 +170,27 @@ Changing it needs both sides and Alex. The same text, byte for byte, is in `TREX
 - TRX64-Ultimate keeps this: Gideon's application (`trx64g`) does not read it and does not delete it: after a `trx64g` start the file stays
   on the medium, with `cor=` naming `trx64g.cor`, until the next large-core start overwrites it or a generic
   coreapp start drops it. Gideon's application treats it as any file on the medium.
+- **The way back.** A large core whose bitstream has the ICAP loader (§8) returns to the host with an IPROG and
+  WBSTAR 0. The host's bitstream lies at flash `0x0` (ADR-0055).
+  - Just before the IPROG, the generic coreapp writes the menu marker into the hand-over page:
+    `handover_menu_request()` puts "MENU" at `HANDOVER_ADDR + 0xFF8` (MultiCore T135 D3).
+  - DDR2 keeps the page across the IPROG. The host takes the marker (`handover_menu_take()`) and shows its menu instead
+    of starting its default core again.
+  - The sequence (MultiCore `coreapp/src/hw.cc` `hw_return_to_host()`): enable on; then into `data`, in file order,
+    `FF FF FF FF AA 99 55 66 20 00 00 00 30 02 00 01 00 00 00 00 30 00 80 01 00 00 00 0F 20 00 00 00 20 00 00 00`
+    (dummy, sync, NOP, WBSTAR := 0, CMD := IPROG, NOP, NOP); then enable off.
+- **Started by the host** means a valid hand-over page (magic, version and sum, §3).
+  - The host fills the page before every start of a core. The generic coreapp never wipes it. A `.cfw` start leaves
+    a wiped page, and a power-on leaves none.
+  - A large core offers "Return to host menu" only when the ICAP loader answers and the page is valid.
+  - Without a valid page, the core's bitstream runs at flash `0x0` as a standalone installation. The core then offers
+    no way back, keeps its settings in the flash (MultiCore T228 DC13), and runs a `.cfw` itself.
+  - Under the host it does not run a `.cfw`: the host's menu runs updates.
+- A large core's loader has no partition control. Its TOML A names the block `icap` (ID, data, enable, word count)
+  and no block `partition`. So the generic coreapp never tries a partial load there and writes no decouple before
+  the IPROG.
+- MultiCore's host has both blocks. Its layer-2 cores run inside the host's gateware, so the loader alone makes them
+  the host's, with or without a page.
 
 ## 8. What the bitstream offers an application
 
@@ -169,8 +206,17 @@ code; the generic coreapp's use of each is MultiCore T104.2.
   (+0x006) (`trx_io.v`).
 - **IEC stub:** the IEC processor region answers version `0x25` at offset 0 and `0x01` at offsets 1 and 2 (both
   FIFOs empty) (`ultimate_sys.vhd`).
-- **ICAP at `0x10060600` is not decoded and reads 0.** The generic coreapp tells the monolith from MultiCore's
-  host by it (ID `0x7A` on MultiCore's host); decoding anything there is a change of this list.
+- **ICAP loader** (MultiCore T239.3 D37; from the first `c64_basic` bitstream that has it; before it, nothing is
+  decoded there and it reads 0). It is a port of MultiCore's host loader (`host/ultimate_sys.vhd` region `r_icap`):
+  - The region is `0x10060600`-`0x100606FF`.
+  - ID `0x7A` at +0x00.
+  - Data at +0x10: the bytes as the file has them. The loader reverses the bits, as `host/top.v` `icap_swap` does.
+  - Enable at +0x14. A rising edge clears the word counter.
+  - The word counter at +0x18..+0x1B.
+  - ICAPE2 X32.
+  - There is no decouple at +0x20 and no release at +0x21.
+  - The generic coreapp takes the way back of §7 from it. The ID alone no longer tells the monolith from MultiCore's
+    host: §7 says what does.
 - **HDMI mode request** (TRX64-Ultimate U16, its D7): in the overlay window at `0x10140000` + `0x4F00`: write
   `0x4F00` the row (family * 6 + hdmi, the family part replaced by the System Mode's; a row that does not lock is
   refused), write `0x4F01` the scale (0 Integer, 1 Fit, 2 Fill); read `0x4F04` magic `0x48`, `0x4F05` version 1,
@@ -192,24 +238,14 @@ code; the generic coreapp's use of each is MultiCore T104.2.
   file names, the manifest's fields, the start file (including Gideon's application leaving it alone, §7), the
   application's address map or any other item of §8 — is announced before it is pushed.
 
-## 10. Target split (after the next release, MultiCore T230 D3 / D4)
+## 10. The split since T239.3 (MultiCore T239.3 D21, D44)
 
-§1 to §9 are the interim state. Alex, 2026-11-16: separating concerns is not enough while a feature change in
-TRX64-Ultimate breaks the contract because MultiCore owns the application's menu. The target follows MultiCore
-T192 D24 and T213 D1 (option B): the bitstream is described by its API TOML, a service with generic C modules
-does the work, chosen and parametrised by that TOML (which is no programming language), and the UI comes only
-from declarations (the UI TOML). Alex: *"Let's try it that way then. But first close all loose ends and a
-release."*
-
-- **TRX64-Ultimate owns** the bitstream and `trx64u`'s API TOML and UI TOML (the menu; today MultiCore's
-  `coreapp/cores/trx64u/menu.toml`).
-- **MultiCore owns** the host, the service with its generic C modules, the TOML schemas and the generic op list,
-  each versioned. The feature logic of `trx64u` (the Timewarp ring, the monitor, the streams, the U64 registers;
-  today in MultiCore's `coreapp/src`: `trx64u_ops`, `ring*`, `monitor`, `monsrv`, `u64cfg` and the stream code)
-  becomes such modules.
-- A feature change on TRX64-Ultimate's side is a change of its TOML; a feature that needs new logic is a module
-  request to MultiCore.
-- The contract then covers only these interfaces (the schemas, the op list, the modules' parameters) and their
+- **TRX64-Ultimate owns** the bitstream, `trx64u`'s TOML A and TOML B, its menu and the code of its features (the
+  Timewarp ring, the monitor, the U64 registers, UCI). It builds them with MultiCore's SDK as `trx64u`'s app and
+  libraries. MultiCore's package takes `trx64u.cor` and `trx64g.cor` unchanged, by their SHA-256 (T239.3 P1-8, D46).
+- **MultiCore owns** the host, the base (the service, the API, the generic modules) and the SDK, each versioned
+  (base API x.y, SDK x.y.z).
+- A feature change on TRX64-Ultimate's side is TRX64-Ultimate's own change, made against the SDK version it pins.
+  What a feature needs from the base (a service, an API call, a TOML field) is a request to MultiCore.
+- The contract covers these interfaces (the API, the TOML schemas, the operation list, the hand-over block) and their
   versions, not the features behind them.
-- Built after the next release. Until the move, a `trx64u` feature change on either side goes through the other
-  side as today (§9).

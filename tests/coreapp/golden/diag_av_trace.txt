@@ -1,0 +1,301 @@
+# T260 S7 golden: the A/V page's register writes (portdiag.cc as of T259), `w <register> <value>` in order
+preset Sony-PAL
+w 050 00
+w 051 05
+w 052 00
+w 052 00
+w 052 00
+w 053 01
+w 054 00
+w 055 1C
+w 056 63
+w 057 00
+w 058 20
+w 059 10
+w 05A 00
+w 05B 4D
+w 05C 0B
+w 05D 00
+w 05E 06
+w 05F 00
+w 05D 00
+w 060 00
+w 061 00
+w 062 00
+w 063 00
+w 064 00
+w 065 00
+vfmt 00
+right Sony-PAL / Standard -> NTSC 60 Hz
+w 050 01
+vfmt 2B
+right Sony-PAL / Groups -> Y=A, C=B, CVBS=C
+w 051 00
+vfmt 00
+right Sony-PAL / Bits A -> Reversed
+w 052 01
+vfmt 00
+right Sony-PAL / Bits B -> Reversed
+w 052 02
+vfmt 00
+right Sony-PAL / Bits C -> Reversed
+w 052 04
+vfmt 00
+right Sony-PAL / V sign -> Normal
+w 053 00
+vfmt 00
+right Sony-PAL / Subcarrier trim -> +30 Hz
+w 054 01
+vfmt 00
+right Sony-PAL / Burst start -> 30
+w 055 1E
+vfmt 00
+right Sony-PAL / Burst end -> 100
+w 056 64
+w 057 00
+vfmt 00
+right Sony-PAL / Burst level -> 125 %
+w 058 28
+vfmt 00
+right Sony-PAL / Chroma gain -> 125 %
+w 059 14
+vfmt 00
+right Sony-PAL / Sync level -> 8
+w 05A 08
+vfmt 00
+right Sony-PAL / Blank level -> 80
+w 05B 50
+vfmt 00
+right Sony-PAL / White level -> 12/16
+w 05C 0C
+vfmt 00
+right Sony-PAL / Equalizing -> On
+w 05D 01
+vfmt 00
+right Sony-PAL / Vsync length -> 2.5 lines
+w 05E 05
+vfmt 00
+right Sony-PAL / Vsync position -> +4
+w 05F 04
+vfmt 00
+right Sony-PAL / Lines 60 Hz -> 262
+w 05D 02
+vfmt 00
+right Sony-PAL / Map -> Names
+w 060 01
+vfmt 00
+right Sony-PAL / Mode -> Channel probe
+w 061 01
+vfmt 00
+right Sony-PAL / Probe channel -> B or G
+w 062 01
+vfmt 00
+right Sony-PAL / RGB picture -> R ramp
+w 063 01
+vfmt 00
+right Sony-PAL / SYNCn -> Low
+w 064 01
+vfmt 00
+right Sony-PAL / FB -> High
+w 065 01
+vfmt 00
+preset NTSC-50.rix01
+w 050 03
+w 051 00
+w 052 00
+w 052 00
+w 052 04
+w 053 00
+w 054 02
+w 055 10
+w 056 5A
+w 057 00
+w 058 20
+w 059 08
+w 05A 08
+w 05B 58
+w 05C 09
+w 05D 00
+w 05E 06
+w 05F 00
+w 05D 00
+w 060 00
+w 061 00
+w 062 00
+w 063 00
+w 064 00
+w 065 00
+vfmt 01
+right NTSC-50.rix01 / Standard -> PAL 50 Hz
+w 050 00
+vfmt 00
+right NTSC-50.rix01 / Groups -> Y=A, C=C, CVBS=B
+w 051 01
+vfmt 01
+right NTSC-50.rix01 / Bits A -> Reversed
+w 052 05
+vfmt 01
+right NTSC-50.rix01 / Bits B -> Reversed
+w 052 06
+vfmt 01
+right NTSC-50.rix01 / Bits C -> MSB first
+w 052 00
+vfmt 01
+right NTSC-50.rix01 / V sign -> Inverted
+w 053 01
+vfmt 01
+right NTSC-50.rix01 / Subcarrier trim -> +90 Hz
+w 054 03
+vfmt 01
+right NTSC-50.rix01 / Burst start -> 18
+w 055 12
+vfmt 01
+right NTSC-50.rix01 / Burst end -> 94
+w 056 5E
+w 057 00
+vfmt 01
+right NTSC-50.rix01 / Burst level -> 125 %
+w 058 28
+vfmt 01
+right NTSC-50.rix01 / Chroma gain -> 75 %
+w 059 0C
+vfmt 01
+right NTSC-50.rix01 / Sync level -> 16
+w 05A 10
+vfmt 01
+right NTSC-50.rix01 / Blank level -> 64
+w 05B 40
+vfmt 01
+right NTSC-50.rix01 / White level -> 10/16
+w 05C 0A
+vfmt 01
+right NTSC-50.rix01 / Equalizing -> On
+w 05D 01
+vfmt 01
+right NTSC-50.rix01 / Vsync length -> 2.5 lines
+w 05E 05
+vfmt 01
+right NTSC-50.rix01 / Vsync position -> +4
+w 05F 04
+vfmt 01
+right NTSC-50.rix01 / Lines 60 Hz -> 262
+w 05D 02
+vfmt 01
+right NTSC-50.rix01 / Map -> Names
+w 060 01
+vfmt 01
+right NTSC-50.rix01 / Mode -> Channel probe
+w 061 01
+vfmt 01
+right NTSC-50.rix01 / Probe channel -> B or G
+w 062 01
+vfmt 01
+right NTSC-50.rix01 / RGB picture -> R ramp
+w 063 01
+vfmt 01
+right NTSC-50.rix01 / SYNCn -> Low
+w 064 01
+vfmt 01
+right NTSC-50.rix01 / FB -> High
+w 065 01
+vfmt 01
+preset NTSC-60.rix02
+w 050 01
+w 051 00
+w 052 00
+w 052 00
+w 052 04
+w 053 00
+w 054 04
+w 055 10
+w 056 5A
+w 057 00
+w 058 20
+w 059 08
+w 05A 08
+w 05B 58
+w 05C 10
+w 05D 00
+w 05E 0C
+w 05F 00
+w 05D 00
+w 060 00
+w 061 00
+w 062 00
+w 063 00
+w 064 00
+w 065 00
+vfmt 2B
+right NTSC-60.rix02 / Standard -> PAL 60 Hz
+w 050 02
+vfmt 2A
+right NTSC-60.rix02 / Groups -> Y=A, C=C, CVBS=B
+w 051 01
+vfmt 2B
+right NTSC-60.rix02 / Bits A -> Reversed
+w 052 05
+vfmt 2B
+right NTSC-60.rix02 / Bits B -> Reversed
+w 052 06
+vfmt 2B
+right NTSC-60.rix02 / Bits C -> MSB first
+w 052 00
+vfmt 2B
+right NTSC-60.rix02 / V sign -> Inverted
+w 053 01
+vfmt 2B
+right NTSC-60.rix02 / Subcarrier trim -> +150 Hz
+w 054 05
+vfmt 2B
+right NTSC-60.rix02 / Burst start -> 18
+w 055 12
+vfmt 2B
+right NTSC-60.rix02 / Burst end -> 94
+w 056 5E
+w 057 00
+vfmt 2B
+right NTSC-60.rix02 / Burst level -> 125 %
+w 058 28
+vfmt 2B
+right NTSC-60.rix02 / Chroma gain -> 75 %
+w 059 0C
+vfmt 2B
+right NTSC-60.rix02 / Sync level -> 16
+w 05A 10
+vfmt 2B
+right NTSC-60.rix02 / Blank level -> 64
+w 05B 40
+vfmt 2B
+right NTSC-60.rix02 / White level -> 8/16
+w 05C 08
+vfmt 2B
+right NTSC-60.rix02 / Equalizing -> On
+w 05D 01
+vfmt 2B
+right NTSC-60.rix02 / Vsync length -> 3 lines
+w 05E 06
+vfmt 2B
+right NTSC-60.rix02 / Vsync position -> +4
+w 05F 04
+vfmt 2B
+right NTSC-60.rix02 / Lines 60 Hz -> 262
+w 05D 02
+vfmt 2B
+right NTSC-60.rix02 / Map -> Names
+w 060 01
+vfmt 2B
+right NTSC-60.rix02 / Mode -> Channel probe
+w 061 01
+vfmt 2B
+right NTSC-60.rix02 / Probe channel -> B or G
+w 062 01
+vfmt 2B
+right NTSC-60.rix02 / RGB picture -> R ramp
+w 063 01
+vfmt 2B
+right NTSC-60.rix02 / SYNCn -> Low
+w 064 01
+vfmt 2B
+right NTSC-60.rix02 / FB -> High
+w 065 01
+vfmt 2B

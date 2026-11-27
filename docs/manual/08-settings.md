@@ -30,6 +30,7 @@ The host applies every change at once. The note line shows the result.
 | `Autostart from menu` | `on`, `off` | `on` | 8.3. Shown only with direct boot `off` |
 | `Autostart delay` | `1 s` to `60 s` | `5 s` | 8.3. Shown only with direct boot `off` and autostart `on` |
 | `Picture` | `from the screen: <mode>` or a mode that the screen names; **RETURN** opens the Picture page | `from the screen` | 8.4 |
+| `Analogue out` | `RGB`, `Off`; every change key toggles it. The note reads `Analogue out: RGB` or `Analogue out: off` | `RGB` | 8.1.7 |
 | `Protect Flash from updates` | `on`, `off` | `off` | 8.5 |
 | `WiFi` | `open` | none | 8.10 |
 | `FTP service` | the state of the FTP row of the Network page (`on, port 21, no password`, `waiting for the network`, `off`); every change key toggles it. The note reads `FTP service on` or `FTP service off` | on | 7.2 |
@@ -38,7 +39,10 @@ The host applies every change at once. The note line shows the result.
 | `Bug report` | `write to SD/USB`, or the name of the last report file | none | 8.8 |
 
 8.1.6 The host stores the settings of 8.2 and 8.3 in `Flash:/boot.cfg` (8.9). It stores `Picture` (8.4), `Protect Flash from updates` and `FTP service` in its own
-settings store, `Flash:/trx/host.cfg`, not in `boot.cfg`.
+settings store, `Flash:/trx/host.cfg`, not in `boot.cfg`. `Analogue out` is the exception: it is the third field of the `video=` line of `boot.cfg`.
+
+8.1.7 `Analogue out` (T265 D9) puts the host menu and the picture of a frame-buffer core on the A/V port as RGB with composite sync, 15 kHz, progressive, for a SCART cable. The
+menu is shown with two lines averaged into one, squeezed to 4:3. The line `Starting <name>` of a direct start is shown on HDMI only. The host switches it on at power-on.
 
 ![The Settings page with direct boot off: the two autostart rows show](img/host-settings-autostart.png)
 
@@ -189,7 +193,7 @@ there twice. It deletes the files that belong to no core.
 
 | Block | Content |
 |---|---|
-| `Cores` | One line per `.cor` or `.cfw`: the medium, the file name, then `ROMs <have>/<need>` (with `missing <names>`) and `saves <n>`. `ROMs: none needed` for a core without ROMs. `no folder yet (made at the first start)` when the folder of the core does not exist. Green: all ROMs are there. Amber: a ROM is missing |
+| `Cores` | One line per `.cor` or `.cfw`: the medium, the file name, then `ROMs <have>/<need>` (with `missing <names>`) and `saves <n>`. `ROMs: none needed` for a core without ROMs. The ROMs a core needs are the ones its `.cor` names in its description record (record 6); a `.cor` without that record is judged by the table of the cores compiled into the application. `no folder yet (made at the first start)` when the folder of the core does not exist. Green: all ROMs are there. Amber: a ROM is missing |
 | `Belong to no core` | The files and folders in `cores` that no `.cor` or `.cfw` accounts for. `goes` marks an entry that the delete removes. `kept` marks an entry that stays |
 | `There twice or more (the same bytes)` | Files with the same content and their places |
 

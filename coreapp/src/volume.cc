@@ -1,14 +1,12 @@
 #include "volume.h"
+#include "menubuild.h"
 #include "ops.h"
 #include "ops_glue.h"
 #include "settings.h"
+#include "drvtab.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-
-static const char *const g_names[VOLUME_STEPS] = {
-    "0%", "5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "55%", "60%", "65%", "70%", "75%", "80%", "85%", "90%", "95%", "100%",
-    "105%", "110%", "115%", "120%", "125%", "130%", "135%", "140%", "145%", "150%", "155%", "160%", "165%", "170%", "175%", "180%", "185%", "190%", "195%", "200%" };
 
 uint8_t volume_byte(int step)
 {
@@ -21,6 +19,9 @@ uint8_t volume_byte(int step)
 const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
     *out = *d;
+#ifndef DRV_HAS_audio_master
+    return 0;                                              // T239.3 D36: the TOML A of this link has no master volume byte; the base offers no Volume row
+#endif
     if (d->own_volume) {
         return 0;
     }
@@ -28,6 +29,10 @@ const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
         if (!strcasecmp(d->settings[i].key, VOLUME_KEY)) {
             return 0;                                      // the core declares its own Volume item (a register of its own)
         }
+    }
+    const BaseRow *row = menu_base_row(VOLUME_OP, VOLUME_KEY);        // the row (values, default) is the base UI TOML's
+    if (!row || row->nvalues != VOLUME_STEPS || row->def != VOLUME_DEFAULT) {
+        return "settings: the base UI TOML has no Volume row that fits the volume steps";
     }
     if (d->nsettings + 1 > SETTINGS_MAX) {
         return "settings: no room for the Volume item the application adds";
@@ -37,15 +42,7 @@ const char *volume_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             store[i] = d->settings[i];
         }
     }
-    Setting &p = store[d->nsettings];
-    p = Setting();
-    p.key = VOLUME_KEY;
-    p.values = g_names;
-    p.nvalues = VOLUME_STEPS;
-    p.def = VOLUME_DEFAULT;
-    p.when = WHEN_LIVE;
-    p.apply = VOLUME_OP;
-    p.group = "audio";
+    menu_base_setting(store[d->nsettings], *row);
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;

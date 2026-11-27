@@ -10,6 +10,7 @@
 #include "keyboard.h"
 #include "home.h"
 #include "ops_glue.h"
+extern const CoreDesc amiga_desc;               // T239.5 D13: this file's cases are the Amiga 500's, built as its app (run.sh amigaapp, cores/amiga/app/lib)
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }
@@ -41,7 +42,7 @@ int main()
 {
     static CoreDesc gd;
     static Setting gs[SETTINGS_MAX];
-    CHECK(!home_extend(&amiga1200_desc, &gd, gs));
+    CHECK(!home_extend(&amiga_desc, &gd, gs));
     {   // the setting: one generic item, two values, default Home, listed on F8 with the other generic ones
         int n = 0;
         for (int i = 0; i < gd.nsettings; i++) n += !strcasecmp(gd.settings[i].key, REOPEN_KEY);

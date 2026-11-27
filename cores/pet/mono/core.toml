@@ -4,7 +4,7 @@ name         = "Commodore PET"
 short        = "PET"                  # T209 D15: the fallback tile text, shown when a .cor has no icon
 version      = "0.1.0"
 contract     = 2
-app          = "blueprint"     # the T104 generic application (coreapp/cores/pet.cc)
+app          = "blueprint"     # the core's own app is linked from cores/pet/app/sdk.toml (cores/pet/app/lib/pet.cc, T239.5 D16)
 order        = 18              # after the Neo Geo (17)
 delivery     = "cfw"           # a LARGE core (T134 Q1, Alex 2026-11-10): this file is the only descriptor, cores/pet/mono/build_mono.tcl, lane large-pet
 mono_env     = ["TRX_FEATURES=jtag"]   # the host features are the DFX build's (jtag on, UCI and UDP streams off)

@@ -1,0 +1,415 @@
+# TOML A of the cpc core (T239.3 D55, T239.5 D16): the gateware's registers as capabilities. The emitter (tools/rtl_check.py emit) wrote the first form from the RTL; the names, the blocks and the
+# fields are from cores/cpc/trx/cpc_regs.v (the register block of the Amstrad CPC core). tools/rtl_check.py check proves every property against the RTL (the core window: the cw_* ports of the
+# instance in layer2_cpc.v; the host decodes 0x101A0000-0x101AFFFF to them, so the app's register offset is the address minus 0x101A0000).
+# Not described: page 6 (0x101A6000-0x101A6FFF) is forwarded by cpc_regs to the host's pixel layer (px_we, px_re, px_rdata); the core's own code does not use it and the host's TOML A owns that layer.
+# Everything else in the window reads 0.
+# desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "CPC_"
+block = "ident"
+
+# 000-00B: the ID "CPC_" (byte 0 first), the caps bytes, the layer-2 contract the core was written for, and the build word (the host's USR_ACCESS)
+[[block]]
+name = "ident"
+module = "cpc_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b7 page flip done (px_ev_flip), b6 video frame start (px_ev_vsync), b5 a CPC frame is complete
+[[block]]
+name = "irq"
+module = "cpc_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x5
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "frame"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "ddr_cal"
+module = "cpc_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 030-038: the picture's geometry. frame_clks is the sys_clk count per CPC frame (628,992 = 0x99900; the RTL reads bytes 031 and 032, bytes 030 and 033 are the constant 0); src_w and src_h are the frame
+# buffer's pixels per line (720) and line count (540), both 16 bit; bufs is the number of frame buffers (3)
+[[block]]
+name = "geom"
+module = "cpc_regs"
+owner = "base"
+address = 0x101A0031
+size = 0x8
+  [[block.property]]
+  name = "frame_clks"
+  offset = 0x0
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "src_w"
+  offset = 0x3
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "src_h"
+  offset = 0x5
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "bufs"
+  offset = 0x7
+  width = 8
+  dir = "r"
+
+# 0A0-0AD: the machine. ctrl b0 holds the core in reset, b1 halts it (Freeze); model is 0 = 464, 1 = 664, 2 = 6128 (taken in reset); joy b0 swaps the host's two joystick ports; crtc b0 is the CRTC type
+# (0 HD6845S / UM6845, 1 UM6845R); status b0 in reset, b1 held, b3:2 the model running; frames is the CPC's frame counter, cpuaddr a sample of the CPU's address bus
+[[block]]
+name = "machine"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xE
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "model"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "crtc"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "model"
+    shift = 2
+    bits = 2
+  [[block.property]]
+  name = "frames"
+  offset = 0x8
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "cpuaddr"
+  offset = 0xC
+  width = 16
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_base and fb_stride have the reset values of base_r and stride_r in cpc_regs.v: the host's REU block, three buffers one megabyte apart; fb_latest b7 valid, b1:0 the
+# newest complete buffer; fb_overruns counts the lines that could not be handed to the DDR2 side in time
+[[block]]
+name = "video"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x01D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x00100000
+
+# 0D4: the window page. b0 the 64 KB page of the RAM window (cpc_win: 0 the base RAM, 1 the extension RAM), b2:1 the 16 KB bank the ROM aperture shows (ROM_SEL)
+[[block]]
+name = "win"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A00D4
+size = 0x1
+  [[block.property]]
+  name = "win_page"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+# 140-151: the tape engine. ctrl b0 play (a rising edge starts the tape, the PPI's motor bit gates it, a falling edge stops it); base is the DDR2 byte address of the pulse stream; pos: write = the word position a seek loads,
+# read = the position now; seek: any write loads pos; status b0 playing, b1 end of tape, b2 stop marker, b3 DDR2 read stuck; underrun counts the missed words
+[[block]]
+name = "tape"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A0140
+size = 0x12
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "play"
+    shift = 0
+    bits = 1
+  [[block.property]]
+  name = "base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "pos"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "seek"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "status"
+  offset = 0x10
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "playing"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "end"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "stop"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "stuck"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "underrun"
+  offset = 0x11
+  width = 8
+  dir = "r"
+
+# 160-169: the app's keys, an 80 bit CPC matrix OR-ed into the keyboard (index = line * 8 + bit)
+[[block]]
+name = "inject"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A0160
+size = 0xA
+  [[block.property]]
+  name = "keys"
+  offset = 0x0
+  width = 8
+  count = 10
+  stride = 1
+  dir = "rw"
+
+# 180-191: the two disk drives of the FDC. dN_base and dN_size are the DDR2 byte address and size in bytes of drive N's image (size 0 = no disk); ctrl: write b0/b1 mount A/B (after base, size and write protect), b2/b3 eject A/B,
+# b4/b5 write protect A/B (taken at mount; read back); status b0 a sector transfer is on its way, b1 a transfer read beyond the image (zeros returned)
+[[block]]
+name = "disk"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A0180
+size = 0x12
+  [[block.property]]
+  name = "d0_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "d0_size"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "d1_base"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "d1_size"
+  offset = 0xC
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x10
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "mount_a"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "mount_b"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "eject_a"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "eject_b"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "wp_a"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "wp_b"
+    shift = 5
+    bits = 1
+  [[block.property]]
+  name = "status"
+  offset = 0x11
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "busy"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "overrun"
+    shift = 1
+    bits = 1
+
+# 1A0-1A7: drive A's dirty map, one bit per 16 KB of the image the FDC wrote (bit n of byte m: chunk 8 m + n); a write of a byte clears the bits that are set in it
+[[block]]
+name = "dirty0"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A01A0
+size = 0x8
+  [[block.property]]
+  name = "map"
+  offset = 0x0
+  width = 8
+  count = 8
+  stride = 1
+  dir = "rw"
+
+# 1B0-1B7: drive B's dirty map, one bit per 16 KB of the image the FDC wrote (bit n of byte m: chunk 8 m + n); a write of a byte clears the bits that are set in it
+[[block]]
+name = "dirty1"
+module = "cpc_regs"
+owner = "core"
+address = 0x101A01B0
+size = 0x8
+  [[block.property]]
+  name = "map"
+  offset = 0x0
+  width = 8
+  count = 8
+  stride = 1
+  dir = "rw"

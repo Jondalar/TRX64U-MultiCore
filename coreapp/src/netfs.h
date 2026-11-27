@@ -1,5 +1,5 @@
 // The Library's FTP medium (T104.2 UI): a CoreFs in front of the disk file system that adds the folder "/ftp" - one folder per FTP host of the settings (Settings, FTP hosts) -
-// and answers every path below it over FTP (ftp_client.cc, Gideon's client). Host-owned.
+// and answers every path below it over FTP (the library "ftp": ftp_api.h, its client is ftp_client.cc, Gideon's). Host-owned.
 #ifndef COREAPP_NETFS_H
 #define COREAPP_NETFS_H
 
@@ -28,14 +28,27 @@ public:
     bool rename(const char *from, const char *to);
     // what the last FTP command said, for a status line
     const char *last_error() const { return err_; }
+    // T239.3 D41 (L-3c): the last list() of a folder below /Online failed because the sub-app's job is still fetching it / for this reason (empty for every other folder)
+    bool loading() const { return loading_; }
+    const char *why() const { return why_; }
+    // T239.3 D41 (review): open() of a file below /Online never waits; null with file_loading() true = the job of this very file runs (open_note() says what it does), open again soon.
+    bool file_loading(bool take) { const bool r = file_loading_; if (take) { file_loading_ = false; } return r; }
+    const char *open_note() const { return note_; }
     struct Impl;
 private:
     CoreFs *in_;
     CoreCtx *c_;
     char err_[96];
+    bool loading_;
+    bool file_loading_;
+    char note_[96];
+    char why_[96];
     Impl *impl_;
 };
 
+struct FtpApi;
+// The FTP library gives the file system its table (ftp_exports.cc, the library's bind entry). Without one there is no folder "FTP" in the listing of `/` and every path below it fails (T239.3 P3-1).
+void netfs_set_ftp(const FtpApi *api);
 NetFs *netfs_of(CoreCtx *c);          // the FTP medium of the running core, null when it has none
 void netfs_set(NetFs *n);
 

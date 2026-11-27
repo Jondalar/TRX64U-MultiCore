@@ -15,7 +15,7 @@
 # the host it was routed against and the boot app refuses it on any other one. The partials of one
 # package all belong to that host: a .cor is never mixed across packages.
 #
-# The core's logo (T114) is packed in as the bundle's icon when cores/<id>/logo/icon.rgb565 exists.
+# The core's logo (T114) is packed in as the bundle's icon when cores/<id>/logo/icon.rgb565 exists, its data description (cores/<id>/app/desc.toml, T239.3 D17) as record 6 when its cores/<id>/app/sdk.toml says desc_record = true (D25).
 #
 # Output: <out>/<core>.cor plus one line per core. Feed them to tools/make_release_mc.sh --cor.
 set -euo pipefail
@@ -86,9 +86,23 @@ for c in "${CORES[@]}"; do
     idir="$(python3 "$HERE/core_toml.py" get "$c" install_dir)"; iold="$(python3 "$HERE/core_toml.py" get "$c" install_old)"
     [ -z "$idir" ] || files+=(--files "$ROOT/cores/$c/$idir")
     [ -z "$iold" ] || files+=(--files-old "$ROOT/cores/$c/$iold")
-    python3 "$HERE/cor_pack.py" pack --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} \
+    desc=()                                       # record 6: the core's data description, compiled by tools/descrec.py (T239.3 D17), only for a core whose cores/<id>/app/sdk.toml says desc_record = true (D25); any other core carries no record and runs on its compiled-in descriptor
+    desc_rec="$(python3 "$HERE/core_toml.py" sdk "$c" desc_record)"      # assigned first: a failing core_toml.py stops the packer
+    [ "$desc_rec" != true ] || [ ! -s "$ROOT/cores/$c/app/desc.toml" ] || desc=(--desc "$ROOT/cores/$c/app/desc.toml")
+    heap=(); h="$(python3 "$HERE/core_toml.py" get "$c" heap)"; [ -z "$h" ] || heap=(--heap "$h")   # T239.3 D15: the core's heap, set in its copy of the app
+    # T239.3 V-4: a core with an app of its own (its TOML B, cores/<id>/app/sdk.toml, names the descriptor symbol in [app] desc) is packed against that TOML B, and its heap is the region left behind
+    # the image (word 0, P4-1) unless its core.toml sets one: the heap follows from its link
+    sizes="$ROOT/coreapp/libs/shared.toml"
+    own_desc="$(python3 "$HERE/core_toml.py" sdk "$c" desc)"
+    if [ -n "$own_desc" ]; then
+        sizes="$ROOT/cores/$c/app/sdk.toml"
+        [ ${#heap[@]} -gt 0 ] || heap=(--heap 0)
+    fi
+    # T239.3 P4-1: --sizes is the TOML B of the app the core runs (coreapp/libs/shared.toml for the shared app): cor_pack reports the figures and the linked libraries' heap needs and refuses a core whose libraries keep more than its heap. It adds no record maxima: the table has no [sizes], so the description is compiled against the headers' defaults as before.
+    rep="$(python3 "$HERE/cor_pack.py" pack --sizes "$sizes" ${heap[@]+"${heap[@]}"} --host-key "$HK" --contract "$CV" -o "$OUT/$c.cor" ${files[@]+"${files[@]}"} ${desc[@]+"${desc[@]}"} \
         --name "$name" --version "$ver" --partial "$part" --app "$app" \
-        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)" > /dev/null
+        --load 0x30000 --entry 0x30000 ${icon[@]+"${icon[@]}"} --short "$(python3 "$HERE/core_toml.py" get "$c" short)")"      # captured first: a refused pack (keep check, desc error) stops the packer under set -e
+    grep '^heap (' <<<"$rep" | sed 's/^/    /' || true
     python3 "$HERE/cor_pack.py" check --contract "$CV" --host-key "$HK" "$OUT/$c.cor" > /dev/null
     printf '    %-9s %-28s %8d bytes  %s\n' "$c" "$name" "$(wc -c < "$OUT/$c.cor")" "$ver"
     n=$((n + 1))

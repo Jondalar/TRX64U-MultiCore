@@ -4,7 +4,7 @@
 #include "ops_glue.h"
 #include "diag.h"
 #include "home.h"
-#include "newfile.h"
+#include "textcopy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -166,6 +166,12 @@ bool FileMgr::ext_wanted(const char *name) const
 void FileMgr::load_dir()
 {
     if (vmode) {                                                  // a search result or the entries of a tape: the list stands, the folder is not read
+        loading = false;
+        why[0] = 0;
+        lib_sync();
+        return;
+    }
+    if (relisting && !dir_ok && !loading && why[0] && !strcmp(failed_path, path)) {   // D41: a folder that failed with a reason is asked once; the reason stays until the person enters it again
         lib_sync();
         return;
     }
@@ -185,6 +191,19 @@ void FileMgr::load_dir()
     }
     int n = ListGrow::read(c->fs, path, &list, &cap, up, &more);
     snprintf(list_path, sizeof(list_path), "%s", path);
+    loading = n < 0 && c->fs->loading();                           // D41: a job fetches the folder: "Loading", and relist() reads it again until the job has ended
+    why[0] = 0;
+    failed_path[0] = 0;
+    if (n < 0 && !loading) {
+        snprintf(why, sizeof(why), "%s", c->fs->why());
+        if (why[0]) {
+            snprintf(failed_path, sizeof(failed_path), "%s", path);
+        }
+        if (why[0] && strcmp(said_path, path)) {                   // the reason goes to the status row once per folder
+            snprintf(said_path, sizeof(said_path), "%s", path);
+            say(why, true);
+        }
+    }
     if (!ensure_list()) {                                         // no flags for the entries (marked is null): nothing may be listed
         dir_ok = false;
         more = false;
@@ -257,11 +276,17 @@ bool FileMgr::relist()
     char roots_before[sizeof(roots)];
     memcpy(roots_before, roots, sizeof(roots));
     int nroots_before = nroots;
+    const bool loading_before = loading;
+    char why_before[sizeof(why)];
+    memcpy(why_before, why, sizeof(why));
+    relisting = true;
     load_dir();
+    relisting = false;
     refresh_roots();                                               // a stick that mounted late is a new source chip
     bool roots_same = nroots == nroots_before && !memcmp(roots_before, roots, sizeof(roots));
+    const bool note_same = loading == loading_before && !strcmp(why, why_before);   // D41: the last line (Loading, the reason) changed
     if (list_sum(list, nlist) == before) {
-        return !roots_same;
+        return !roots_same || !note_same;
     }
     for (int i = 0; i < nlist; i++) {
         if (!strcmp(list[i].name, was)) {
@@ -394,11 +419,22 @@ void FileMgr::more_text(char *out, int n) const
     snprintf(out, n, "... more not shown");
 }
 
+void FileMgr::note_text(char *out, int n) const
+{
+    if (loading) {
+        snprintf(out, n, "Loading ...");
+    } else if (!dir_ok && why[0]) {
+        snprintf(out, n, "%s", why);
+    } else {
+        more_text(out, n);
+    }
+}
+
 void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
 {
     memset(r, 0, sizeof(*r));
-    if (i == nlist && more && !vmode) {
-        more_text(r->name, sizeof(r->name));
+    if (i == nlist && has_note()) {
+        note_text(r->name, sizeof(r->name));
         r->info = true;
         return;
     }
@@ -472,7 +508,7 @@ void FileMgr::browse_row(int i, BrowseRow *r, const char *marks_spec) const
     }
     const char *dot = strrchr(f.name, '.');
     snprintf(r->ext, sizeof(r->ext), "%s", dot ? dot + 1 : "");
-    snprintf(r->sub, sizeof(r->sub), "%u KB", (unsigned)((f.size + 1023) >> 10));
+    fs_size_kb(r->sub, sizeof(r->sub), f.size);
     snprintf(r->value, sizeof(r->value), "%s", r->sub);
     if (vmode && i < VROWS) {                                                  // the folder it lies in
         snprintf(r->sub, sizeof(r->sub), "%s", vfull[i]);
@@ -563,6 +599,23 @@ void FileMgr::apply_pending()
         sel = 0;
         refresh_roots();
         load_dir();
+    }
+    placed = false;
+    if (l.want_name[0]) {                                               // T262 D4 finding 12: the cursor on the entry an operation named (browse_at, browse_sheet), not on ".."
+        for (int i = 0; i < nlist; i++) {
+            if (!strcasecmp(list[i].name, l.want_name)) {
+                sel = i;
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            char m[FS_NAME_MAX + 16];
+            snprintf(m, sizeof(m), "%s is not here", l.want_name);
+            say(m, true);
+        }
+        l.want_name[0] = 0;
+        lib_sync();
     }
     if (l.mark_all) {
         l.mark_all = false;
@@ -694,7 +747,7 @@ void FileMgr::seek_key(int k)
     lib_sync();
 }
 
-// the viewer on text the application has in memory (the debug log, the EDID, the trace)
+// the viewer on text the application has in memory (the debug log, the EDID)
 void FileMgr::start_view_mem(const char *title, int kind, bool hex)
 {
     if (!view_data) {

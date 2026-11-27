@@ -7,33 +7,39 @@ BoardProfile board_detect(BoardProbe *p)
 {
     BoardProfile b;
     memset(&b, 0, sizeof(b));
-    uint8_t icap = p->icap_id();
-    bool mc = icap == BOARD_ICAP_ID;
-    b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
+    uint32_t has = p->blocks();
+    uint8_t icap = (has & BB_ICAP) ? p->icap_id() : 0;   // no ICAP block linked: the profile of a standalone installation
     b.has_handover = p->handover_valid();              // T112 Q1: a large .cor start fills the page for the monolith profile too
+    bool loader = icap == BOARD_ICAP_ID;
+    bool partition = p->partition_linked();
+    bool mc = loader && (partition || b.has_handover);  // T239.3 D37: a loader without the partition control is the host's only with a page the host wrote
+    b.kind = mc ? BOARD_MULTICORE : BOARD_MONOLITH;
     b.can_return_host = mc;
     b.flash_cfg = !mc;                                 // DC13: the parameter; the standalone installation has no host to keep its settings
-    b.cfg_dir = b.flash_cfg ? BOARD_MONOLITH_CFG_DIR : 0;
-    b.boot_cfg = mc ? FS_FLASH_BOOT_MULTICORE : FS_FLASH_BOOT_MONOLITH;
+    if (mc) {
+        snprintf(b.boot_cfg, sizeof(b.boot_cfg), "%s", FS_FLASH_BOOT_MULTICORE);
+    }
     b.rom_dir = mc ? 0 : BOARD_MONOLITH_ROM_DIR;
 
-    uint32_t fpga = p->fpga_caps();
-    uint8_t caps = p->trx_caps();
-    if (fpga & BOARD_FPGA_DRIVE_1541_1) {
+    uint32_t fpga = (has & (BB_DRIVE_A | BB_CMD_IF)) ? p->fpga_caps() : 0;
+    uint8_t caps = (has & (BB_CART | BB_RING)) ? p->trx_caps() : 0;
+    if ((has & BB_DRIVE_A) && (fpga & BOARD_FPGA_DRIVE_1541_1)) {
         b.probes |= BC_DRIVE_A;
     }
-    if (p->iec_version() == BOARD_IEC_VERSION) {
+    if ((has & BB_IEC) && p->iec_version() == BOARD_IEC_VERSION) {
         b.probes |= BC_IEC;
     }
-    if (caps & BOARD_TRX_CAPS_CART) {
+    if ((has & BB_CART) && (caps & BOARD_TRX_CAPS_CART)) {
         b.probes |= BC_CARTRIDGE;
     }
-    b.probes |= BC_REU;                                  // on every C64 core of this line (ADR-0053 refuses it only while a cartridge forbids it)
-    if ((caps & (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) ==
+    if (has & BB_REU) {
+        b.probes |= BC_REU;                              // on every C64 core of this line (ADR-0053 refuses it only while a cartridge forbids it)
+    }
+    if ((has & BB_RING) && (caps & (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) ==
         (BOARD_TRX_CAPS_GATE | BOARD_TRX_CAPS_STATEBUS | BOARD_TRX_CAPS_ENGINE)) {
         b.probes |= BC_RING;
     }
-    if (fpga & BOARD_FPGA_COMMAND_INTF) {
+    if ((has & BB_CMD_IF) && (fpga & BOARD_FPGA_COMMAND_INTF)) {
         b.probes |= BC_UCI;
     }
     if (!mc) {
@@ -42,12 +48,57 @@ BoardProfile board_detect(BoardProbe *p)
 
     if (mc) {
         snprintf(b.why, sizeof(b.why), "ICAP 0x%02X, %s", icap, b.has_handover ? "hand-over valid" : "no valid hand-over");
+    } else if (loader) {
+        snprintf(b.why, sizeof(b.why), "ICAP 0x%02X, no partition, no hand-over: standalone", icap);
     } else if (icap == 0) {
         snprintf(b.why, sizeof(b.why), "ICAP absent, %s", b.has_handover ? "hand-over valid" : "no hand-over");
     } else {
         snprintf(b.why, sizeof(b.why), "ICAP byte 0x%02X is not 0x%02X, %s", icap, BOARD_ICAP_ID, b.has_handover ? "hand-over valid" : "no hand-over");
     }
     return b;
+}
+
+static bool name_ok(const char *s, size_t max)
+{
+    size_t n = s ? strlen(s) : 0;
+    if (n == 0 || n > max) {
+        return false;
+    }
+    for (size_t i = 0; i < n; i++) {
+        char ch = s[i];
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool board_set_core(BoardProfile *b, const char *core_id, const char *folder)
+{
+    if (b->kind != BOARD_MONOLITH) {
+        return true;
+    }
+    b->cfg_dir[0] = 0;
+    b->boot_cfg[0] = 0;
+    fs_flash_set_exceptions(0, 0);
+    if (!core_id || !core_id[0]) {
+        return true;
+    }
+    if (!name_ok(core_id, BOARD_CORE_ID_MAX)) {
+        return false;
+    }
+    char cfg[FS_FLASH_EXC_LEN] = "";
+    bool fits = true;
+    snprintf(b->cfg_dir, sizeof(b->cfg_dir), "/flash/%s", core_id);
+    snprintf(b->boot_cfg, sizeof(b->boot_cfg), "/flash/%s/boot.cfg", core_id);
+    if (b->flash_cfg && name_ok(folder, 63)) {
+        int n = snprintf(cfg, sizeof(cfg), "%s/%s.cfg", b->cfg_dir, folder);
+        if (n < 0 || n >= (int)sizeof(cfg)) {       // a truncated path would register another file than the one the settings are written to
+            cfg[0] = 0;
+            fits = false;
+        }
+    }
+    return fs_flash_set_exceptions(b->boot_cfg, cfg) && fits;
 }
 
 const char *board_name(const BoardProfile &b)

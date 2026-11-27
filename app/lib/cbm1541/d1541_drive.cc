@@ -1,5 +1,6 @@
 #include "d1541_drive.h"
 #include "newfile.h"
+#include "drvtab.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -54,7 +55,9 @@ CbmDrive::~CbmDrive()
     create_drop();
     delete gcr_;
     delete bin_;
+#ifdef DRV_HAS_drive_wd
     delete wd_;
+#endif
 }
 
 void CbmDrive::tell(const char *s)
@@ -102,10 +105,12 @@ bool CbmDrive::attach(char *msg, int msglen)
     wd_off_ = wd_off;
     memset(mem_, 0, total);
     gcr_ = new GcrImage(mem_, phys_);
+#ifdef DRV_HAS_drive_wd
     if (multi_) {
         wd_ = new WdController(io_, mem_ + wd_off_, phys_ + wd_off_);
         wd_->init();
     }
+#endif
     clear_params();
     w(DR_SENSOR, SENSOR_LIGHT);
     w(DR_INSERTED, 0);
@@ -171,6 +176,12 @@ void CbmDrive::set_swap_delay(int hundred_ms)
     swap_ms_ = hundred_ms * 100;
 }
 
+// The offset in the drive block of element e of a run of the parameter RAM (the generated table's address and stride of the run; the drive window takes offsets from the block)
+static uint32_t param_off(uint32_t run_addr, uint32_t stride, uint32_t e)
+{
+    return run_addr - DRV_drive_a_ADDR + e * stride;
+}
+
 // Every half track points at the empty track and says it is as long as a real one: an unformatted track, not a loop of 257 bytes
 void CbmDrive::clear_params()
 {
@@ -178,12 +189,9 @@ void CbmDrive::clear_params()
     uint32_t bit_time = rotation / GCR_DUMMYTRACKLEN;
     uint32_t dummy = phys_ + dummy_off_;
     memset(mem_ + dummy_off_, 0, GCR_DUMMYTRACKLEN);
-    for (int side = 0; side < 2; side++) {
-        for (int i = 0; i < 128; i++) {
-            uint32_t a = DR_PARAM + (uint32_t)side * 0x400 + (uint32_t)i * 8;
-            io_->drv_wr32(a, dummy);
-            io_->drv_wr32(a + 4, (uint32_t)(GCR_DUMMYTRACKLEN - 1) | (bit_time << 16));
-        }
+    for (uint32_t e = 0; e < DRV_drive_a_param_addr_COUNT; e++) {            // element = side * 128 + half track (the named runs of the block's map)
+        io_->drv_wr32(param_off(DRV_drive_a_param_addr_ADDR, DRV_drive_a_param_addr_STRIDE, e), dummy);
+        io_->drv_wr32(param_off(DRV_drive_a_param_len_ADDR, DRV_drive_a_param_len_STRIDE, e), (uint32_t)(GCR_DUMMYTRACKLEN - 1) | (bit_time << 16));
     }
 }
 
@@ -195,10 +203,9 @@ void CbmDrive::set_params()
         if (!tr->track_address || tr->track_length <= 0) {
             continue;                                         // stays on the empty track
         }
-        uint32_t a = DR_PARAM + (uint32_t)i * 8;
         uint32_t bit_time = rotation / (uint32_t)tr->track_length;
-        io_->drv_wr32(a, gcr_->phys_of(tr->track_address));
-        io_->drv_wr32(a + 4, (uint32_t)(tr->track_length - 1) | (bit_time << 16));
+        io_->drv_wr32(param_off(DRV_drive_a_param_addr_ADDR, DRV_drive_a_param_addr_STRIDE, (uint32_t)i), gcr_->phys_of(tr->track_address));
+        io_->drv_wr32(param_off(DRV_drive_a_param_len_ADDR, DRV_drive_a_param_len_STRIDE, (uint32_t)i), (uint32_t)(tr->track_length - 1) | (bit_time << 16));
     }
 }
 
@@ -291,9 +298,11 @@ void CbmDrive::resync_hw()
     clear_params();
     w(DR_SENSOR, SENSOR_LIGHT);
     w(DR_INSERTED, 0);
+#ifdef DRV_HAS_drive_wd
     if (wd_) {
         wd_->init();
     }
+#endif
     if (state_ == DS_D81) {
         w(DR_SENSOR, protect_ ? SENSOR_DARK : SENSOR_LIGHT);
         w(DR_INSERTED, 1);
@@ -374,9 +383,11 @@ int CbmDrive::set_rom_file(const char *path, char *msg, int msglen)
 // ---- disks ----------------------------------------------------------------------------------------------------------------------
 void CbmDrive::close_file()
 {
+#ifdef DRV_HAS_drive_wd
     if (wd_) {
         wd_->unmount();
     }
+#endif
     if (file_) {
         fs_->close(file_);
         file_ = 0;
@@ -477,7 +488,12 @@ int CbmDrive::mount_d81(CoreFile *f, bool protect, char *msg, int msglen)
         snprintf(msg, msglen, "not a .d81 (%u bytes)", (unsigned)fs_size32(size));
         return 1;
     }
+#ifdef DRV_HAS_drive_wd
     wd_->mount(f, size == D81_BYTES_ERR ? D81_BYTES : size);
+#else
+    snprintf(msg, msglen, "this drive has no WD177x (a .d81 needs the block drive_wd in the TOML A)");
+    return 1;
+#endif
     w(DR_SENSOR, protect ? SENSOR_DARK : SENSOR_LIGHT);
     w(DR_INSERTED, 1);
     w(DR_DISKCHANGE, 1);
@@ -668,6 +684,7 @@ bool CbmDrive::poll()
         return false;
     }
     bool did = false;
+#ifdef DRV_HAS_drive_wd
     if (wd_ && state_ == DS_D81) {
         did = wd_->poll();
         if (wd_->take_write_errors()) {
@@ -678,6 +695,7 @@ bool CbmDrive::poll()
             }
         }
     }
+#endif
     if ((r(DR_DIRTY) & 0x80) || write_skip_) {
         if (state_ == DS_NONE) {
             w(DR_DIRTY, 0x80);

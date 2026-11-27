@@ -50,4 +50,8 @@ void hw_net_rx_stop(void);
 // (it is one bit). No ICAP loader in the bitstream: nothing to release, nothing written.
 void hw_release_expansion_port(void);
 
+// "Joystick Input" (baseset.h): the host keyboard driver's joystick port (0: port 2, 1: port 1) and WASD mapping, in its registers and in the two globals the driver writes back
+// into them when the menu closes (keyboard_c64.cc).
+void hw_keyboard_joystick(uint8_t port, uint8_t wasd);
+
 #endif

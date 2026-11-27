@@ -2,7 +2,8 @@
 """T239.1 D1, S9: the rules a workflow of .github/ must keep, read from the parsed YAML (and, for the repository names, the raw text).
 
   1. no pull_request_target, workflow_run or issue_comment trigger in a workflow that names a secret (secrets.X, secrets: inherit) or an environment
-  2. environment `builds` only in a job called `prerelease` whose `if:` demands a push of main, t239.1 or a v* tag and whose checkout takes the run's own commit
+  2. environment `builds` only in a job called `prerelease` whose `if:` demands a push of main or a v* tag, or in a job called `sdk-release` (T261 D4) whose `if:` demands
+     a push of integration, main or t239.3; the checkout takes the run's own commit
   3. top-level `permissions: contents: read` (the only key)
   4. every `uses:` is a local path (./) or pinned by a full 40-hex commit SHA; docker:// needs a digest
   5. every container / service image carries @sha256:<64 hex>
@@ -66,14 +67,18 @@ def env_name(job):
     return e.get("name") if isinstance(e, dict) else e
 
 
+BUILDS_JOBS = {"prerelease": ("refs/heads/main", "refs/tags/v"),
+               "sdk-release": ("refs/heads/integration", "refs/heads/main", "refs/heads/t239.3")}
+
+
 def prerelease_guard(jid, job):
     bad = []
     cond = str(job.get("if", ""))
-    if jid != "prerelease":
-        bad.append("environment builds in job %s, only job prerelease may use it" % jid)
+    if jid not in BUILDS_JOBS:
+        bad.append("environment builds in job %s, only jobs %s may use it" % (jid, " and ".join(BUILDS_JOBS)))
     if "github.event_name == 'push'" not in cond:
         bad.append("job %s: if: does not demand github.event_name == 'push'" % jid)
-    for ref in ("refs/heads/main", "refs/heads/t239.1", "refs/tags/v"):
+    for ref in BUILDS_JOBS.get(jid, BUILDS_JOBS["prerelease"]):
         if ref not in cond:
             bad.append("job %s: if: does not name %s" % (jid, ref))
     if "pull_request" in cond or "head_ref" in cond:
@@ -151,12 +156,20 @@ jobs:
   prerelease:
     runs-on: ubuntu-latest
     environment: builds
-    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.1' || startsWith(github.ref, 'refs/tags/v')) }}
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
     steps:
       - uses: actions/checkout@%s
         with:
           ref: ${{ github.sha }}
-""" % ("a" * 64, "b" * 40, "b" * 40)
+  sdk-release:
+    runs-on: ubuntu-latest
+    environment: builds
+    if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/integration' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/t239.3') }}
+    steps:
+      - uses: actions/checkout@%s
+        with:
+          ref: ${{ github.sha }}
+""" % ("a" * 64, "b" * 40, "b" * 40, "b" * 40)
 
 
 def selftest():
@@ -166,6 +179,8 @@ def selftest():
         "builds outside prerelease": lambda s: s.replace("  a:\n    runs-on: ubuntu-latest", "  a:\n    environment: builds\n    runs-on: ubuntu-latest"),
         "builds without push": lambda s: s.replace("github.event_name == 'push' && ", ""),
         "builds without ref list": lambda s: s.replace(" || startsWith(github.ref, 'refs/tags/v')", ""),
+        "sdk-release without t239.3": lambda s: s.replace(" || github.ref == 'refs/heads/t239.3'", ""),
+        "sdk-release without push": lambda s: s.replace("github.event_name == 'push' && (github.ref == 'refs/heads/integration'", "(github.ref == 'refs/heads/integration'"),
         "builds checkout not own commit": lambda s: s.replace("ref: ${{ github.sha }}", "ref: ${{ github.head_ref }}"),
         "no permissions": lambda s: s.replace("permissions:\n  contents: read\n", ""),
         "permissions write": lambda s: s.replace("contents: read", "contents: write"),

@@ -12,7 +12,6 @@ static u2p_mem_api_t g_mem;
 static u2p_ui_api_t g_ui;
 static u2p_fs_api_t g_fs;
 static u2p_media_api_t g_media;
-static u2p_trx_api_t g_trx2;
 
 /* ---- formatting ---- */
 
@@ -407,27 +406,15 @@ static int c_dir(const char *path, int (*cb)(void *ctx, const char *name, uint32
     return U2P_OK;
 }
 
+/* media.reset: the operation "machine.warm_reset" through the root's registry. The OpResult is the base's (ops.h: code, more, msg 240, ndata, data 256 = 508 bytes); a C
+   application has only its name, so the call gets room for it. */
 static int c_reset(void)
 {
-    if (g_root->trx && g_root->trx->reset_c64) {
-        g_root->trx->reset_c64();
-        return U2P_OK;
+    static uint32_t res[256];                            /* 1024 bytes, 4-aligned: more than the OpResult needs */
+    if (!g_root->ops || !g_root->ops->call) {
+        return U2P_ERR_UNSUPPORTED;
     }
-    return U2P_ERR_UNSUPPORTED;
-}
-
-static int c_detach(void (*fn)(void *), void *arg)
-{
-    (void)fn;
-    (void)arg;
-    return U2P_ERR_UNSUPPORTED;
-}
-static int c_stop_requested(void) { return g_root->job && g_root->job->stop_requested && g_root->job->stop_requested(); }
-static int c_ui_request(void (*fn)(void *), void *arg)
-{
-    (void)fn;
-    (void)arg;
-    return U2P_ERR_UNSUPPORTED;
+    return g_root->ops->call("machine.warm_reset", 0, 0, (struct OpResult *)res) == 0 ? U2P_OK : U2P_ERR_IO;
 }
 
 const u2p_api_t *u2p_compat_init(const LibApi *api)
@@ -474,24 +461,8 @@ const u2p_api_t *u2p_compat_init(const LibApi *api)
     g_api.fs = &g_fs;
     g_api.media = &g_media;
     g_api.net = api->net;
-    if (api->trx) {
-        g_trx2.size = sizeof(g_trx2);
-        g_trx2.regs = api->trx->regs;
-        g_trx2.caps = api->trx->caps;
-        g_trx2.acquire = api->trx->acquire;
-        g_trx2.release = api->trx->release;
-        g_trx2.announce = api->trx->announce;
-        g_trx2.detach = c_detach;
-        g_trx2.ring = api->trx->ring;
-        g_trx2.video = api->trx->video;
-        g_trx2.stop_requested = c_stop_requested;
-        g_trx2.ui_request = c_ui_request;
-        g_api.trx = &g_trx2;
-    } else {
-        g_api.trx = 0;
-    }
     g_api.job = api->job;
-    g_api.c64 = api->c64;
+    g_api.root = api;
     g_api.firmware_git = "";
     g_api.firmware_version = "T104.3";
     return &g_api;

@@ -1,0 +1,508 @@
+# TOML A of the Neo Geo core (T239.3 D55, T239.5 D15): the gateware's registers as capabilities, written from what cores/neogeo/trx/neo_regs.v decodes (tools/rtl_check.py proves it against the RTL, code to
+# code: tools/rtl_check.py check, command in app/sdkpkg/api.md 6.14.19; the first draft came from tools/rtl_check.py emit). The addresses are the host's: its decode hands 0x101A0000-0x101AFFFF to the
+# core's cw_* ports (host/ultimate_sys.vhd, region r_cw), the register offset of the core's own app is the address minus 0x101A0000 (the block "ident" sits at the start of the window). Page 6
+# (0x101A6000-0x101A6FFF) is decoded by neo_regs and forwarded to the host's pixel layer (px_we, px_re, px_rdata); it is the host's block and stays outside this file. The core has no drive and no
+# IEC bus. desc.toml names a register of this file as "block.property" (tools/descrec.py, api.md 6.14.20), so the number stands once. The blocks of the core are named neo_* (except ident).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "NEO_"
+block = "ident"
+
+# 000-00B: the ID "NEO_" (byte 0 first), the caps bytes (0xC0: page 6 and the RGB565 pixel layer, the host's; caps2 0x02: BUILD is there), the layer-2 contract the core was written for (2), and the build word (USR_ACCESS)
+[[block]]
+name = "ident"
+module = "neo_regs"
+owner = "base"
+address = 0x101A0000
+size = 0xC
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "contract"
+  offset = 0x6
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+# 010 IRQ_EN, 014 IRQ_CAUSE (write 1 clears): b4 the mover finished a move, b5 a frame of the machine is complete, b6 the host's video frame start, b7 page flip done
+[[block]]
+name = "neo_irq"
+module = "neo_regs"
+owner = "base"
+address = 0x101A0010
+size = 0x8
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "mover"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "frame_done"
+    shift = 5
+    bits = 1
+    [[block.property.field]]
+    name = "vsync"
+    shift = 6
+    bits = 1
+    [[block.property.field]]
+    name = "flip"
+    shift = 7
+    bits = 1
+
+# 020-027: the host's DDR2 calibration
+[[block]]
+name = "neo_ddr_cal"
+module = "neo_regs"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+# 0A0-0AB: the machine. ctrl b0 reset hold (power-on 1), b1 halt (Freeze); system b0 1 = MVS, 0 = AES, b1 PAL video, b2 memory card unplugged (set while the reset is held); dip b0 settings, b1 freeplay, b2 freeze; joy b0 swaps the host's two joystick ports (live); status b0 in reset, b1 held (Freeze), b2 machine running, b3 backup RAM / memory card changed, b4 mover busy, b5 PLL locked; save_ack any write clears status.dirty; cfg the romset's chip word (neogeo.sv cfg)
+[[block]]
+name = "neo_machine"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00A0
+size = 0xC
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "reset_hold"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "halt"
+    shift = 1
+    bits = 1
+  [[block.property]]
+  name = "system"
+  offset = 0x1
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "mvs"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "pal"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "nocard"
+    shift = 2
+    bits = 1
+  [[block.property]]
+  name = "dip"
+  offset = 0x2
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "joy"
+  offset = 0x3
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "status"
+  offset = 0x4
+  width = 8
+  dir = "r"
+    [[block.property.field]]
+    name = "in_reset"
+    shift = 0
+    bits = 1
+    [[block.property.field]]
+    name = "held"
+    shift = 1
+    bits = 1
+    [[block.property.field]]
+    name = "running"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "dirty"
+    shift = 3
+    bits = 1
+    [[block.property.field]]
+    name = "moving"
+    shift = 4
+    bits = 1
+    [[block.property.field]]
+    name = "pll_locked"
+    shift = 5
+    bits = 1
+  [[block.property]]
+  name = "save_ack"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "cfg"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+
+# 0B0-0BF: counters of the machine's hold (clocks held, late sprite words, late fix words, 68k reads asked)
+[[block]]
+name = "neo_stats"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00B0
+size = 0x10
+  [[block.property]]
+  name = "stall_clk"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "c_late"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "s_late"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "p_reads"
+  offset = 0xC
+  width = 32
+  dir = "r"
+
+# 0C0-0CB: the picture's frame buffers. fb_latest b7 valid, b1:0 the newest complete frame's buffer; fb_overruns lines that could not be handed to the DDR2 side in time; fb_base and fb_stride have the reset values of base_r and stride_r in neo_regs.v (the application sets its own, desc.toml); the bring-up words at 0CC-0CF (seen_cols, seen_lines) are not in the file: tools/rtl_check.py finds no read of them in the RTL, and no code of the app reads them
+[[block]]
+name = "neo_video"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00C0
+size = 0xC
+  [[block.property]]
+  name = "fb_latest"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "frame_seq"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fb_overruns"
+  offset = 0x2
+  width = 16
+  dir = "r"
+  [[block.property]]
+  name = "fb_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x1D00000
+  [[block.property]]
+  name = "fb_stride"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x100000
+
+# 0D0-0E3: the DDR2 byte addresses of the machine's ROM space (rom_base), the two V ROMs, the Z80 program (m1_base) and the RAM images (img_base)
+[[block]]
+name = "neo_mem"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00D0
+size = 0x14
+  [[block.property]]
+  name = "rom_base"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x1000000
+  [[block.property]]
+  name = "v1_base"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x3000000
+  [[block.property]]
+  name = "v2_base"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x4000000
+  [[block.property]]
+  name = "m1_base"
+  offset = 0xC
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x5000000
+  [[block.property]]
+  name = "img_base"
+  offset = 0x10
+  width = 32
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x5100000
+
+# 0E4-0E6: the mover. mv_cmd b1:0 the image (0 LO ROM, 2 memory card, 3 XRAM), b2 save, b3 copy; a write to mv_go starts it; mv_done counts finished moves
+[[block]]
+name = "neo_mover"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00E4
+size = 0x3
+  [[block.property]]
+  name = "mv_cmd"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "image"
+    shift = 0
+    bits = 2
+    [[block.property.field]]
+    name = "save"
+    shift = 2
+    bits = 1
+    [[block.property.field]]
+    name = "copy"
+    shift = 3
+    bits = 1
+  [[block.property]]
+  name = "mv_go"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "mv_done"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+# 0E8-0EE: the clock, 7 bytes BCD: seconds, minutes, hours (24 h), weekday 1-7, day, month, year 00-99
+[[block]]
+name = "neo_rtc"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00E8
+size = 0x7
+  [[block.property]]
+  name = "rtc"
+  offset = 0x0
+  width = 8
+  count = 7
+  dir = "rw"
+
+# 0F0-0F3: the USB pads, 16 bit each, low byte first, the high byte commits: the machine's joystick word of player 1 and 2 (b0 right, 1 left, 2 down, 3 up, 4 A, 5 B, 6 C, 7 D, 8 Start, 9 Select, 10 Coin)
+[[block]]
+name = "neo_pad"
+module = "neo_regs"
+owner = "core"
+address = 0x101A00F0
+size = 0x4
+  [[block.property]]
+  name = "pad1"
+  offset = 0x0
+  width = 16
+  dir = "rw"
+  [[block.property]]
+  name = "pad2"
+  offset = 0x2
+  width = 16
+  dir = "rw"
+
+# 100-119: the address masks (2^n - 1) of the loaded ROMs (p2, c, v1, v2, m), the first MB of the sprite ROM above the P ROMs, and the machine clocks a sprite word / a fix word may be late before the machine is held (reset 8)
+[[block]]
+name = "neo_masks"
+module = "neo_regs"
+owner = "core"
+address = 0x101A0100
+size = 0x1A
+  [[block.property]]
+  name = "p2_mask"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "c_mask"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "v1_mask"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "v2_mask"
+  offset = 0xC
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "m_mask"
+  offset = 0x10
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "c_start"
+  offset = 0x14
+  width = 8
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x3
+  [[block.property]]
+  name = "c_dl"
+  offset = 0x18
+  width = 8
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x8
+  [[block.property]]
+  name = "s_dl"
+  offset = 0x19
+  width = 8
+  dir = "rw"
+    [[block.property.state]]
+    name = "reset"
+    value = 0x8
+
+# 120-133: counters of the memory side: c_* commands, e_* commands, ADPCM-A misses, Z80 program misses; c_lat_max the longest c_* read in ui clocks; c_max / s_max the longest a sprite / fix word waited in machine clocks; pck_age the age of the last sprite word
+[[block]]
+name = "neo_perf"
+module = "neo_regs"
+owner = "core"
+address = 0x101A0120
+size = 0x14
+  [[block.property]]
+  name = "c_cmds"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "e_cmds"
+  offset = 0x4
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "va_miss"
+  offset = 0x8
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "mz_miss"
+  offset = 0xC
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "c_lat_max"
+  offset = 0x10
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "c_max"
+  offset = 0x11
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "s_max"
+  offset = 0x12
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "pck_age"
+  offset = 0x13
+  width = 8
+  dir = "r"
+
+# 140-14B: the copy engine of the mover (source, destination, length)
+[[block]]
+name = "neo_copy"
+module = "neo_regs"
+owner = "core"
+address = 0x101A0140
+size = 0xC
+  [[block.property]]
+  name = "cp_src"
+  offset = 0x0
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "cp_dst"
+  offset = 0x4
+  width = 32
+  dir = "rw"
+  [[block.property]]
+  name = "cp_len"
+  offset = 0x8
+  width = 32
+  dir = "rw"
+
+# 150-17B: 11 32 bit counters of the line caches: sprites hit, pend, miss, hint; fix hit, pend, miss, hint; 68k program hit, pend, miss
+[[block]]
+name = "neo_pf"
+module = "neo_regs"
+owner = "core"
+address = 0x101A0150
+size = 0x2C
+  [[block.property]]
+  name = "pf"
+  offset = 0x0
+  width = 32
+  count = 11
+  dir = "r"

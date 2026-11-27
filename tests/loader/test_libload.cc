@@ -10,17 +10,34 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <memory>
 #include "check.h"
 #include "libload.h"
 #include "libmenu.h"
+#include "descrec.h"
 #include "ctx.h"
 #include "fakes.h"
+#include "hostos.h"
+#include "service.h"
+#include "apphost.h"
+#include "libslot.h"
+#include "online_api.h"
+#include "netfs.h"
 
 #ifndef FIXDIR
 #error FIXDIR is the directory of testlib.u2a and testlib.at1000.raw (tests/loader/run.sh makes them)
 #endif
 
 extern "C" int lib_register(const LibApi *api, LibRecord *out);      // app/lib/testlib/testlib.cc, compiled for the host: the twin
+
+// the heap of the process, counted: a menu record is two blocks (the bytes and the decoded table) that must go back with the slot
+static long g_live;
+void *operator new(size_t n) { g_live++; return malloc(n ? n : 1); }
+void *operator new[](size_t n) { g_live++; return malloc(n ? n : 1); }
+void operator delete(void *p) noexcept { if (p) { g_live--; free(p); } }
+void operator delete[](void *p) noexcept { if (p) { g_live--; free(p); } }
+void operator delete(void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
+void operator delete[](void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
 
 // ---------------------------------------------------------------------------------------------------------- the model of the machine
 
@@ -41,11 +58,26 @@ struct Model : LibHost {
     std::map<std::string, MainTwin> mains;
     uint32_t clock = 1000;
     std::vector<Entry> entries;
+    // base 3.3: a critical section that counts its depth, and a model of the SID sockets' I2C expander that records what it was written
+    int depth = 0, max_depth = 0, sid_opens = 0, sid_closes = 0;
+    std::vector<std::pair<int, int> > sid_writes;
+    bool sid_present = true, sid_locked = false;
+    uint32_t caps_v = 0x1234;
+    const char *app_version() override { return "9.8.7-test"; }
+    const char *app_git() override { return "abc1234"; }
+    void enter() override { depth++; if (depth > max_depth) { max_depth = depth; } }
+    void leave() override { depth--; }
+    int sid_i2c_open() override { if (sid_locked) { return -1; } sid_opens += sid_present; return sid_present ? 1 : 0; }
+    void sid_i2c_write(uint8_t reg, uint8_t v) override { sid_writes.push_back(std::make_pair((int)reg, (int)v)); }
+    void sid_i2c_close() override { sid_closes++; }
+    uint32_t fpga_caps() override { return caps_v; }
 
     Model() : allocs(0), releases(0), syncs(0), register_calls(0), fail_alloc(false)
     {
         arena = (uint8_t *)aligned_alloc(4096, ARENA_SIZE);
         reset_arena();
+        entries.reserve(256);                                  // the model's own lists must not grow inside a measurement of the process heap
+        blks.reserve(256);
     }
     ~Model() { free(arena); }
     void reset_arena() { memset(arena, FILL, ARENA_SIZE); blks.clear(); }
@@ -90,7 +122,13 @@ struct Model : LibHost {
         }
         CHECK(!"release of a block that is not allocated");
     }
-    uint32_t addr_of(const void *p) override { return ARENA_BASE + (uint32_t)((const uint8_t *)p - arena); }
+    // a pointer outside the arena is the return address of a call made by code of the test: it is where a test puts it (code_addr), by default in no image (base 3.3 owner_at)
+    uint32_t code_addr = 0;
+    uint32_t addr_of(const void *p) override
+    {
+        const uint8_t *b = (const uint8_t *)p;
+        return b >= arena && b < arena + ARENA_SIZE ? ARENA_BASE + (uint32_t)(b - arena) : code_addr;
+    }
     void sync_code(void *, uint32_t) override { syncs++; }
     bool has_capability(const char *c) override
     {
@@ -114,7 +152,15 @@ struct Model : LibHost {
         return t == mains.end() ? 99 : t->second(e, api, ctx);
     }
     uint32_t now_ms() override { return clock; }
-    void delay_ms(uint32_t ms) override { clock += ms; }
+    std::function<void()> on_delay;                          // what the other tasks do while this one waits
+    void delay_ms(uint32_t ms) override { clock += ms; if (on_delay) { on_delay(); } }
+    uint32_t room_v = 0xFFFFFFFFu;
+    uint32_t room() override { return room_v; }
+    // two tasks of the model: the owner of a handler is kept by task (libload.h); a test switches the task it speaks for
+    int cur_task = 1;
+    std::map<int, int> scopes;
+    int task_scope() override { std::map<int, int>::iterator i = scopes.find(cur_task); return i == scopes.end() ? -1 : i->second; }
+    void set_task_scope(int slot) override { if (slot < 0) { scopes.erase(cur_task); } else { scopes[cur_task] = slot; } }
 
     uint8_t *ptr(uint32_t addr) { return arena + (addr - ARENA_BASE); }
     // the shape of the heap: what must be the same after a refused load
@@ -161,6 +207,27 @@ static std::vector<uint8_t> read_file(const char *name)
     return v;
 }
 
+// ------------------------------------------------------------------------------------------------ the slot table of this test's app (libslot.h)
+
+struct ExpTab { uint32_t size; uint32_t member; };
+static ExpTab g_ring_tab = { sizeof(ExpTab), 11 };
+static ExpTab g_trx_tab = { 12, 22 };
+static const void *g_online_tab = 0;                           // what the slot "online" answers (test_online.inc): null = this core has none
+static const void *slot_ring(void) { return &g_ring_tab; }
+static const void *slot_trx(void) { return &g_trx_tab; }
+static const void *slot_gone(void) { return 0; }               // linked, and the table is empty on this core
+static const void *slot_online(void) { return g_online_tab; }
+static const void *slot_beta_c64(void) { return g_libslot_bound[4]; }   // a register library's export with no table function: what lib_register delivered
+extern const LibSlot g_libslot[] = {
+    { "ringlib", "ring", 1, slot_ring, 0 },
+    { "ringlib", "trx", 2, slot_trx, 0 },
+    { "ringlib", "gone", 1, slot_gone, 0 },
+    { "onlinelib", "online", 1, slot_online, 0 },
+    { "beta", "c64", 2, slot_beta_c64, 1 },
+};
+extern const unsigned g_libslot_n = 5;
+const void *g_libslot_bound[5];
+
 // ------------------------------------------------------------------------------------------------ a writer of images, independent of the packer
 
 struct Img {
@@ -173,8 +240,10 @@ struct Img {
     std::vector<uint32_t> relocs;
     uint16_t abi_min, abi_max, fmt;
     uint32_t flags = 0, reserved = 0;
-    Img(const char *n, const char *marker) : kind(U2A3_KIND_LIB), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
-          payload(64, 0), bss(32), align(16), reg(0), main(U2A3_NONE), abi_min(3), abi_max(3), fmt(3)
+    std::vector<uint8_t> budget;                  // the record behind the header (U2a3Budget bytes); empty: no budget, no flag
+    std::vector<uint8_t> exp;                     // the list of exported names behind the budget (a count, then U2a3ExportName entries); empty: none, no flag
+    Img(const char *n, const char *marker) : kind(U2A3_KIND_APP), residence(U2A3_RES_RESIDENT), name(n), version(U2A3_VERSION(1, 0)),
+          payload(64, 0), bss(32), align(16), reg(0), main(8), abi_min(4), abi_max(4), fmt(3)       // a resident application that registers (lib_register) and has app_main
     {
         // offset 0: code that is never run; 4: a marker; 16: a word that holds the offset of the marker (relocated: its address);
         // 20: a word that holds the offset of that word
@@ -193,16 +262,18 @@ static void putname(std::vector<uint8_t> &v, const std::string &s) { for (int i 
 
 static std::vector<uint8_t> build(const Img &m)
 {
-    uint32_t needs_off = U2A3_HEADER_SIZE;
+    uint32_t needs_off = U2A3_HEADER_SIZE + (uint32_t)m.budget.size() + (uint32_t)m.exp.size();
     uint32_t pay_off = needs_off + (uint32_t)m.needs.size() * U2A3_NEED_SIZE;
     uint32_t rel_off = pay_off + (uint32_t)m.payload.size();
     std::vector<uint8_t> v;
     put32(v, U2A3_MAGIC); put16(v, U2A3_HEADER_SIZE); put16(v, m.fmt); put16(v, m.abi_min); put16(v, m.abi_max);
     v.push_back(m.kind); v.push_back(m.residence); v.push_back(U2A3_ARCH_RISCV32); v.push_back((uint8_t)m.needs.size());
-    put32(v, m.flags); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
+    put32(v, m.flags | (m.budget.empty() ? 0 : U2A3_FLAG_BUDGET) | (m.exp.empty() ? 0 : U2A3_FLAG_EXPORTS)); putname(v, m.name); put32(v, m.version); putname(v, m.cap);
     put32(v, pay_off); put32(v, (uint32_t)m.payload.size()); put32(v, m.bss); put32(v, m.align); put32(v, m.reg); put32(v, m.main);
     put32(v, rel_off); put32(v, (uint32_t)m.relocs.size()); put32(v, needs_off); put32(v, 0); put32(v, 0); put32(v, m.reserved);
     CHECK_EQ(v.size(), U2A3_HEADER_SIZE);
+    v.insert(v.end(), m.budget.begin(), m.budget.end());
+    v.insert(v.end(), m.exp.begin(), m.exp.end());
     for (size_t i = 0; i < m.needs.size(); i++) { putname(v, m.needs[i].first); put32(v, m.needs[i].second); }
     v.insert(v.end(), m.payload.begin(), m.payload.end());
     for (size_t i = 0; i < m.relocs.size(); i++) { put32(v, m.relocs[i]); }
@@ -266,25 +337,91 @@ struct World {
     }
 };
 
-// A load that must be refused: the code, the words in the sentence, and nothing left behind.
-static void refused(const char *what, World &w, const std::vector<uint8_t> &f, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0)
+// A transient application that registers (the shape that can be released: what a library file's unload was)
+static Img tr(const char *n, const char *marker)
+{
+    Img i(n, marker);
+    i.residence = U2A3_RES_TRANSIENT;
+    i.main = 4;
+    return i;
+}
+
+// The files of the real RISC-V link are libraries (the packer's default kind); the loader refuses that kind (D58), so the test reads one as an application: the kind byte
+// and app_main (the same offset as lib_register) are patched in the bytes, the relocation and everything else is the real file's.
+static std::vector<uint8_t> as_app(std::vector<uint8_t> f)
+{
+    if (f.size() >= 80) {
+        f[12] = U2A3_KIND_APP;
+        memcpy(&f[76], &f[72], 4);
+    }
+    return f;
+}
+static std::vector<uint8_t> read_app(const char *name) { return as_app(read_file(name)); }
+
+// LibLoader::link over the twin of `name` (the host-compiled lib_register): the register function is a plain pointer, so the twin is reached through a global
+static std::function<int(const LibApi *, LibRecord *)> g_reg_fn;
+static int reg_tramp(const LibApi *api, LibRecord *rec) { return g_reg_fn(api, rec); }
+static int link_lib(World &w, const char *name, int *h, char *err, uint32_t keep = U2A3_BUDGET_NONE, uint32_t peak = U2A3_BUDGET_NONE, const std::vector<uint8_t> *menu = 0)
+{
+    std::map<std::string, Model::Twin>::iterator t = w.m.twins.find(name);
+    CHECK(t != w.m.twins.end());
+    *h = -1;
+    if (t == w.m.twins.end()) {
+        return 99;
+    }
+    Model::Twin tw = t->second;
+    LibHost::Entry e = { name, 0, 0, 0 };
+    Model *mp = &w.m;
+    g_reg_fn = [tw, e, mp](const LibApi *a, LibRecord *r) { mp->register_calls++; return tw(e, a, r); };
+    DescRecord *d = 0;
+    uint8_t *b = 0;
+    if (menu) {
+        MemSource s(*menu);
+        char why[160] = "";
+        if (libmenu_read(&s, s.size(), 0, &d, &b, why, sizeof(why), false) != 0) {       // as a library's menu record is read: no route, no key of an application
+            snprintf(err, LIB_ERR_MAX, "%s", why);
+            return LIB_BAD_FILE;
+        }
+    }
+    int rc = w.ld->link(name, reg_tramp, keep, peak, d, b, err, LIB_ERR_MAX);
+    *h = rc == LIB_OK ? w.ld->handle_of(name) : -1;
+    return rc;
+}
+
+// A refusal that must leave nothing behind: the code, the words in the sentence, and the heap, the registry, the accounts and the process heap as they were.
+static void refused_go(const char *what, World &w, std::function<int(int *, char *)> go, int rc, const char *n1, const char *n2, const char *n3)
 {
     std::string heap = w.m.shape();
     int ops = w.reg.nops(), st = w.reg.nstates(), ev = w.reg.nevents(), count = w.ld->count();
-    uint32_t resident = w.ld->resident_bytes();
+    uint32_t resident = w.ld->resident_bytes(), held = w.ld->held_total();
+    long live = g_live;
     char err[LIB_ERR_MAX] = "";
     int h = 0;
-    int got = w.load(f, &h, err);
+    int got = go(&h, err);
+    long live_after = g_live;                                          // before any temporary of the checks below
     bool ok = got == rc && h == -1;
     ok = ok && (!n1 || strstr(err, n1)) && (!n2 || strstr(err, n2)) && (!n3 || strstr(err, n3));
     ok = ok && heap == w.m.shape() && ops == w.reg.nops() && st == w.reg.nstates() && ev == w.reg.nevents() && count == w.ld->count();
-    ok = ok && resident == w.ld->resident_bytes();
+    ok = ok && resident == w.ld->resident_bytes() && held == w.ld->held_total() && live == live_after;
     g_checks++;
     if (!ok) {
-        printf("FAIL %s: rc %d (want %d), handle %d, text \"%s\"; heap %s -> %s; ops %d -> %d\n", what, got, rc, h, err, heap.c_str(),
-               w.m.shape().c_str(), ops, w.reg.nops());
+        printf("FAIL %s: rc %d (want %d), handle %d, text \"%s\"; heap %s -> %s; ops %d -> %d; process heap blocks %ld -> %ld, held %u -> %u\n", what, got, rc, h, err, heap.c_str(),
+               w.m.shape().c_str(), ops, w.reg.nops(), live, live_after, (unsigned)held, (unsigned)w.ld->held_total());
         g_fails++;
     }
+}
+
+// A load that must be refused.
+static void refused(const char *what, World &w, const std::vector<uint8_t> &f, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0)
+{
+    refused_go(what, w, [&](int *h, char *err) { return w.load(f, h, err); }, rc, n1, n2, n3);
+}
+
+// A link that must be refused.
+static void refused_link(const char *what, World &w, const char *name, int rc, const char *n1, const char *n2 = 0, const char *n3 = 0, uint32_t keep = U2A3_BUDGET_NONE,
+                         uint32_t peak = U2A3_BUDGET_NONE, const std::vector<uint8_t> *menu = 0)
+{
+    refused_go(what, w, [&](int *h, char *err) { return link_lib(w, name, h, err, keep, peak, menu); }, rc, n1, n2, n3);
 }
 
 static std::string call(World &w, const char *op, const char *arg = 0)
@@ -321,7 +458,7 @@ static void coexist()
 {
     World w;
     w.m.caps.push_back("drive_a");
-    std::vector<uint8_t> tl = read_file("testlib.u2a");
+    std::vector<uint8_t> tl = read_app("testlib.u2a");
     std::vector<uint8_t> raw = read_file("testlib.at1000.raw");
     CHECK(tl.size() > U2A3_HEADER_SIZE && raw.size() > 0);
     char err[LIB_ERR_MAX];
@@ -341,10 +478,9 @@ static void coexist()
     CHECK(w.reg.find_state("test.version") != 0);
     CHECK_EQ((int)w.m.entries[0].entry_addr, 0x1000);                       // lib_register is at offset 0 of the image
 
-    // alpha: a library with an alignment of 64, a dependency on the first one and on the base
+    // alpha: a resident application with an alignment of 64 and a dependency on the base (an older minor of the major before is met too)
     Img a("alpha", "ALPHA-MARK");
     a.align = 64;
-    a.needs.push_back(std::make_pair(std::string("testlib"), U2A3_VERSION(1, 0)));
     a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 0)));
     a.cap = "drive_a";
     CHECK_EQ(w.load(build(a), &h_a, err), LIB_OK);
@@ -369,7 +505,7 @@ static void coexist()
     CHECK_EQ(ib->image_addr % 256, 0);
     CHECK(ia->image_addr != itl->image_addr && ib->image_addr != ia->image_addr);
     CHECK_EQ(ib->main_addr, ib->image_addr + 8);
-    CHECK_EQ(ia->main_addr, 0);
+    CHECK_EQ(ia->main_addr, ia->image_addr + 8);
     CHECK(image_is(w, ia, expected_image(a, ia->image_addr)));
     CHECK(image_is(w, ib, expected_image(b, ib->image_addr)));
     CHECK_EQ(w.ld->resident_bytes(), itl->image_size + ia->image_size + ib->image_size);
@@ -478,7 +614,7 @@ static void refusals()
     refused("main 2-aligned", w, build(e3c), LIB_BAD_FILE, "app_main", "4-aligned");
     // header flags and the reserved word are zero in format 3: anything else is a feature this base does not have
     Img f1 = ok;
-    f1.flags = 4;                                                   // bit 0 is the menu record (libmenu.h)
+    f1.flags = 8;                                                   // bit 0 is the menu record (libmenu.h), 1 the budget, 2 the exported names
     refused("flags set", w, build(f1), LIB_BAD_FILE, "alpha", "flags");
     Img f2 = ok;
     f2.reserved = 0x80000000u;
@@ -488,53 +624,62 @@ static void refusals()
     e4.main = 0xFFFFFF00;
     refused("main outside", w, build(e4), LIB_BAD_FILE, "app_main");
     Img e5 = ok;
-    e5.reg = U2A3_NONE;
-    refused("library without lib_register", w, build(e5), LIB_BAD_FILE, "lib_register");
-    Img e6 = ok;
-    e6.residence = U2A3_RES_TRANSIENT;
-    refused("transient library", w, build(e6), LIB_BAD_FILE, "resident");
+    e5.main = U2A3_NONE;
+    refused("application without app_main", w, build(e5), LIB_BAD_FILE, "app_main");
+    Img e6 = ok;                                                            // D58: the one file kind base 4.0 does not load
+    e6.kind = U2A3_KIND_LIB;
+    e6.main = U2A3_NONE;
+    refused("a file of kind lib", w, build(e6), LIB_BAD_FILE, "alpha", "is a library file: base 4.0 loads no library file", "TOML B");
     CHECK_EQ(w.m.allocs, allocs);                                           // refused without spending memory
     CHECK_EQ(w.m.register_calls, 0);
 
     // ---- D11: versions, by name and both numbers
     Img v1 = ok;
-    v1.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 2)));
-    refused("needs base 3.2 on 3.1", w, build(v1), LIB_NEEDS, "alpha", "base", "3.2");
+    v1.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 2)));
+    refused("needs base 4.2 on 4.1", w, build(v1), LIB_NEEDS, "alpha", "base", "4.2");
     {
         char e[LIB_ERR_MAX];
         MemSource s(build(v1));
         w.ld->load(&s, &h, e, sizeof(e));
-        CHECK(strstr(e, "3.2") && strstr(e, "3.1"));                       // both numbers
+        CHECK(strstr(e, "4.2") && strstr(e, "4.1"));                       // both numbers
     }
     Img v2 = ok;
-    v2.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 1)));
-    CHECK_EQ(w.load(build(v2), &h, err), LIB_OK);                           // 3.1 on 3.1 is enough
+    v2.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 1)));
+    CHECK_EQ(w.load(build(v2), &h, err), LIB_OK);                           // 4.1 on 4.1 is enough
+    Img v2b = ok;
+    v2b.name = "delta2";
+    v2b.reg = U2A3_NONE;                                                    // no lib_register: an application that only runs
+    v2b.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(3, 2)));
+    CHECK_EQ(w.load(build(v2b), &h, err), LIB_OK);                          // a need of the major before is met by this base
+    // the needs bind to the slots of the app's libraries (g_libslot): an export it is not linked with, one at another major, one whose table is empty here
     Img v3 = ok;
     v3.name = "gamma";
     v3.needs.push_back(std::make_pair(std::string("cbm1541"), U2A3_VERSION(1, 0)));
-    refused("needs a library that is not loaded", w, build(v3), LIB_NEEDS, "gamma", "cbm1541", "not loaded");
-    Img dep("cbm1541", "D");
-    dep.version = U2A3_VERSION(1, 0);
-    w.m.twins["cbm1541"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
-    CHECK_EQ(w.load(build(dep), &h, err), LIB_OK);
+    refused("needs an export the app is not linked with", w, build(v3), LIB_NEEDS, "gamma", "\"cbm1541\" 1.0", "which the app is not linked with");
     Img v4 = v3;
-    v4.needs[0].second = U2A3_VERSION(2, 0);
-    refused("needs a newer library", w, build(v4), LIB_NEEDS, "gamma", "cbm1541", "2.0");
-    {
-        char e[LIB_ERR_MAX];
-        MemSource s(build(v4));
-        w.ld->load(&s, &h, e, sizeof(e));
-        CHECK(strstr(e, "2.0") && strstr(e, "1.0"));
-    }
+    v4.needs[0] = std::make_pair(std::string("trx"), U2A3_VERSION(1, 0));
+    refused("needs another major than the app is linked with", w, build(v4), LIB_NEEDS, "gamma", "\"trx\" 1.0", "the app is linked with 2.0");
+    Img v5 = v3;
+    v5.needs[0] = std::make_pair(std::string("gone"), U2A3_VERSION(1, 0));
+    refused("needs a table that is empty on this core", w, build(v5), LIB_NEEDS, "gamma", "\"gone\" 1.0", "which this core does not have");
+    Img v6 = v3;
+    v6.name = "needy";
+    v6.needs[0] = std::make_pair(std::string("ring"), U2A3_VERSION(1, 0));
+    w.m.twins["needy"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+    CHECK_EQ(w.load(build(v6), &h, err), LIB_OK);                           // an export the app is linked with, at that major
     Img a1 = ok;
     a1.name = "gamma";
-    a1.abi_min = 4;
-    a1.abi_max = 4;
-    refused("built for ABI 4", w, build(a1), LIB_ABI, "gamma", "ABI 4", "ABI 3");
+    a1.abi_min = 3;
+    a1.abi_max = 3;
+    refused("built for API 3", w, build(a1), LIB_ABI, "gamma", "base API 3", "rebuild");
     Img a2 = a1;
     a2.abi_min = 2;
     a2.abi_max = 2;
-    refused("built for ABI 2", w, build(a2), LIB_ABI, "ABI 2");
+    refused("built for API 2", w, build(a2), LIB_ABI, "base API 2");
+    Img a3 = a1;
+    a3.abi_min = 5;
+    a3.abi_max = 5;
+    refused("built for API 5", w, build(a3), LIB_ABI, "base API 5", "newer base");
 
     // ---- Q10: a capability the core lacks
     Img c1 = ok;
@@ -576,7 +721,7 @@ static void failures()
     World w;
     char err[LIB_ERR_MAX];
     int h = -1;
-    std::vector<uint8_t> tl = read_file("testlib.u2a");
+    std::vector<uint8_t> tl = read_app("testlib.u2a");
     CHECK_EQ(w.load(tl, &h, err), LIB_OK);
     uint32_t used = w.m.used_bytes();
     std::string heap = w.m.shape();
@@ -644,7 +789,7 @@ static void unserved()
     w.ld->set_log(sink);
     char err[LIB_ERR_MAX];
     int h = -1;
-    CHECK_EQ(w.load(read_file("testlib.u2a"), &h, err), LIB_OK);
+    CHECK_EQ(w.load(read_app("testlib.u2a"), &h, err), LIB_OK);
     w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
         static const LibNodeDecl nodes[2] = { };
         static const LibFileActionDecl fas[1] = { };
@@ -665,9 +810,244 @@ static void unserved()
 }
 
 
+// ---------------------------------------------------------------------------------------------------------------- S4: the version of the base
+
+// A .u2a that needs base >= 3.(m+1) is refused on a base that provides 3.m, by name and with both versions; one that needs 3.m loads. The loader is the
+// one the board makes: no lowered minor, the constant of libfmt.h.
+static void base_version()
+{
+    World w(U2A_BASE_MINOR);
+    char want_have[16], want_need[16], err[LIB_ERR_MAX];
+    snprintf(want_have, sizeof(want_have), "%u.%u", (unsigned)U2A_ABI_MAJOR, (unsigned)U2A_BASE_MINOR);
+    snprintf(want_need, sizeof(want_need), "%u.%u", (unsigned)U2A_ABI_MAJOR, (unsigned)U2A_BASE_MINOR + 1);
+    int h = -1;
+    Img newer("alpha", "A");
+    newer.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR + 1)));
+    refused("needs the next minor of the base", w, build(newer), LIB_NEEDS, "alpha", want_need, want_have);
+    {
+        MemSource src(build(newer));
+        w.ld->load(&src, &h, err, sizeof(err));
+        char sentence[96];
+        snprintf(sentence, sizeof(sentence), "\"alpha\" needs base %s, this base is %s.", want_need, want_have);
+        CHECK_STR(err, sentence);
+    }
+    Img major("alpha", "A");
+    major.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR + 1, 0)));
+    refused("needs the next major of the base", w, build(major), LIB_NEEDS, "alpha", "5.0", want_have);
+    Img same("alpha", "A");
+    same.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR)));
+    CHECK_EQ(w.load(build(same), &h, err), LIB_OK);                         // exactly what the base provides is enough
+    Img older("beta", "B");
+    older.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, 0)));
+    CHECK_EQ(w.load(build(older), &h, err), LIB_OK);
+    // an application is held to the same: refused at its load, before anything of it is placed
+    Img app("tapp", "T");
+    app.kind = U2A3_KIND_APP;
+    app.residence = U2A3_RES_TRANSIENT;
+    app.reg = U2A3_NONE;
+    app.main = 4;
+    app.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(U2A_ABI_MAJOR, U2A_BASE_MINOR + 1)));
+    refused("an app that needs the next minor of the base", w, build(app), LIB_NEEDS, "tapp", want_need, want_have);
+    // the version the library sees is the one the check used
+    static unsigned seen_minor, seen_major;
+    w.m.twins["gamma"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { seen_major = api->abi_major; seen_minor = api->abi_minor; return 0; };
+    Img g("gamma", "G");
+    CHECK_EQ(w.load(build(g), &h, err), LIB_OK);
+    CHECK_EQ(seen_major, (unsigned)U2A_ABI_MAJOR);
+    CHECK_EQ(seen_minor, (unsigned)U2A_BASE_MINOR);
+}
+
+// ---------------------------------------------------------------------------------------------------------------- S3: the poll of a library
+
+static int g_polled[3];
+template <int N> static int h_polled(CoreCtx *, const OpArgs &, OpOut &) { g_polled[N]++; return OPE_OK; }
+static int h_polled_arg(CoreCtx *, const OpArgs &, OpOut &) { return OPE_OK; }
+static const ArgSpec polled_arg[] = { ARG_INT("n", 0, 9) };
+
+template <int N> static int twin_poll(const LibHost::Entry &, const LibApi *, LibRecord *rec)
+{
+    static LibOpDecl ops[3];
+    static const char *names[3] = { "pa.tick", "pb.tick", "pc.tick" };
+    ops[N].name = names[N]; ops[N].args = 0; ops[N].nargs = 0; ops[N].fn = N == 0 ? h_polled<0> : N == 1 ? h_polled<1> : h_polled<2>;
+    rec->ops = &ops[N];
+    rec->nops = 1;
+    rec->poll.op = names[N];
+    rec->poll.period_ms = N == 0 ? 10 : 20;
+    return 0;
+}
+
+// The service task steps every armed slot as its own task would; `ms` of virtual time in 1 ms steps.
+static void spin(VirtOs &os, LibPolls &lp, uint32_t ms)
+{
+    uint32_t wake[LIB_POLLS_MAX] = { 0 };
+    for (uint32_t end = os.t + ms; os.t < end; os.t++) {
+        for (int i = 0; i < LIB_POLLS_MAX; i++) {
+            if (lp.slot(i) && os.t >= wake[i]) {
+                wake[i] = os.t + lp.slot(i)->step();
+            }
+        }
+    }
+}
+
+static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta = 0);
+
+static void polls()
+{
+    World w(U2A_BASE_MINOR);
+    VirtOs os;
+    CoreLock lock(&os);
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.started = true;
+    LibPolls lp(&os, &lock, &w.reg, &cx, 0);
+    w.ld->set_ctx(&cx);
+    w.ld->set_poll_sink(&lp);
+    w.m.twins["pa"] = twin_poll<0>;
+    w.m.twins["pb"] = twin_poll<1>;
+    w.m.twins["pc"] = twin_poll<2>;
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    memset(g_polled, 0, sizeof(g_polled));
+
+    // an application that registers a poll: polled at its period from its registration, until it is released
+    std::string heap0 = w.m.shape();
+    CHECK_EQ(w.load(build(tr("pa", "A")), &h, err), LIB_OK);
+    int ha = h;
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 library pa (10 ms), 1000 ms: %d calls\n", g_polled[0]);
+    CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
+    // a second one beside it, at its own period
+    CHECK_EQ(w.load(build(tr("pb", "B")), &h, err), LIB_OK);
+    int hb = h;
+    CHECK_EQ(lp.count(), 2);
+    int a0 = g_polled[0];
+    spin(os, lp, 1000);
+    printf("S3 pa and pb (20 ms), 1000 ms: pa %d calls, pb %d calls\n", g_polled[0] - a0, g_polled[1]);
+    CHECK(g_polled[0] - a0 >= 98 && g_polled[1] >= 49 && g_polled[1] <= 51);
+    // released: nothing is polled after, the other goes on
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    a0 = g_polled[0];
+    int b0 = g_polled[1];
+    spin(os, lp, 500);
+    printf("S3 pa released: pa %d -> %d calls, pb %d -> %d calls\n", a0, g_polled[0], b0, g_polled[1]);
+    CHECK_EQ(g_polled[0], a0);
+    CHECK(g_polled[1] >= b0 + 24);
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    b0 = g_polled[1];
+    spin(os, lp, 300);
+    CHECK_EQ(g_polled[1], b0);
+    CHECK(heap0 == w.m.shape());
+
+    // a transient application with screens (it registers, and its poll lives while it is kept open): the poll ends when it is released
+    w.m.twins["pc"] = twin_poll<2>;
+    w.m.mains["pc"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    Img app("pc", "C");
+    app.kind = U2A3_KIND_APP;
+    app.residence = U2A3_RES_TRANSIENT;
+    app.main = 4;
+    CHECK_EQ(w.load(build(app), &h, err), LIB_OK);
+    int arc = 0;
+    CHECK_EQ(w.ld->run(h, "", "", 0, 0, &arc, err, sizeof(err), true), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 transient app pc (20 ms), kept open 1000 ms: %d calls\n", g_polled[2]);
+    CHECK(g_polled[2] >= 49 && g_polled[2] <= 51);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    int c0 = g_polled[2];
+    spin(os, lp, 300);
+    printf("S3 pc released: %d -> %d calls\n", c0, g_polled[2]);
+    CHECK_EQ(g_polled[2], c0);
+    CHECK(heap0 == w.m.shape());
+    // run() without keep frees a transient app at once, with its poll
+    CHECK_EQ(w.load(build(app), &h, err), LIB_OK);
+    CHECK_EQ(w.ld->run(h, "", "", 0, 0, &arc, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+
+    // a poll the service cannot serve refuses the library, by name, and nothing of it stays
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.arg", polled_arg, 1, h_polled_arg } };
+        rec->ops = ops; rec->nops = 1;
+        rec->poll.op = "pa.arg"; rec->poll.period_ms = 10;
+        return 0;
+    };
+    refused("a poll that takes arguments", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "pa.arg", "takes arguments");
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->poll.op = "pa.missing"; rec->poll.period_ms = 10; return 0; };
+    refused("a poll of an operation nobody registered", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "pa.missing", "not registered");
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
+        rec->ops = ops; rec->nops = 1;
+        rec->poll.op = "pa.tick"; rec->poll.period_ms = 0;
+        return 0;
+    };
+    refused("a poll with no period", w, build(tr("pa", "A")), LIB_REGISTER, "pa", "no period");
+    CHECK_EQ(lp.count(), 0);
+    CHECK(w.reg.find_op("pa.tick") == 0);
+
+    // a poll the library declares in its menu record is served like one of lib_register, from the load to the release; in both records it is refused
+    w.m.twins["pa"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        static LibOpDecl ops[1] = { { "pa.tick", 0, 0, h_polled<0> } };
+        rec->ops = ops; rec->nops = 1;
+        return 0;
+    };
+    memset(g_polled, 0, sizeof(g_polled));
+    CHECK_EQ(w.load(with_menu(tr("pa", "A"), read_file("menu_poll.bin")), &h, err), LIB_OK);
+    CHECK_EQ(lp.count(), 1);
+    spin(os, lp, 1000);
+    printf("S3 pa with its poll in the menu record (10 ms), 1000 ms: %d calls\n", g_polled[0]);
+    CHECK(g_polled[0] >= 98 && g_polled[0] <= 101);
+    // an add that is refused leaves the owner's poll running; one that is accepted replaces it in its own slot
+    char why[120];
+    CHECK(!lp.add("pa", "pa.missing", 10, false, why, sizeof(why)));
+    CHECK_EQ(lp.count(), 1);
+    a0 = g_polled[0];
+    spin(os, lp, 100);
+    CHECK(g_polled[0] >= a0 + 9);
+    CHECK(lp.add("pa", "pa.tick", 20, false, why, sizeof(why)));
+    CHECK_EQ(lp.count(), 1);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(lp.count(), 0);
+    w.m.twins["pa"] = twin_poll<0>;
+    refused("a poll in lib_register and in the menu record", w, with_menu(tr("pa", "A"), read_file("menu_poll.bin")), LIB_REGISTER, "pa", "one is allowed");
+    CHECK_EQ(lp.count(), 0);
+    CHECK(w.reg.find_op("pa.tick") == 0);
+
+    // base 3.3: a poll declared when_frozen keeps running while the machine is frozen for the menu, one that is not waits for the menu to close
+    {
+        w.m.twins["pa"] = [](const LibHost::Entry &e, const LibApi *a, LibRecord *rec) { int rc = twin_poll<0>(e, a, rec); rec->poll.when_frozen = true; return rc; };
+        w.m.twins["pb"] = twin_poll<1>;
+        memset(g_polled, 0, sizeof(g_polled));
+        int hpa = -1, hpb = -1;
+        CHECK_EQ(w.load(build(tr("pa", "A")), &hpa, err), LIB_OK);
+        CHECK_EQ(w.load(build(tr("pb", "B")), &hpb, err), LIB_OK);
+        CHECK_EQ(lp.count(), 2);
+        cx.frozen = true;
+        spin(os, lp, 500);
+        printf("S3 menu open (frozen), 500 ms: pa (when_frozen, 10 ms) %d calls, pb (20 ms) %d calls\n", g_polled[0], g_polled[1]);
+        CHECK(g_polled[0] >= 48 && g_polled[0] <= 51);
+        CHECK_EQ(g_polled[1], 0);
+        cx.frozen = false;
+        spin(os, lp, 200);
+        CHECK(g_polled[1] >= 9);
+        CHECK_EQ(w.ld->release(hpa, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(hpb, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(lp.count(), 0);
+        w.m.twins["pa"] = twin_poll<0>;
+    }
+
+    // no sink (a loader whose core has not started): the library loads, the record keeps the declaration for the menu merge
+    World w2(U2A_BASE_MINOR);
+    w2.m.twins["pb"] = twin_poll<1>;
+    CHECK_EQ(w2.load(build(tr("pb", "B")), &h, err), LIB_OK);
+    CHECK(w2.ld->info(h) && !strcmp(w2.ld->info(h)->record.poll.op, "pb.tick"));
+}
+
 // A library's own menu record (T104.1 D9, libmenu.h): header flag bit 0 and the offset in `reserved`; read and checked before anything is spent, kept by the
 // slot, freed with it. Refused by name: an offset outside the file, a record that is damaged, one that gives a route.
-static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta = 0)
+static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, uint32_t offset_delta)
 {
     m.flags = U2A3_FLAG_MENU;
     std::vector<uint8_t> f = build(m);
@@ -677,15 +1057,6 @@ static std::vector<uint8_t> with_menu(Img m, const std::vector<uint8_t> &rec, ui
     f.insert(f.end(), rec.begin(), rec.end());
     return f;
 }
-
-// the heap of the process, counted: a menu record is two blocks (the bytes and the decoded table) that must go back with the slot
-static long g_live;
-void *operator new(size_t n) { g_live++; return malloc(n ? n : 1); }
-void *operator new[](size_t n) { g_live++; return malloc(n ? n : 1); }
-void operator delete(void *p) noexcept { if (p) { g_live--; free(p); } }
-void operator delete[](void *p) noexcept { if (p) { g_live--; free(p); } }
-void operator delete(void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
-void operator delete[](void *p, size_t) noexcept { if (p) { g_live--; free(p); } }
 
 static void menu_record()
 {
@@ -718,9 +1089,29 @@ static void menu_record()
     std::vector<uint8_t> route = read_file("menu_route.bin");
     refused("menu with a route", w, with_menu(Img("alpha", "A"), route), LIB_BAD_FILE, "alpha", "gives a route");
     std::vector<uint8_t> hides = read_file("menu_hide.bin");
-    refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides and renames");
+    refused("menu that hides", w, with_menu(Img("alpha", "A"), hides), LIB_BAD_FILE, "alpha", "hides or renames");
+    {   // T262 D4 finding 11: a library's record may carry [[key]] rows (the legend with them); a record with windows is still the core's
+        World wk;
+        char err[LIB_ERR_MAX] = "";
+        int h = -1;
+        std::vector<uint8_t> keys = read_file("menu_keys.bin");
+        CHECK_EQ(link_lib(wk, "alpha", &h, err, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &keys), LIB_OK);   // a linked library's record may carry key rows
+        const LibInfo *i = wk.ld->info(h);
+        CHECK(i && i->menu && i->menu->nkeys == 2);
+        if (i && i->menu && i->menu->nkeys == 2) {
+            CHECK_STR(i->menu->keys[0].node, "lib"); CHECK_EQ(i->menu->keys[0].row.lo, 'x'); CHECK_STR(i->menu->keys[0].row.op, "test.echo"); CHECK_STR(i->menu->keys[0].legend, "Echo");
+            CHECK_STR(i->menu->keys[1].layout, "list"); CHECK_EQ(i->menu->keys[1].row.intent, MI_DECLINE);
+        }
+    }
+    refused("menu with windows", w, with_menu(Img("alpha", "A"), read_file("windows.bin")), LIB_BAD_FILE, "alpha", "has windows");
+    refused("an application's menu record with keys", w, with_menu(Img("alpha", "A"), read_file("menu_keys.bin")), LIB_BAD_FILE, "alpha", "key table");
+    {
+        std::vector<uint8_t> route2 = read_file("menu_route.bin");
+        World wl;
+        refused_link("a library's menu record with a route", wl, "alpha", LIB_BAD_FILE, "gives a route", 0, 0, U2A3_BUDGET_NONE, U2A3_BUDGET_NONE, &route2);
+    }
     Img f2("alpha", "A");
-    f2.flags = 2;
+    f2.flags = 8;
     refused("an unknown flag", w, build(f2), LIB_BAD_FILE, "alpha", "header flags");
     Img r1("alpha", "A");
     r1.reserved = 16;                                               // a reserved word without the flag
@@ -877,7 +1268,7 @@ static void apps()
 
     // run() of a library, of nothing, and on a host that cannot run apps
     int hl = -1;
-    CHECK_EQ(w.load(read_file("testlib.u2a"), &hl, err), LIB_OK);
+    CHECK_EQ(link_lib(w, "alpha", &hl, err), LIB_OK);                         // a linked library is no app
     CHECK_EQ(w.ld->run(hl, 0, 0, reply, sizeof(reply), &arc, err, sizeof(err)), LIB_NOT_APP);
     CHECK(strstr(err, "not an app"));
     CHECK_EQ(w.ld->run(11, 0, 0, reply, sizeof(reply), &arc, err, sizeof(err)), LIB_STATE);
@@ -971,7 +1362,8 @@ static int app_files(const LibHost::Entry &, const LibApi *api, AppCtx *ctx)
     SvcFile *k = fs->open("/flash/roms/kernal.bin", true);
     CHECK(k && !fs->writable(k) && !fs->write(k, 0, "x", 1));
     fs->close(k);
-    CHECK(fs->save(FS_FLASH_CFG_PATH, "a=1", 3));                       // the exception of fsif.h
+    CHECK(fs_flash_set_exceptions("/flash/trx64u/boot.cfg", "/flash/trx64u/c64.cfg"));
+    CHECK(fs->save("/flash/trx64u/c64.cfg", "a=1", 3));                       // the exception of fsif.h
     CHECK(fs->open("/USB0/missing.bin", false) == 0);
     SvcFile *left = fs->open("/USB0/dump.bin", false);                  // left open: closed when the app returns
     CHECK(left != 0);
@@ -1008,7 +1400,7 @@ static void files()
     CHECK(heap0 == w.m.shape());                                         // ... and its handle given back
     CHECK(!disk.has("/flash/evil.bin") && !disk.has("/flash/dump.bin") && disk.has("/flash/roms/kernal.bin"));
     CHECK(disk.text("/flash/roms/kernal.bin") == std::string(8192, (char)0xA5));
-    CHECK(disk.text(FS_FLASH_CFG_PATH) == "a=1");
+    CHECK(disk.text("/flash/trx64u/c64.cfg") == "a=1");
     CHECK(disk.text("/USB0/dump.bin").substr(4, 4) == "TRX!");
 
     // without a core context there are no files
@@ -1031,15 +1423,1483 @@ static void files()
     CHECK_EQ(arc, 3);
 }
 
+
+// ------------------------------------------------------------------------------------------ the budget and the account (T239.3 S13, S14)
+
+static U2a3Budget bud_open()
+{
+    U2a3Budget b;
+    memset(&b, 0xFF, sizeof(b));
+    b.size = U2A3_BUDGET_SIZE;
+    return b;
+}
+
+static std::vector<uint8_t> bud_bytes(const U2a3Budget &b)
+{
+    std::vector<uint8_t> v(sizeof(b));
+    memcpy(v.data(), &b, sizeof(b));
+    return v;
+}
+
+// A twin that registers what a library of the given counts registers: names prefix.o0 ..., kept alive with the twin.
+struct RegStore {
+    std::vector<std::string> names;
+    std::vector<LibOpDecl> ops;
+    std::vector<LibStateDecl> st;
+    std::vector<LibEventDecl> ev;
+    std::vector<LibSettingDecl> sets;
+    std::vector<LibTabDecl> tabs;
+};
+static Model::Twin reg_twin(const std::string &prefix, int nops, int nstates, int nevents, int nsettings = 0, int ntabs = 0, const char *area = "F5")
+{
+    std::shared_ptr<RegStore> r(new RegStore);
+    r->names.reserve(nops + nstates + nevents + 1);
+    for (int i = 0; i < nops; i++) { r->names.push_back(prefix + ".o" + std::to_string(i)); }
+    for (int i = 0; i < nstates; i++) { r->names.push_back(prefix + ".s" + std::to_string(i)); }
+    for (int i = 0; i < nevents; i++) { r->names.push_back(prefix + ".e" + std::to_string(i)); }
+    int k = 0;
+    for (int i = 0; i < nops; i++) { LibOpDecl d = { r->names[k++].c_str(), 0, 0, h_nop }; r->ops.push_back(d); }
+    for (int i = 0; i < nstates; i++) { LibStateDecl d = { r->names[k++].c_str(), [](CoreCtx *) -> const char * { return "v"; } }; r->st.push_back(d); }
+    for (int i = 0; i < nevents; i++) { LibEventDecl d = { r->names[k++].c_str(), 0 }; r->ev.push_back(d); }
+    for (int i = 0; i < nsettings; i++) { LibSettingDecl d; memset(&d, 0, sizeof(d)); d.key = "k"; d.apply = "x.y"; r->sets.push_back(d); }
+    for (int i = 0; i < ntabs; i++) { LibTabDecl d; memset(&d, 0, sizeof(d)); d.area = area; d.id = "t"; d.name = "T"; r->tabs.push_back(d); }
+    return [r](const LibHost::Entry &, const LibApi *, LibRecord *rec) {
+        rec->ops = r->ops.data(); rec->nops = (int)r->ops.size();
+        rec->states = r->st.data(); rec->nstates = (int)r->st.size();
+        rec->events = r->ev.data(); rec->nevents = (int)r->ev.size();
+        rec->settings = r->sets.data(); rec->nsettings = (int)r->sets.size();
+        rec->tabs = r->tabs.data(); rec->ntabs = (int)r->tabs.size();
+        return 0;
+    };
+}
+
+static const LibApi *g_hp_api;
+static int h_hp_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_hp_api->mem->malloc(32);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "denied");
+    return p ? OPE_OK : OPE_FAILED;
+}
+static int h_hp_realloc(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_hp_api->mem->malloc(16);
+    memset(p, 0x5C, 16);
+    void *q = g_hp_api->mem->realloc(p, 90);                  // 90 with 16 and 64 held: the old and the new block are held together
+    snprintf(o.msg, o.msglen, "%s %d", q ? "grown" : "kept", p && ((uint8_t *)p)[15] == 0x5C);
+    return OPE_OK;
+}
+static std::vector<std::string> g_log;
+static void log_to_test(const char *t) { g_log.push_back(t); }
+
+// S13: the budget a file declares, and the limits of the tables. Each refusal names the library, the figure and the limit, and nothing of it stays
+// (refused() compares the heap, the registry, the accounts and the process heap before and after).
+static void budgets()
+{
+    char err[LIB_ERR_MAX] = "";
+    int h = -1;
+    {   // the image
+        World w(U2A_BASE_MINOR);
+        w.m.twins["bigimg"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        Img b("bigimg", "B");                                              // 64 bytes of payload and 32 of bss
+        U2a3Budget bd = bud_open();
+        bd.image = 64;
+        b.budget = bud_bytes(bd);
+        refused("image over its budget", w, build(b), LIB_BUDGET, "bigimg", "96", "64");
+        bd.image = 96;
+        b.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(b), &h, err), LIB_OK);                        // at the figure it is in
+        CHECK_STR(w.ld->info(h)->name, "bigimg");
+    }
+    {   // what lib_register registers: operations, state values, events
+        World w(U2A_BASE_MINOR);
+        w.m.twins["opsy"] = reg_twin("opsy", 3, 2, 1);
+        Img o("opsy", "O");
+        U2a3Budget bd = bud_open();
+        bd.ops = 2;
+        o.budget = bud_bytes(bd);
+        refused("operations over the budget", w, build(o), LIB_BUDGET, "opsy", "3 operations", "budget of 2");
+        bd.ops = 3; bd.states = 1;
+        o.budget = bud_bytes(bd);
+        refused("state values over the budget", w, build(o), LIB_BUDGET, "opsy", "2 state values", "budget of 1");
+        bd.states = 2; bd.events = 0;
+        o.budget = bud_bytes(bd);
+        refused("events over the budget", w, build(o), LIB_BUDGET, "opsy", "1 events", "budget of 0");
+        bd.events = 1;
+        o.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(o), &h, err), LIB_OK);                        // exactly the figures
+        CHECK_EQ(w.reg.nops(), 3);
+        CHECK_EQ(w.reg.nstates(), 2);
+        CHECK_EQ(w.reg.nevents(), 1);
+        // a figure left open is the platform's: no budget at all loads as before
+        w.m.twins["free1"] = reg_twin("free1", 5, 0, 0);
+        CHECK_EQ(w.load(build(Img("free1", "F")), &h, err), LIB_OK);
+        CHECK_EQ(w.reg.nops(), 8);
+    }
+    {   // the settings, nodes and tabs of the record and the menu record together; the poll
+        World w(U2A_BASE_MINOR);
+        std::vector<uint8_t> rec = read_file("menu_lib.bin");                // 1 node, 1 tab, 1 setting, 1 file action, 1 poll
+        Img a("alpha", "A");
+        U2a3Budget bd = bud_open();
+        bd.nodes = 0;
+        a.budget = bud_bytes(bd);
+        refused("nodes of the menu record over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 menu nodes", "budget of 0");
+        bd = bud_open(); bd.tabs = 0;
+        a.budget = bud_bytes(bd);
+        refused("tabs over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 tabs", "budget of 0");
+        bd = bud_open(); bd.polls = 0;
+        a.budget = bud_bytes(bd);
+        refused("polls over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 polls", "budget of 0");
+        bd = bud_open(); bd.settings = 0;
+        a.budget = bud_bytes(bd);
+        refused("settings over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 settings", "budget of 0");
+        bd = bud_open(); bd.file_actions = 0;
+        a.budget = bud_bytes(bd);
+        refused("file actions over the budget", w, with_menu(a, rec), LIB_BUDGET, "alpha", "1 file actions", "budget of 0");
+        // the record of lib_register and the menu record add up
+        w.m.twins["alpha"] = reg_twin("alpha", 0, 0, 0, 2, 0);
+        bd = bud_open(); bd.settings = 2;
+        a.budget = bud_bytes(bd);
+        refused("both records together", w, with_menu(a, rec), LIB_BUDGET, "alpha", "3 settings", "budget of 2");
+        bd.settings = 3; bd.nodes = 1; bd.tabs = 1; bd.polls = 1; bd.file_actions = 1;
+        a.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(with_menu(a, rec), &h, err), LIB_OK);
+    }
+    {   // the tables: a library over the room that is left is refused, undeclared or not
+        World w(U2A_BASE_MINOR);
+        w.reg.contributor("fill");
+        std::vector<std::string> names;                                      // the registry keeps the pointers: the names live as long as the registry
+        names.reserve(OPS_MAX + STATES_MAX + EVENTS_MAX);
+        for (int i = 0; i < OPS_MAX - 1; i++) { names.push_back("fill.o" + std::to_string(i)); CHECK_EQ(w.reg.add_op(names.back().c_str(), 0, 0, h_nop), OPE_OK); }
+        for (int i = 0; i < STATES_MAX - 1; i++) { names.push_back("fill.s" + std::to_string(i)); CHECK_EQ(w.reg.add_state(names.back().c_str(), [](CoreCtx *) -> const char * { return "v"; }), OPE_OK); }
+        for (int i = 0; i < EVENTS_MAX - 1; i++) { names.push_back("fill.e" + std::to_string(i)); CHECK_EQ(w.reg.add_event(names.back().c_str(), 0), OPE_OK); }
+        w.m.twins["two"] = reg_twin("two", 2, 0, 0);
+        refused("operations table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 operations", "holds 400 and 399");
+        w.m.twins["two"] = reg_twin("two", 0, 2, 0);
+        refused("state table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 state values", "holds 320 and 319");
+        w.m.twins["two"] = reg_twin("two", 0, 0, 2);
+        refused("event table", w, build(Img("two", "T")), LIB_BUDGET, "two", "2 events", "holds 8 and 7");
+        w.m.twins["two"] = reg_twin("two", 1, 1, 1);
+        CHECK_EQ(w.load(build(Img("two", "T")), &h, err), LIB_OK);          // one of each is what is left
+        CHECK_EQ(w.reg.nops(), OPS_MAX);
+    }
+    {   // the settings of every library together are CONTRIB_SETTINGS_MAX, the tabs of an area MENU_STRIP_TABS
+        World w(U2A_BASE_MINOR);
+        w.m.twins["sa"] = reg_twin("sa", 0, 0, 0, 12, 6);
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 5, 3);
+        CHECK_EQ(w.load(build(Img("sa", "A")), &h, err), LIB_OK);
+        refused("settings table", w, build(Img("sb", "B")), LIB_BUDGET, "sb", "5 settings", "holds 16 and 12");
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 4, 3);
+        refused("tab strip", w, build(Img("sb", "B")), LIB_BUDGET, "sb", "3 tabs to area F5", "holds 8 and 6");
+        w.m.twins["sb"] = reg_twin("sb", 0, 0, 0, 4, 2);
+        CHECK_EQ(w.load(build(Img("sb", "B")), &h, err), LIB_OK);
+        w.m.twins["sc"] = reg_twin("sc", 0, 0, 0, 0, 3, "F6");              // another area has its own strip
+        CHECK_EQ(w.load(build(Img("sc", "C")), &h, err), LIB_OK);
+    }
+    {   // the heap: the figure of api->mem; over it at load, the library is refused; later, the request is refused and told once
+        World w(U2A_BASE_MINOR);
+        CoreCtx cx;
+        memset(&cx, 0, sizeof(cx));
+        w.ld->set_ctx(&cx);
+        w.ld->set_log(log_to_test);
+        g_log.clear();
+        w.m.twins["hq"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { void *p = api->mem->malloc(200); CHECK(p == 0); return 0; };
+        refused_link("heap over the budget at load (link)", w, "hq", LIB_BUDGET, "hq", "200 bytes", "heap peak of 100", U2A3_BUDGET_NONE, 100);
+        CHECK(g_log.empty());                                               // a refusal at load is the load's sentence, not a log line
+        static LibOpDecl hp_ops[3] = { { "hp.grow", 0, 0, h_hp_grow }, { "hp.realloc", 0, 0, h_hp_realloc }, { 0, 0, 0, 0 } };
+        w.m.twins["hp"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
+            g_hp_api = api;
+            void *a = api->mem->malloc(64);
+            CHECK(a != 0);
+            rec->ops = hp_ops; rec->nops = 2;
+            return 0;
+        };
+        U2a3Budget bd = bud_open();
+        bd.heap_peak = 100;
+        Img q = tr("hq", "Q");
+        q.budget = bud_bytes(bd);
+        refused("heap over the budget at load (file)", w, build(q), LIB_BUDGET, "hq", "200 bytes", "heap peak of 100");
+        Img p = tr("hp", "P");
+        p.budget = bud_bytes(bd);
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->account_bytes(h), 64u);
+        CHECK_STR(call(w, "hp.grow").c_str(), "ok");                        // 96 of 100 ...
+        CHECK_EQ(w.ld->account_bytes(h), 96u);
+        CHECK_STR(call(w, "hp.grow").c_str(), "ERR denied");                // ... and 128 is over; the answer is a null pointer
+        CHECK_EQ(w.ld->account_bytes(h), 96u);
+        CHECK_EQ(w.ld->account_blocks(h), 2);
+        int told = 0;
+        for (size_t i = 0; i < g_log.size(); i++) { told += g_log[i].find("declared heap peak of 100") != std::string::npos; }
+        CHECK_EQ(told, 1);
+        CHECK_EQ(w.ld->account_blocks(-1), 0);                              // none of it went to nobody
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->held_total(), 0u);
+        // realloc holds the old and the new block together (64 held by the library's own block, 16 + 90 would be 170)
+        CHECK_EQ(w.load(build(p), &h, err), LIB_OK);
+        CHECK_STR(call(w, "hp.realloc").c_str(), "kept 1");
+        CHECK_EQ(w.ld->account_bytes(h), 80u);                              // the 64 of lib_register and the 16 that stayed
+    }
+    {   // the permanent figure is checked against the room of the heap before anything is placed (a file) or before lib_register runs (a link); a keep above the peak is no budget
+        World w(U2A_BASE_MINOR);
+        w.m.twins["hk"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        Img k = tr("hk", "K");
+        U2a3Budget bd = bud_open();
+        bd.heap_keep = 4000;
+        bd.heap_peak = 9000;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 4000 + 96 + 16 - 1;                                    // the image with its bss (96) and the alignment (16) and the 4000 it keeps: one byte short
+        refused("keep over the room", w, build(k), LIB_NO_ROOM, "hk", "keeps 4000 bytes", "room for 4111");
+        w.m.room_v = 4000 + 96 + 16;
+        CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        bd.heap_keep = 9001;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 0xFFFFFFFFu;
+        refused("keep over peak", w, build(k), LIB_BAD_FILE, "hk", "keeps 9001", "peak of 9000");
+        bd.heap_peak = U2A3_BUDGET_NONE;                                    // a library that declares no keep is not asked for room
+        bd.heap_keep = U2A3_BUDGET_NONE;
+        k.budget = bud_bytes(bd);
+        w.m.room_v = 0;
+        CHECK_EQ(w.load(build(k), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        // linked: no image, so the keep alone is held against the room
+        w.m.room_v = 3999;
+        refused_link("link: keep over the room", w, "hk", LIB_NO_ROOM, "hk", "keeps 4000 bytes", "room for 3999", 4000, 9000);
+        refused_link("link: keep over peak", w, "hk", LIB_BAD_FILE, "hk", "keeps 9001", "peak of 9000", 9001, 9000);
+        w.m.room_v = 4000;
+        CHECK_EQ(link_lib(w, "hk", &h, err, 4000, 9000), LIB_OK);
+    }
+    {   // the real file: the packer wrote the budget, the loader enforces it
+        World w(U2A_BASE_MINOR);
+        w.m.caps.push_back("drive_a");
+        std::vector<uint8_t> ok = read_app("testlib.budget.u2a"), tight = read_app("testlib.ops0.u2a");
+        CHECK(ok.size() > U2A3_HEADER_SIZE + U2A3_BUDGET_SIZE);
+        uint32_t fl;
+        memcpy(&fl, ok.data() + 16, 4);
+        CHECK_EQ(fl & U2A3_FLAG_BUDGET, U2A3_FLAG_BUDGET);
+        CHECK_EQ(w.load(ok, &h, err), LIB_OK);                              // image=4096 heap_peak=0 ops=1 states=1
+        CHECK_EQ(w.reg.nops(), 1);
+        World w2(U2A_BASE_MINOR);
+        refused("the packed budget of ops=0", w2, tight, LIB_BUDGET, "testlib", "1 operations", "budget of 0");
+    }
+    {   // a budget record that is not one
+        World w(U2A_BASE_MINOR);
+        U2a3Budget bd = bud_open();
+        Img a("alpha", "A");
+        bd.size = 8;
+        a.budget = bud_bytes(bd);
+        refused("budget record too small", w, build(a), LIB_BAD_FILE, "alpha", "budget record");
+        bd.size = U2A3_BUDGET_SIZE + 2;
+        a.budget = bud_bytes(bd);
+        refused("budget record of an odd size", w, build(a), LIB_BAD_FILE, "alpha", "budget record");
+        bd.size = U2A3_BUDGET_SIZE + 16;                                    // longer than the bytes the writer put in: it runs into the dependencies
+        a.budget = bud_bytes(bd);
+        a.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 0)));
+        refused("budget record over the dependencies", w, build(a), LIB_BAD_FILE, "alpha", "overlaps");
+        // a record of a later minor is longer and still read: the figures it has are the figures
+        bd = bud_open();
+        bd.ops = 0;
+        bd.size = U2A3_BUDGET_SIZE + 8;
+        std::vector<uint8_t> big = bud_bytes(bd);
+        big.resize(U2A3_BUDGET_SIZE + 8, 0);
+        Img g("gamma", "G");                                                 // registers one operation
+        g.budget = big;
+        refused("figures of a longer record", w, build(g), LIB_BUDGET, "gamma", "1 operations", "budget of 0");
+        bd.ops = 1;
+        big = bud_bytes(bd);
+        big.resize(U2A3_BUDGET_SIZE + 8, 0);
+        g.budget = big;
+        CHECK_EQ(w.load(build(g), &h, err), LIB_OK);
+    }
+}
+
+// S14: what a library took, it gives back. The account of an image is its block, its blocks of api->mem (also those that its operations take later, whoever
+// calls them), its files and its menu record; releasing it returns the heap to what it was before the load.
+static const LibApi *g_acct_api;
+static int h_acct_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_acct_api->mem->malloc(48);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "none");
+    return p ? OPE_OK : OPE_FAILED;
+}
+static int h_acct_chain(CoreCtx *, const OpArgs &, OpOut &o)             // acct.chain: one block of its own, then an operation of the other library, then one more of its own
+{
+    void *a = g_acct_api->mem->malloc(32);
+    OpResult r;
+    int rc = g_acct_api->ops->call("bacct.grow", 0, 0, &r);
+    void *b = g_acct_api->mem->malloc(32);
+    snprintf(o.msg, o.msglen, "%d", rc == OPE_OK && a && b);
+    return OPE_OK;
+}
+static int h_bacct_grow(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    void *p = g_acct_api->mem->malloc(64);
+    snprintf(o.msg, o.msglen, "%s", p ? "ok" : "none");
+    return p ? OPE_OK : OPE_FAILED;
+}
+
+static void accounts()
+{
+    World w(U2A_BASE_MINOR);
+    FakeFs disk;
+    disk.put_size("/USB0/x.bin", 16);
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.fs = &disk;
+    w.ld->set_ctx(&cx);
+    char err[LIB_ERR_MAX] = "";
+    static LibOpDecl aops[2] = { { "acct.grow", 0, 0, h_acct_grow }, { "acct.chain", 0, 0, h_acct_chain } };
+    static LibOpDecl bops[1] = { { "bacct.grow", 0, 0, h_bacct_grow } };
+    w.m.twins["acct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) {
+        g_acct_api = api;
+        void *a = api->mem->malloc(64);
+        void *b = api->mem->malloc(128);
+        CHECK(a && b);
+        api->mem->free(a);                                                  // one given back, one kept
+        rec->ops = aops; rec->nops = 2;
+        return 0;
+    };
+    w.m.twins["bacct"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->ops = bops; rec->nops = 1; return 0; };
+
+    w.m.twins["facct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) {
+        SvcFile *f = api->fs->open("/USB0/x.bin", false);                   // never closed by the library
+        CHECK(f != 0);
+        CHECK(api->mem->malloc(100) != 0);
+        return 0;
+    };
+    w.m.twins["xacct"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { CHECK(api->mem->malloc(256) != 0); CHECK(api->mem->malloc(16) != 0); return 5; };
+    std::vector<uint8_t> rec = read_file("menu_lib.bin");
+    std::string shape0 = w.m.shape();
+    uint32_t used0 = w.m.used_bytes();
+    long live0 = g_live;
+    int ha = -1, hb = -1;
+    CHECK_EQ(w.load(build(tr("acct", "A")), &ha, err), LIB_OK);
+    CHECK_EQ(w.load(build(tr("bacct", "B")), &hb, err), LIB_OK);
+    // the model rounds every block to 16 and the sizes here are rounded already: what the heap gave is exactly what the account says
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK(w.ld->held_bytes(ha) > w.ld->info(ha)->image_size && w.ld->held_bytes(hb) > w.ld->info(hb)->image_size);
+    uint32_t a0 = w.ld->held_bytes(ha), b0 = w.ld->held_bytes(hb);
+
+    // an operation of the library takes memory later, on the task that called it: it is the library's
+    CHECK_STR(call(w, "acct.grow").c_str(), "ok");
+    CHECK_STR(call(w, "acct.grow").c_str(), "ok");
+    CHECK_EQ(w.ld->account_blocks(ha), 3);
+    CHECK_EQ(w.ld->account_bytes(ha), 128u + 48 + 48);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK(w.ld->held_bytes(ha) > a0);
+    // an operation that calls another library's: each block goes where its code is, and the current account is back when the call returns
+    CHECK_STR(call(w, "acct.chain").c_str(), "1");
+    CHECK_EQ(w.ld->account_blocks(ha), 5);
+    CHECK_EQ(w.ld->account_blocks(hb), 1);
+    CHECK_EQ(w.ld->account_bytes(hb), 64u);
+    CHECK(w.ld->held_bytes(hb) > b0);
+    CHECK_EQ(w.ld->current(), -1);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+
+    // releasing gives all of it back: the heap is what it was before the first load
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->account_blocks(ha), 0);
+    CHECK_EQ(w.m.used_bytes() - used0, w.ld->held_total());
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->held_total(), 0u);
+    CHECK_EQ(w.m.used_bytes(), used0);
+    CHECK(shape0 == w.m.shape());
+    CHECK_EQ(g_live, live0);
+
+    // files and the menu record are on the account too
+    int hf = -1;
+    CHECK_EQ(w.load(with_menu(tr("facct", "F"), rec), &hf, err), LIB_OK);
+    CHECK(g_live > live0);                                                  // the menu record
+    CHECK_EQ(disk.open_files, 1);
+    CHECK_EQ(w.ld->account_files(hf), 1);
+    CHECK(w.ld->held_bytes(hf) > w.m.used_bytes() - used0);                 // the model's arena holds the image, the block and the handle; the menu record is on the process heap
+    CHECK_EQ(w.ld->release(hf, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(disk.open_files, 0);
+    CHECK_EQ(w.ld->held_total(), 0u);
+    CHECK_EQ(w.m.used_bytes(), used0);
+    CHECK(shape0 == w.m.shape());
+    CHECK_EQ(g_live, live0);
+
+    // a library that fails after it took memory leaves nothing: the account is emptied with the refused image
+    refused("a library that fails after it took memory", w, build(Img("xacct", "X")), LIB_REGISTER, "xacct", "lib_register failed (5)");
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK(shape0 == w.m.shape());
+}
+
+// S14: the owner of a handler is the calling task's. A library's operation runs on one task while the application on another opens, is released, or takes memory:
+// what each takes goes to its own account, and the owner the task had is the one it gets back (the model switches between two tasks).
+static World *g_sc_w;
+static const LibApi *g_sc_api;
+static int g_sc_mode, g_sc_app;
+static int h_sc_run(CoreCtx *, const OpArgs &, OpOut &o)
+{
+    Model &m = g_sc_w->m;
+    void *mine = g_sc_api->mem->malloc(32);                                 // task 1, in the handler: the library's
+    m.cur_task = 2;                                                         // the application's task, at the same moment
+    if (g_sc_mode == 1) { g_sc_w->ld->set_current(g_sc_app); }              // the application opens
+    if (g_sc_mode == 2) { char e[LIB_ERR_MAX]; CHECK_EQ(g_sc_w->ld->release(g_sc_app, e, sizeof(e)), LIB_OK); }   // and is released
+    void *theirs = g_sc_api->mem->malloc(48);                               // task 2: the application's, or nobody's once it is gone
+    m.cur_task = 1;
+    void *again = g_sc_api->mem->malloc(16);                                // task 1 is still in its handler
+    snprintf(o.msg, o.msglen, "%d", mine && theirs && again);
+    return OPE_OK;
+}
+
+static void scopes()
+{
+    World w(U2A_BASE_MINOR);
+    g_sc_w = &w;
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    w.ld->set_ctx(&cx);
+    char err[LIB_ERR_MAX] = "";
+    static LibOpDecl sops[1] = { { "sc.run", 0, 0, h_sc_run } };
+    w.m.twins["sc"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *rec) { g_sc_api = api; rec->ops = sops; rec->nops = 1; return 0; };
+    w.m.mains["scapp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    int hl = -1;
+    CHECK_EQ(w.load(build(Img("sc", "S")), &hl, err), LIB_OK);
+    uint32_t used0 = w.m.used_bytes();
+    Img a("scapp", "A");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+
+    // the application is open on the base's say; the library's handler runs on another task: its blocks are the library's, the application's are its own
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(g_sc_app);
+    g_sc_mode = 0;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->account_blocks(hl), 2);
+    CHECK_EQ(w.ld->account_bytes(hl), 48u);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 1);
+    CHECK_EQ(w.ld->account_bytes(g_sc_app), 48u);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->current(), g_sc_app);                                    // the call has left the task as it found it
+    CHECK(w.m.scopes.empty());
+    char e2[LIB_ERR_MAX];
+    CHECK_EQ(w.ld->release(g_sc_app, e2, sizeof(e2)), LIB_OK);
+    CHECK_EQ(w.ld->current(), -1);
+
+    // the application opens while the handler runs: when the handler returns, the task's blocks are the application's, not nobody's
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(-1);
+    g_sc_mode = 1;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->current(), g_sc_app);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 1);                            // the 48 of the application's task
+    void *later = g_sc_api->mem->malloc(24);                                // on task 1 after the handler: the application's
+    CHECK(later != 0);
+    CHECK_EQ(w.ld->account_blocks(g_sc_app), 2);
+    CHECK_EQ(w.ld->account_blocks(-1), 0);
+    CHECK_EQ(w.ld->release(g_sc_app, e2, sizeof(e2)), LIB_OK);
+
+    // the application is released while the handler runs: the task does not get the dead handle back, and what it takes is not refused
+    CHECK_EQ(w.load(build(a), &g_sc_app, err), LIB_OK);
+    w.ld->set_current(g_sc_app);
+    g_sc_mode = 2;
+    int dead = g_sc_app;
+    CHECK_STR(call(w, "sc.run").c_str(), "1");
+    CHECK_EQ(w.ld->current(), -1);
+    CHECK_EQ(w.ld->account_blocks(dead), 0);
+    CHECK_EQ(w.ld->account_blocks(-1), 1);                                  // the 48 of the task whose application had gone: nobody's, never null
+    void *after = g_sc_api->mem->malloc(24);
+    CHECK(after != 0);
+    CHECK_EQ(w.ld->account_blocks(-1), 2);
+    (void)used0;
+}
+
+// ------------------------------------------------------------------------------------------------ base 4.0: the exports of linked libraries, the slots of an app
+
+static LibExportDecl g_ringlib_exports[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "trx", 2, &g_trx_tab, 12 } };
+static LibExportDecl g_c64_lib2[] = { { "c64", 2, &g_ring_tab, sizeof(ExpTab) } };
+static LibExportDecl g_dup_in_record[] = { { "ring", 1, &g_ring_tab, 8 }, { "ring", 1, &g_ring_tab, 8 } };
+static LibExportDecl g_bad_major[] = { { "ring", 0, &g_ring_tab, 8 } };
+static LibExportDecl g_bad_name[] = { { "Ring", 1, &g_ring_tab, 8 } };
+static LibExportDecl g_no_table[] = { { "ring", 1, 0, 8 } };
+static LibExportDecl g_small[] = { { "ring", 1, &g_ring_tab, 3 } };
+static LibExportDecl g_like_lib[] = { { "ringlib", 1, &g_ring_tab, 8 } };
+static const LibApi *g_xapi;
+static const LibExportDecl *g_xlist;
+static int g_xn;
+
+static int twin_exports(const LibHost::Entry &, const LibApi *api, LibRecord *rec)
+{
+    g_xapi = api;
+    rec->export_list = g_xlist;
+    rec->nexport_list = g_xn;
+    return 0;
+}
+static int twin_api(const LibHost::Entry &, const LibApi *api, LibRecord *)
+{
+    g_xapi = api;
+    return 0;
+}
+
+static std::vector<uint8_t> exp_bytes(const char *a, uint32_t amaj, const char *b = 0, uint32_t bmaj = 0)
+{
+    std::vector<uint8_t> v;
+    put32(v, b ? 2 : 1);
+    putname(v, a); put32(v, amaj);
+    if (b) { putname(v, b); put32(v, bmaj); }
+    return v;
+}
+
+static void use_exports(World &w, const char *name, const LibExportDecl *list, int n)
+{
+    g_xlist = list;
+    g_xn = n;
+    w.m.twins[name] = twin_exports;
+}
+
+static void named_exports()
+{
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    uint32_t sz = 0;
+    // the record is read through struct_size: a record that ends before the list has none
+    CHECK(LIB_RECORD_COVERS(sizeof(LibRecord), export_list));
+    CHECK(!LIB_RECORD_COVERS(offsetof(LibRecord, export_list), export_list));
+
+    {   // the slots of the app: found by name and exact major, the minor of a version means nothing to an export; an empty table is none
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(1, 0), &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(1, 7), 0) == &g_ring_tab);
+        CHECK(LibLoader::find_export("trx", U2A3_VERSION(2, 0), &sz) == &g_trx_tab && sz == 12);
+        sz = 99;
+        CHECK(LibLoader::find_export("trx", U2A3_VERSION(1, 0), &sz) == 0 && sz == 0);
+        CHECK(LibLoader::find_export("ring", U2A3_VERSION(2, 0), &sz) == 0);
+        CHECK(LibLoader::find_export("uci", U2A3_VERSION(1, 0), &sz) == 0);
+        CHECK(LibLoader::find_export(0, U2A3_VERSION(1, 0), &sz) == 0);
+        sz = 99;
+        CHECK(LibLoader::find_export("gone", U2A3_VERSION(1, 0), &sz) == 0 && sz == 0);
+        CHECK(lib_slot(0, &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        CHECK(lib_slot(g_libslot_n, &sz) == 0 && sz == 0);
+        CHECK(lib_slot(2, &sz) == 0 && sz == 0);
+    }
+    {   // a linked library's exports: the slot of the library that has an export is found by handle_providing; the name of the library is no export name
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
+        CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(1, 0)), h);
+        CHECK_EQ(w.ld->handle_providing("ring", U2A3_VERSION(2, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(2, 0)), h);
+        CHECK_EQ(w.ld->handle_providing("trx", U2A3_VERSION(3, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("ringlib", U2A3_VERSION(1, 0)), -1);
+        CHECK_EQ(w.ld->handle_providing("nobody", 0), -1);
+        CHECK_EQ(w.ld->handle_providing(0, 0), -1);
+        CHECK_EQ(w.ld->info(h)->record.nexport_list, 2);
+    }
+    {   // an application that needs an export a linked library has: that library is its dependency while it is loaded
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
+        int ph = h;
+        CHECK_EQ(w.ld->uses(ph), 0);
+        Img c = tr("alpha", "A");
+        c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
+        c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
+        CHECK_EQ(w.load(build(c), &h, err), LIB_OK);
+        CHECK_EQ(w.ld->uses(ph), 2);
+        CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->uses(ph), 0);                                                     // given back with the application
+    }
+    {   // the record is checked
+        struct Case { const char *what; const LibExportDecl *list; int n; const char *word; } cases[] = {
+            { "a count over the list", g_ringlib_exports, 9, "9 exported tables" },
+            { "a negative count", g_ringlib_exports, -1, "-1 exported tables" },
+            { "a count and no list", 0, 1, "1 exported tables" },
+            { "a name twice with one major", g_dup_in_record, 2, "twice" },
+            { "major 0", g_bad_major, 1, "malformed" },
+            { "a name that is no name", g_bad_name, 1, "malformed" },
+            { "no table", g_no_table, 1, "malformed" },
+            { "a table of 3 bytes", g_small, 1, "malformed" },
+        };
+        for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+            World w(U2A_BASE_MINOR);
+            use_exports(w, "ringlib", cases[i].list, cases[i].n);
+            refused_link(cases[i].what, w, "ringlib", LIB_REGISTER, "ringlib", cases[i].word);
+        }
+    }
+    {   // names are not shared: two libraries do not export one name at one major, an export is not the name of a library, a library is not named like an export
+        World w(U2A_BASE_MINOR);
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);
+        w.m.twins["beta"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_ringlib_exports; rec->nexport_list = 1; return 0; };
+        refused_link("the same export of another library", w, "beta", LIB_REGISTER, "beta", "\"ring\" 1 is exported by \"ringlib\" already");
+        use_exports(w, "beta", g_c64_lib2, 1);                                           // another major of another name is fine
+        CHECK_EQ(link_lib(w, "beta", &h, err), LIB_OK);
+        CHECK(lib_slot(4, &sz) == &g_ring_tab && sz == sizeof(ExpTab));                 // at the slot its TOML B declares
+        w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *, LibRecord *rec) { rec->export_list = g_like_lib; rec->nexport_list = 1; return 0; };
+        refused_link("an export named like a linked library", w, "alpha", LIB_REGISTER, "alpha", "is the name of the library");
+        CHECK_EQ(link_lib(w, "gamma", &h, err), LIB_OK);
+        w.m.twins["ring"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+        refused_link("a library named like an export", w, "ring", LIB_DUPLICATE, "ring", "name of a table", "ringlib");
+        refused_link("a library linked twice", w, "gamma", LIB_DUPLICATE, "gamma", "linked twice");
+    }
+    {   // what lib_register returns, the TOML B declares for that library: an export of no slot, one at another major, one that another library declares
+        World w(U2A_BASE_MINOR);
+        static LibExportDecl undeclared[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "spare", 1, &g_ring_tab, sizeof(ExpTab) } };
+        static LibExportDecl other_major[] = { { "ring", 1, &g_ring_tab, sizeof(ExpTab) }, { "ring", 3, &g_ring_tab, sizeof(ExpTab) } };
+        use_exports(w, "ringlib", undeclared, 2);
+        refused_link("an export its TOML B does not declare", w, "ringlib", LIB_REGISTER, "ringlib", "\"spare\" 1", "TOML B does not declare");
+        use_exports(w, "ringlib", other_major, 2);
+        refused_link("an export at a major its TOML B does not declare", w, "ringlib", LIB_REGISTER, "ringlib", "\"ring\" 3", "TOML B does not declare");
+        use_exports(w, "gamma", g_c64_lib2, 1);
+        refused_link("an export another library declares", w, "gamma", LIB_REGISTER, "gamma", "\"c64\" 2", "TOML B does not declare");
+        use_exports(w, "ringlib", g_ringlib_exports, 2);
+        CHECK_EQ(link_lib(w, "ringlib", &h, err), LIB_OK);                               // the declared ones alone: linked
+    }
+    {   // an application's file lists no exports (only a library's record does)
+        World w(U2A_BASE_MINOR);
+        Img app("ringlib", "R");
+        app.exp = exp_bytes("ring", 1);
+        refused("an application that lists exported names", w, build(app), LIB_BAD_FILE, "ringlib", "exported names");
+    }
+    // a cycle of needs between two libraries is refused where the table is made: tools/libtab.py link_order, tested by LinkOrderTests in tools/test_libtab.py
+}
+
+// ---------------------------------------------------------------------------------------------------- base 3.3: the groups of api (libsvc.cc)
+
+static const LibApi *g_sapi;
+static SvcMutex *g_kept_mutex;
+static const char *const v_speed[] = { "Slow", "Fast" };
+static const char *const v_name[] = { "abc" };
+static const char *const v_mode[] = { "Cursor keys", "Wheel" };
+static const char *const v_range[] = { "1", "2", "3", "4" };
+static Setting mk_setting(const char *key, const char *const *values, int nvalues, int def, uint8_t kind = 0, int base = 0)
+{
+    Setting s;
+    memset(&s, 0, sizeof(s));
+    s.key = key; s.values = values; s.nvalues = nvalues; s.def = def; s.kind = kind; s.base = base;
+    return s;
+}
+static int s_apply_ix = -1;
+static CoreCtx *s_apply_ctx;
+static const char *const m_names[] = { "Drive A", "Tape" };
+static const char *m_spec(CoreCtx *, int i) { return i == 0 ? "ro /usb0/x.d64" : 0; }
+static std::string st_of(const LibApi *api, const char *name)
+{
+    const char *t = api->ops->state(name, 0);
+    return t ? t : "(null)";
+}
+
+// ------------------------------------------------------------------------------------------------ the tables of an image's needs at slots (api->lib->need)
+
+static void need_slots()
+{
+    char err[LIB_ERR_MAX];
+    int ha = -1;
+    uint32_t sz = 99;
+    World w(U2A_BASE_MINOR);
+    w.m.twins["alpha"] = twin_api;
+
+    // the slots are the order of the file: an export by name and major, the base (no table), another export
+    Img c = tr("alpha", "A");
+    c.needs.push_back(std::make_pair(std::string("trx"), U2A3_VERSION(2, 0)));
+    c.needs.push_back(std::make_pair(std::string("base"), U2A3_VERSION(4, 0)));
+    c.needs.push_back(std::make_pair(std::string("ring"), U2A3_VERSION(1, 0)));
+    CHECK_EQ(w.load(build(c), &ha, err), LIB_OK);
+    const SvcLib *lib = g_xapi->lib;
+    CHECK(lib && lib->need && lib->size >= offsetof(SvcLib, need) + sizeof(lib->need));
+    {
+        LibLoader::Scope in(w.ld, ha);
+        CHECK(lib->need(0, &sz) == &g_trx_tab && sz == 12);
+        CHECK(lib->need(1, &sz) == 0 && sz == 0);                                        // `base` names no table
+        CHECK(lib->need(2, &sz) == &g_ring_tab && sz == sizeof(ExpTab));
+        sz = 99;
+        CHECK(lib->need(3, &sz) == 0 && sz == 0);                                        // past the list
+        CHECK(lib->need(2, 0) == &g_ring_tab);                                           // the size may be left out
+    }
+    CHECK(lib->need(0, &sz) == 0 && sz == 0);                                            // a caller that is no image has no needs
+    // the image's slots go with it
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
+    int hb = -1;
+    w.m.twins["beta"] = twin_api;
+    CHECK_EQ(w.load(build(tr("beta", "B")), &hb, err), LIB_OK);                          // the slot is reused: it must not show alpha's tables
+    {
+        LibLoader::Scope in(w.ld, hb);
+        CHECK(lib->need(0, &sz) == 0 && sz == 0);
+    }
+}
+
+static void services()
+{
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    // a loader that was not given the services (the host's reader of zip files): its groups are null and its tables end where base 3.2 ended
+    {
+        World w(U2A_BASE_MINOR);
+        w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_sapi = api; return 0; };
+        CHECK_EQ(w.load(build(Img("alpha", "A")), &h, err), LIB_OK);
+        CHECK(!g_sapi->sync && !g_sapi->settings && !g_sapi->ctx && !g_sapi->io && !g_sapi->board);
+        CHECK(g_sapi->sys->size == sizeof(SvcSys) && g_sapi->fs->size == sizeof(SvcFs) && g_sapi->fs->list_long);      // the members added to sys and fs are in every loader
+    }
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    FakeFs disk;
+    FakeIo io;
+    CoreDesc desc;
+    memset(&desc, 0, sizeof(desc));
+    CoreCtx cx;
+    memset(&cx, 0, sizeof(cx));
+    cx.fs = &disk;
+    cx.desc = &desc;
+    w.m.twins["alpha"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) {
+        g_sapi = api;
+        g_kept_mutex = api->sync->mutex_new();                 // never freed by the library
+        return 0;
+    };
+    std::string shape0 = w.m.shape();
+    CHECK_EQ(w.load(build(tr("alpha", "A")), &h, err), LIB_OK);
+    const LibApi *api = g_sapi;
+    CHECK(api->sync && api->settings && api->ctx && api->board && !api->io);              // no context yet: no register window
+    CHECK_EQ(api->sys->size, sizeof(SvcSys));
+    CHECK_EQ(api->fs->size, sizeof(SvcFs));
+    CHECK(api->sys->ms_timer && api->sys->yield && api->sys->delay_us && api->sys->wall_time && api->sys->app_version && api->sys->app_git && api->fs->list_long);
+    CHECK_EQ(api->sync->size, sizeof(SvcSync));
+    CHECK_EQ(api->io == 0 ? 0 : 1, 0);
+    // before the base has given the loader its context, sys.delay_us waits on the board's io (set_board_io), and without it returns at once
+    api->sys->delay_us(30);
+    CHECK_EQ(io.us, 0);
+    w.ld->set_board_io(&io);
+    api->sys->delay_us(30);
+    CHECK_EQ(io.us, 30);
+    io.us = 0;
+
+    // ---- io: a core with a register window gets the group, one without does not (no io, or a core with no machine)
+    cx.io = &io;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io != 0 && api->io->size == sizeof(SvcIo));
+    api->io->wr(0x10, 0x5A);
+    CHECK_EQ(api->io->rd(0x10), 0x5A);
+    CHECK_EQ(io.regs[0x10], 0x5A);
+    CHECK_EQ(api->io->bus_rd(3), 0);                                                      // the default of CoreIo
+    uint32_t wsz = 77;
+    CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);                               // no description record: no window is granted
+    {
+        // the windows of the core's description record (section 19, made by tools/descrec.py): the address and the size of a declared name, null and 0 for any other
+        std::vector<uint8_t> wb = read_file("windows.bin");
+        DescRecord *wrec = new DescRecord;
+        char why[200] = "";
+        CHECK_EQ(descrec_parse(wb.data(), (uint32_t)wb.size(), wrec, why, sizeof(why)), 0);
+        CHECK_EQ(wrec->nwindows, 4);
+        w.ld->set_windows(wrec);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("video", &wsz), (uintptr_t)0x10100A00u);
+        CHECK_EQ(wsz, 0x14u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("mixer_2", &wsz), (uintptr_t)0x10100600u);
+        CHECK_EQ(wsz, 0x100u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("iowin", &wsz), (uintptr_t)0x10000040u);            // IOBASE of the firmware 0x04000000 + 16 MiB, handed out in the TOML A's space
+        CHECK_EQ(wsz, 0x10u);
+        wsz = 77;
+        CHECK_EQ((uintptr_t)api->io->window("boardwin", &wsz), (uintptr_t)0x10100900u);                    // an address of the board's space that no base block of host.toml covers stays
+        CHECK_EQ(wsz, 0x10u);
+        // the readers refuse a window that starts in a firmware span and leaves it, so the record is changed by hand here: nothing is handed out that is not on the I/O bus
+        {
+            DescWindow &hw = wrec->windows[3];
+            const uint32_t keep = hw.address;
+            hw.address = 0xA00FFFF8u;                                                                    // a straddling block, kept untranslated
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x04FFFFFFu;
+            hw.size = 2;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x00001000u;                                                                    // bit 28 clear: the bus converter sends it to memory
+            hw.size = 0x10;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x0FFFFFF8u;                                                                    // starts on the bus' side of bit 28 and runs onto it: not entirely on the bus
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x11100550u;                                                                    // an alias of the I/O bus above the 16 MiB span (master_volume): not granted
+            hw.size = 1;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.address = 0x10FFFFF0u;                                                                    // runs off the end of the span (wraps onto I/O 0 on the bus)
+            hw.size = 0x20;
+            wsz = 77;
+            CHECK(api->io->window("boardwin", &wsz) == 0 && wsz == 0);
+            hw.size = 0x10;
+            hw.address = keep;
+        }
+        wsz = 77;
+        CHECK(api->io->window("palette", &wsz) == 0 && wsz == 0);                         // a name the record does not declare
+        CHECK(api->io->window(0, &wsz) == 0 && wsz == 0);
+        CHECK(api->io->window("video", 0) != 0);                                          // a null size is allowed
+        w.ld->set_windows(0);
+        CHECK(api->io->window("video", &wsz) == 0 && wsz == 0);
+        delete wrec;
+    }
+    api->io->delay_us(250);
+    CHECK_EQ(io.us, 250);
+    uint8_t keys[8] = { 0 };
+    bool rest = true;
+    io.key(3, true);
+    CHECK(api->io->keys_read(keys, &rest) && keys[0] == 8 && !rest);
+    api->io->stop(true);
+    CHECK(io.stopped);
+    api->io->video_format(0x21);
+    CHECK_EQ(io.vfmt, 0x21);
+    uint8_t buf4[4] = { 1, 2, 3, 4 };
+    api->io->ddr_write(16, buf4, 4);
+    uint8_t back4[4] = { 0 };
+    api->io->ddr_read(16, back4, 4);
+    CHECK(!memcmp(buf4, back4, 4));
+    desc.menu_first = true;                                                               // a core with no machine: no window
+    w.ld->set_ctx(&cx);
+    CHECK(api->io == 0);
+    desc.menu_first = false;
+    cx.io = 0;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io == 0);
+    cx.io = &io;
+    w.ld->set_ctx(&cx);
+    CHECK(api->io != 0);
+
+    // ---- sys
+    CHECK_EQ(api->sys->ms_timer(), (uint16_t)w.m.clock);
+    CHECK_STR(api->sys->app_version(), "9.8.7-test");
+    CHECK_STR(api->sys->app_git(), "abc1234");
+    uint8_t wt[6] = { 9, 9, 9, 9, 9, 9 };
+    CHECK(!api->sys->wall_time(wt) && wt[0] == 9);                                        // the model has no clock: t is not written
+    uint64_t us0 = io.us;
+    api->sys->delay_us(40);
+    CHECK_EQ(io.us - us0, 40);
+    api->sys->yield();
+
+    // ---- fs.list_long: a name of 100 characters is whole
+    std::string longname(100, 'n');
+    disk.put_size("/USB0/" + longname + ".d64", 5);
+    disk.put_size("/USB0/b.d64", 5);
+    SvcFsEntryLong *ll = new SvcFsEntryLong[4];
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 4), 2);
+    bool seen_long = false;
+    for (int i = 0; i < 2; i++) { seen_long |= !strcmp(ll[i].name, (longname + ".d64").c_str()) && ll[i].size == 5; }
+    CHECK(seen_long);
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 1), 1);
+    CHECK_EQ(api->fs->list_long("/USB0", ll, 0), 2);
+    CHECK_EQ(api->fs->list_long("/nowhere", ll, 4), -1);
+    SvcFsEntry short_e[4];
+    CHECK_EQ(api->fs->list("/USB0", short_e, 4), 2);
+    bool cut = false;
+    for (int i = 0; i < 2; i++) { cut |= strlen(short_e[i].name) == 55; }
+    CHECK(cut);                                                                           // the old call still cuts at 55
+    delete[] ll;
+
+    // ---- sync: a critical section nests, a mutex times out on a second lock and is gone with its library
+    const SvcSync *sy = api->sync;
+    CHECK_EQ(w.m.depth, 0);
+    sy->enter();
+    sy->enter();
+    CHECK_EQ(w.m.depth, 2);
+    sy->leave();
+    CHECK_EQ(w.m.depth, 1);
+    sy->leave();
+    CHECK_EQ(w.m.depth, 0);
+    SvcMutex *mu = sy->mutex_new();
+    CHECK(mu != 0);
+    CHECK(sy->mutex_lock(mu, 0));
+    CHECK(!sy->mutex_lock(mu, 0));                                                        // not recursive: the second try fails at once
+    CHECK(!sy->mutex_lock(mu, 20));
+    sy->mutex_unlock(mu);
+    CHECK(sy->mutex_lock(mu, SYNC_FOREVER));
+    sy->mutex_unlock(mu);
+    CHECK(!sy->mutex_lock(0, 0));
+    sy->mutex_unlock(0);
+    sy->mutex_free(0);
+    uint32_t held_with = w.ld->held_total();
+    sy->mutex_free(mu);
+    CHECK(w.ld->held_total() < held_with);
+
+    // ---- settings over a real Settings
+    Setting items[4] = { mk_setting("Speed", v_speed, 2, 0), mk_setting("Name", v_name, 1, 0, 1), mk_setting("Mouse Mode", v_mode, 2, 1),
+                         mk_setting("Range", v_range, 4, 0, 0, 8) };
+    disk.put_text("/USB0/core.cfg", "");
+    Settings st(items, 4, "store", &disk, "/USB0/core.cfg", 0);
+    st.load();
+    const SvcSettings *se = api->settings;
+    CHECK_EQ(se->generation(), 0);                                                        // no Settings object yet
+    CHECK_EQ(se->find("speed"), -1);
+    cx.settings = &st;
+    uint32_t g0 = se->generation();
+    CHECK(g0 != 0);
+    CHECK_EQ(se->find("SPEED"), 0);
+    CHECK_EQ(se->find("mouse mode"), 2);
+    CHECK_EQ(se->find("nothing"), -1);
+    CHECK_EQ(se->value(0), 0);
+    CHECK_EQ(se->value(2), 1);
+    CHECK_EQ(se->value(1), -1);                                                           // a text setting has no value index
+    CHECK_EQ(se->value(9), -1);
+    CHECK_EQ(se->value(-1), -1);
+    CHECK_EQ(se->layer(0), 0);
+    CHECK_STR(se->text(1), "abc");
+    CHECK_STR(se->text(0), "");
+    CHECK_STR(se->text(9), "");
+    CHECK(se->set(0, 1));
+    CHECK_EQ(se->value(0), 1);
+    CHECK_EQ(se->layer(0), 2);
+    CHECK_STR(disk.text("/USB0/core.cfg").find("Speed") != std::string::npos ? "written" : "not written", "written");
+    CHECK(!se->set(0, 2) && !se->set(9, 0) && !se->set(1, 0));                            // a bad value, a bad index, a text setting
+    CHECK_EQ(se->value(0), 1);
+    se->override_value(0, 0);
+    CHECK_EQ(se->value(0), 0);
+    CHECK_EQ(se->layer(0), 2);                                                            // the stored layer is the same
+    se->override_value(1, 0);                                                             // a text setting: nothing
+    se->override_value(0, 7);                                                             // a bad value: nothing
+    CHECK_EQ(se->value(0), 0);
+    int nv = -1, base = -1;
+    CHECK(se->info(3, &nv, &base) && nv == 4 && base == 8);
+    nv = base = -5;
+    CHECK(!se->info(4, &nv, &base) && nv == -5 && base == -5);
+    CHECK_EQ(se->cfg_value("Speed", 9), 0);
+    CHECK_EQ(se->cfg_value("Nothing", 9), 9);
+    CHECK_EQ(se->cfg_value("Name", 9), 9);                                                // a text setting has no value
+    CHECK_STR(se->cfg_text("Name"), "abc");
+    CHECK_STR(se->cfg_text("Speed"), "");
+    CHECK_STR(se->cfg_text("Nothing"), "");
+    char xv[8] = "";
+    CHECK(se->extra_set("Pad 1 map", "u,d,l,r"));
+    CHECK(se->extra_get("pad 1 MAP", xv, sizeof(xv)) && !strcmp(xv, "u,d,l,r"));
+    CHECK(se->extra_get("Pad 1 map", xv, 4) && !strcmp(xv, "u,d"));                       // cut to n - 1
+    CHECK(!se->extra_get("Pad 2 map", xv, sizeof(xv)));
+    CHECK(!se->extra_set("Other", "x"));
+    // apply: the application's way of putting a value into the core, with the setting's index
+    s_apply_ix = -1;
+    se->apply(2);
+    CHECK_EQ(s_apply_ix, -1);                                                             // no hook given: nothing happens
+    w.ld->set_settings_apply([](CoreCtx *c, int ix) { s_apply_ctx = c; s_apply_ix = ix; });
+    se->apply(2);
+    CHECK(s_apply_ix == 2 && s_apply_ctx == &cx);
+    se->apply(9);
+    CHECK_EQ(s_apply_ix, 2);
+    // the states of the base
+    CHECK_STR(st_of(api, "set.Speed").c_str(), "Slow");
+    CHECK_STR(st_of(api, "set.mouse_mode").c_str(), "Wheel");
+    CHECK_STR(st_of(api, "set.Name").c_str(), "abc");
+    CHECK_STR(st_of(api, "set.nothing").c_str(), "(null)");
+    CHECK_STR(st_of(api, "net.gated").c_str(), "(null)");
+    w.ld->set_gate_probe([]() -> bool { return true; });
+    CHECK_STR(st_of(api, "net.gated").c_str(), "yes");
+    // a new config counts the generation up
+    st.rebind("/USB0/other.cfg");
+    CHECK(se->generation() != g0);
+    cx.settings = 0;                                                                      // no settings object: every call fails as a bad index does
+    CHECK(se->find("Speed") == -1 && se->value(0) == -1 && !se->set(0, 0) && !se->extra_set("Pad 1 map", "x") && se->cfg_value("Speed", 4) == 4);
+    cx.settings = &st;
+
+    // ---- ctx
+    const SvcCtx *cc = api->ctx;
+    CHECK_EQ(cc->state(), 0);
+    cx.started = true; cx.frozen = true; cx.menu_open = true;
+    CHECK_EQ(cc->state(), CTX_STARTED | CTX_FROZEN | CTX_MENU_OPEN);
+    cc->set_paused(true);
+    CHECK(cx.paused && (cc->state() & CTX_PAUSED));
+    cc->set_paused(false);
+    CHECK(!cx.paused);
+    CHECK(cc->notice("first", true) && cx.notice_pending && !strcmp(cx.notice, "first"));
+    CHECK(!cc->notice("second", true) && !strcmp(cx.notice, "first"));                    // only if free: a waiting notice stays
+    CHECK(cc->notice("third", false) && !strcmp(cx.notice, "third"));                     // the other rule replaces it
+    std::string longtext(300, 'x');
+    CHECK(cc->notice(longtext.c_str(), false) && strlen(cx.notice) == 199);
+    CHECK_STR(cc->media_dir(), "");
+    snprintf(cx.media_dir, sizeof(cx.media_dir), "/usb0/Saves");
+    CHECK_STR(cc->media_dir(), "/usb0/Saves");
+    char path[40];
+    CHECK(cc->target_path("snap", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/Saves/snap.bin"));
+    CHECK(cc->target_path("snap.reu", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/Saves/snap.reu"));
+    CHECK(cc->target_path("a-very-long-name-that-does-not-fit", ".bin", path, 20) && strlen(path) == 19);   // cut, not refused
+    cx.media_dir[0] = 0;
+    disk.put_size("/flash/x", 1);
+    disk.put_size("/usb0/y", 1);
+    CHECK(cc->target_path("snap", ".bin", path, sizeof(path)) && !strcmp(path, "/usb0/snap.bin"));          // the first medium except /flash
+    CoreFs *fs_keep = cx.fs;
+    cx.fs = 0;
+    path[0] = 'Q';
+    CHECK(!cc->target_path("snap", ".bin", path, sizeof(path)) && path[0] == 'Q');                          // no medium: out is not written
+    cx.fs = fs_keep;
+    char cf[64] = "x";
+    CHECK(!cc->core_folder(0, cf, sizeof(cf)) && cf[0] == 0);                                               // not started from a .cor
+    snprintf(cx.cor_path, sizeof(cx.cor_path), "/usb0/cores/foo.cor");
+    CHECK(cc->core_folder(0, cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo"));
+    CHECK(cc->core_folder("saves", cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo/saves"));
+    CHECK(cc->core_folder("my stuff", cf, sizeof(cf)) && !strcmp(cf, "/usb0/cores/foo/my stuff"));
+    CHECK(!cc->core_folder("saves", cf, 10) && cf[0] == 0);                                                 // does not fit
+    CHECK(!cc->job_step());
+    cx.job_step = true;
+    CHECK(cc->job_step());
+    CHECK(!cc->job_cancelled());
+    cx.job_cancel = true;
+    CHECK(cc->job_cancelled() && !cc->job_cancelled());                                                     // read and cleared
+    cc->job_progress(42, "/usb0/out.bin");
+    CHECK(cx.job_pct == 42 && !strcmp(cx.job_path, "/usb0/out.bin"));
+    cc->job_progress(100, 0);
+    CHECK(cx.job_pct == 100 && !strcmp(cx.job_path, "/usb0/out.bin"));                                      // null keeps the path
+    // media_source over the mount slots of the descriptor
+    MountSlots ms;
+    memset(&ms, 0, sizeof(ms));
+    ms.n = 2;
+    ms.names = m_names;
+    ms.spec = m_spec;
+    desc.mount_slots = &ms;
+    char src[40] = "junk";
+    CHECK(cc->media_source("Drive A", src, sizeof(src)) && !strcmp(src, "ro /usb0/x.d64"));
+    CHECK(cc->media_source("drive a:", src, sizeof(src)) && !strcmp(src, "ro /usb0/x.d64"));
+    CHECK(!cc->media_source("Tape", src, sizeof(src)) && src[0] == 0);                                      // an empty slot
+    strcpy(src, "junk");
+    CHECK(!cc->media_source("Nope", src, sizeof(src)) && src[0] == 0);                                      // no such slot
+    CHECK(cc->media_source("Drive A", src, 9) && !strcmp(src, "ro /usb0"));                                 // cut to len - 1
+    desc.mount_slots = 0;
+    CHECK(!cc->media_source("Drive A", src, sizeof(src)));
+    // mount_notify marks a slot of the [mount] list; the base takes the marks on its pass
+    desc.mount_slots = &ms;
+    memset((void *)cx.mounts_dirty, 0, sizeof(cx.mounts_dirty));
+    cc->mount_notify("Tape");
+    CHECK(!cx.mounts_dirty[0] && cx.mounts_dirty[1]);
+    cc->mount_notify("drive a:");
+    cc->mount_notify("drive a");                                                                            // a second call stores once
+    CHECK(cx.mounts_dirty[0] && cx.mounts_dirty[1]);
+    cc->mount_notify("Nope");
+    cc->mount_notify(0);
+    CHECK(cx.mounts_dirty[0] + cx.mounts_dirty[1] == 2 && !cx.mounts_dirty[2]);                                                                          // a name the core does not list does nothing
+    memset((void *)cx.mounts_dirty, 0, sizeof(cx.mounts_dirty));
+    desc.mount_slots = 0;
+    cc->mount_notify("Drive A");
+    CHECK(!cx.mounts_dirty[0] && !cx.mounts_dirty[1]);
+    cx.media_restoring = true;
+    CHECK(cc->state() & CTX_MEDIA_RESTORING);
+    cx.media_restoring = false;
+    CHECK(!(cc->state() & CTX_MEDIA_RESTORING));
+
+    // ---- board
+    const SvcBoard *bd = api->board;
+    CHECK_EQ(bd->fpga_caps(), 0x1234);
+    CHECK(!bd->is_commodore());
+    uint8_t reply[8];
+    CHECK_EQ(bd->esp32_rpc(0x0F, 0, 0, reply, sizeof(reply), 0), -3);                                       // the model has no link
+    // the SID sockets: the control byte of both sockets, written with register 3 cleared, under the bus lock
+    w.m.sid_writes.clear();
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_ON, true, false), 0);                                             // 2 | shunt 4 | caps off 8
+    CHECK(w.m.sid_writes.size() == 2 && w.m.sid_writes[0] == std::make_pair(1, 0x0E) && w.m.sid_writes[1] == std::make_pair(3, 0));
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_ON_TYPE1, false, true), 0);                                       // 3 | no shunt | caps on
+    CHECK(w.m.sid_writes.size() == 4 && w.m.sid_writes[2] == std::make_pair(1, 0x3E));                      // the nibble of socket 0 stayed
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_OFF, false, true), 0);
+    CHECK(w.m.sid_writes[4] == std::make_pair(1, 0x30));
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_ON, true, true), 0);                                              // 2 | 4
+    CHECK(w.m.sid_writes[6] == std::make_pair(1, 0x60));
+    CHECK_EQ(w.m.sid_opens, 4);
+    CHECK_EQ(w.m.sid_closes, 4);
+    CHECK_EQ(bd->sid_socket(2, SID_SOCKET_ON, false, false), -1);
+    CHECK_EQ(bd->sid_socket(-1, SID_SOCKET_ON, false, false), -1);
+    CHECK_EQ(bd->sid_socket(0, 3, false, false), -1);
+    CHECK_EQ(bd->sid_socket(0, -1, false, false), -1);
+    CHECK(w.m.sid_writes.size() == 8 && w.m.sid_opens == 4);                                                // a bad argument writes nothing
+    w.m.sid_locked = true;
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_OFF, false, false), -2);                                          // the bus lock was not taken: not done
+    CHECK(w.m.sid_writes.size() == 8 && w.m.sid_closes == 4);
+    w.m.sid_locked = false;
+    CHECK_EQ(bd->sid_socket(1, SID_SOCKET_OFF, false, false), 0);
+    CHECK(w.m.sid_writes[8] == std::make_pair(1, 0x80));                                                    // the refused call (socket 0 nibble 8) left the control byte alone
+    w.m.sid_present = false;
+    CHECK_EQ(bd->sid_socket(0, SID_SOCKET_ON, false, false), 0);                                            // no expander: nothing to do, not an error
+    CHECK(w.m.sid_writes.size() == 10);
+    bd->case_led_select(0x21);
+    CHECK(io.led_log.size() == 1 && io.led_log[0].v == 0x21);
+
+    // ---- the image that is still holding a mutex goes with it: the heap is what it was
+    CHECK(g_kept_mutex != 0);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);
+    CHECK(shape0 == w.m.shape());
+}
+
+// ------------------------------------------------------------------------------------------------ T239.3 base 3.3 fixes: sockets, jobs and calls on the owner's account
+
+// the base's job is AppHost's SvcJobH (apphost.h); the model below uses its used, done, cancel, rc, fn and user
+static SvcJobH g_jobs[4];
+static std::map<int, bool> g_open;                           // the sockets the base has open (handle, listener)
+static int g_next_fd = 100, g_accept_fd = -5, g_net_closes;
+static LibLoader *g_probe_ld;                                // the loader whose account fk_close looks at when the base closes a handle
+static int g_probe_owner = -2, g_close_seen = -1;               // the sockets the owner still has on its account at that moment
+static bool g_app_stop;                                      // the base asks the application to end (AppHost::stop_)
+static int fk_listen(uint16_t, int) { int h = g_next_fd++; g_open[h] = true; return h; }
+static int fk_accept(int) { if (g_accept_fd < 0) { return g_accept_fd; } int h = g_accept_fd; g_accept_fd = -5; g_open[h] = false; return h; }
+static int fk_close(int h) { if (g_probe_ld) { g_close_seen = g_probe_ld->account_sockets(g_probe_owner); } if (!g_open.count(h)) { return -1; } g_open.erase(h); g_net_closes++; return 0; }
+static int fk_recv(int, void *, int) { return -5; }
+static int fk_send(int, const void *, int len) { return len; }
+static int fk_wait(const int *, int, uint32_t) { return 0; }
+static int fk_peer(int, char *, int) { return -1; }
+static uint32_t g_connect_ms;
+static int fk_connect(const char *host, uint16_t port, uint32_t ms) { g_connect_ms = ms; if (!strcmp(host, "nowhere") || port == 0) { return -6; } int h = g_next_fd++; g_open[h] = false; return h; }
+static int fk_resolve(const char *name, char *buf, int len) { if (!strcmp(name, "nowhere") || len < 9) { return -1; } strcpy(buf, "0.0.0.77"); return 8; }
+static const SvcNet g_fknet = { sizeof(SvcNet), fk_listen, fk_accept, fk_recv, fk_send, fk_close, fk_wait, fk_peer, fk_connect, fk_resolve };
+static SvcJobH *fj_start(int (*fn)(SvcJobH *, void *), void *user, uint32_t)
+{
+    for (int i = 0; i < 4; i++) {
+        if (!g_jobs[i].used || g_jobs[i].done) {
+            g_jobs[i].used = true; g_jobs[i].done = false; g_jobs[i].cancel = false; g_jobs[i].rc = 0; g_jobs[i].fn = fn; g_jobs[i].user = user;
+            return &g_jobs[i];
+        }
+    }
+    return 0;
+}
+static bool fj_cancelled(SvcJobH *j) { return j && j->cancel; }
+static int fj_join(SvcJobH *j) { if (!j || !j->used) { return -1; } while (!j->done) { j->rc = j->fn(j, j->user); j->done = true; } j->used = false; return j->rc; }
+static bool fj_running(SvcJobH *j) { return j && j->used && !j->done; }
+static bool fj_stop(void) { return g_app_stop; }                      // AppHost::job_stop_requested; job_cancelled answers for the job alone (fj_cancelled)
+static const SvcJob g_fkjob = { sizeof(SvcJob), fj_start, fj_cancelled, fj_join, fj_running, fj_stop };
+static void fj_cancel_one(SvcJobH *j) { if (j) { j->cancel = true; } }
+// the job runs when the model says so: its function takes memory, the way a library's job does
+static const LibApi *g_jobapi;
+static int g_job_runs;
+static void *g_job_block;
+static int job_fn(SvcJobH *, void *) { g_job_runs++; g_job_block = g_jobapi->mem->malloc(32); return 7; }
+
+static void net_and_jobs()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    memset(g_jobs, 0, sizeof(g_jobs));
+    g_open.clear();
+    g_next_fd = 100;
+    g_net_closes = 0;
+    char err[LIB_ERR_MAX] = "";
+    const LibApi *api0 = 0;
+    w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
+    w.m.twins["libb"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { return api->net && api->job ? 0 : 1; };      // a library sees both groups when it registers
+    w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    int ha = -1, hb = -1;
+    std::string shape0 = w.m.shape();
+    CHECK_EQ(w.load(build(tr("liba", "A")), &ha, err), LIB_OK);
+    api0 = g_jobapi;
+    CHECK(api0->net && api0->job && api0->net->size == sizeof(SvcNet) && api0->job->size == sizeof(SvcJob));
+    CHECK_EQ(w.load(build(tr("libb", "B")), &hb, err), LIB_OK);
+    // before the base gives its tables: no socket, no job, and nothing breaks
+    CHECK_EQ(api0->net->listen(9000, 2), -7);
+    CHECK_EQ(api0->net->connect("host", 80, 1000), -7);                                     // the same for the outgoing half
+    char ipbuf[20];
+    CHECK_EQ(api0->net->resolve("host", ipbuf, sizeof(ipbuf)), -1);
+    CHECK(api0->job->start(job_fn, 0, 4096) == 0);
+    CHECK(!api0->job->running(0) && !api0->job->stop_requested());
+    w.ld->set_net(&g_fknet);
+    w.ld->set_job(&g_fkjob);
+    w.ld->set_job_cancel(fj_cancel_one);
+    CHECK(w.ld->info(ha) && api0->net != &g_fknet && api0->job != &g_fkjob);                // the loader's tables, not the base's
+
+    Img a("capp", "P");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+    int hp = -1;
+    CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+    w.ld->set_current(hp);
+
+    // the library takes a listener and a job inside its handler (the loader puts the image as owner), the application takes its own outside
+    int lib_listener, lib_conn, app_listener;
+    SvcJobH *lib_job, *app_job;
+    {
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_listener = api0->net->listen(9000, 2);
+        g_accept_fd = 300;
+        lib_conn = api0->net->accept(lib_listener);
+        lib_job = api0->job->start(job_fn, 0, 4096);
+    }
+    CHECK(lib_listener >= 100 && lib_conn == 300 && lib_job);
+    int lib_out;
+    {   // an outgoing connection is on the account of the image whose code asked, as a listener is
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_out = api0->net->connect("example", 80, 1234);
+    }
+    CHECK(lib_out >= 100 && g_connect_ms == 1234);
+    CHECK_EQ(w.ld->account_sockets(ha), 3);
+    CHECK_EQ(api0->net->connect("nowhere", 80, 10), -6);                                    // a refusal leaves no record
+    CHECK_EQ(w.ld->account_sockets(ha), 3);
+    CHECK_EQ(api0->net->resolve("example", ipbuf, sizeof(ipbuf)), 8);
+    CHECK(!strcmp(ipbuf, "0.0.0.77"));
+    CHECK_EQ(api0->net->close(lib_out), 0);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    app_listener = api0->net->listen(9001, 2);
+    app_job = api0->job->start(job_fn, 0, 4096);
+    CHECK(app_job && app_job != lib_job);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(w.ld->account_sockets(hp), 1);
+    CHECK_EQ(w.ld->account_jobs(ha), 1);
+    CHECK_EQ(w.ld->account_jobs(hp), 1);
+    CHECK_EQ(w.ld->account_sockets(-1) + w.ld->account_jobs(-1), 0);
+    CHECK_EQ(api0->net->send(lib_conn, "x", 1), 1);                                         // the other members pass through
+    CHECK_EQ(api0->net->recv(lib_conn, 0, 0), -5);
+
+    // the application ends: its listener and its job go, the other image's two sockets and its job stay (one image's end touches nothing of another)
+    w.m.on_delay = [&]() { for (int i = 0; i < 4; i++) { if (g_jobs[i].used && g_jobs[i].cancel && !g_jobs[i].done) { g_jobs[i].done = true; } } };
+    CHECK(w.ld->stop_jobs(hp));
+    w.ld->close_sockets(hp);
+    CHECK(g_jobs[app_job - g_jobs].cancel && !g_jobs[lib_job - g_jobs].cancel);
+    CHECK_EQ(w.ld->account_jobs(hp), 0);
+    CHECK_EQ(w.ld->account_sockets(hp), 0);
+    CHECK(!g_open.count(app_listener) && g_open.count(lib_listener));
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(w.ld->account_jobs(ha), 1);
+    CHECK(api0->job->running(lib_job));
+
+    // an application's stop is the application's: a library's job and a library's code do not see it (S14)
+    g_app_stop = true;
+    {   // base 4.0: a library's code is linked and lies in no image; the account of its call is the calling task's scope (a handler, a job, its register call of the library)
+        int hl = -1;
+        CHECK_EQ(link_lib(w, "gamma", &hl, err), LIB_OK);
+        w.m.code_addr = 0;
+        LibLoader::Scope in_lib(w.ld, hl);
+        CHECK(!api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    }
+    w.m.code_addr = w.ld->info(hp)->image_addr + 4;
+    CHECK(api0->job->stop_requested() && !api0->job->cancelled(lib_job));
+    w.m.code_addr = 0;
+    CHECK(api0->job->stop_requested());                                                     // code that is in no image: the base's answer
+    g_app_stop = false;
+    CHECK(!api0->job->stop_requested());
+
+    // the library closes one itself: the record goes before the base closes the handle (the number may be handed out again at once)
+    g_probe_ld = w.ld;
+    g_probe_owner = ha;
+    CHECK_EQ(api0->net->close(lib_conn), 0);
+    CHECK_EQ(g_close_seen, 1);                                                              // the library had two records, one was already gone when the base ran
+    g_probe_ld = 0;
+    CHECK_EQ(w.ld->account_sockets(ha), 1);
+    g_accept_fd = 300;
+    lib_conn = 0;
+    {
+        LibLoader::Scope in_lib(w.ld, ha);
+        lib_conn = api0->net->accept(lib_listener);                                         // taken again below, as before
+    }
+    CHECK_EQ(lib_conn, 300);
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    // a handle the base does not know is refused
+    CHECK_EQ(api0->net->close(999), -1);                                                    // a handle the base does not know: refused, no record touched
+    CHECK_EQ(w.ld->account_sockets(ha), 2);
+    CHECK_EQ(api0->net->close(lib_conn), 0);
+    CHECK_EQ(w.ld->account_sockets(ha), 1);
+    CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+
+    // the job's function runs with the library as owner (a trampoline scope), also on a task that has no scope of its own
+    int blocks0 = w.ld->account_blocks(ha), nobody0 = w.ld->account_blocks(-1);
+    CHECK_EQ(api0->job->join(lib_job), 7);                                                  // the base runs fn(j, user) through the loader's trampoline
+    CHECK_EQ(g_job_runs, 1);
+    CHECK(g_job_block != 0);
+    CHECK_EQ(w.ld->account_blocks(ha), blocks0 + 1);
+    CHECK_EQ(w.ld->account_blocks(-1), nobody0);
+    CHECK(w.m.scopes.empty());                                                              // the scope ended with the function
+    CHECK_EQ(w.ld->account_jobs(ha), 0);                                                    // a job the base joined is off the account
+
+    // freeing the library: its listener closed, its job asked to stop and waited for; nothing of it is left
+    int j2 = api0->net->listen(9002, 1);                                                    // owner: nobody (no scope, no application)
+    CHECK_EQ(w.ld->account_sockets(-1), 1);
+    CHECK(j2 >= 100);
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);                                   // the listener of the library is closed in discard()
+    CHECK(!g_open.count(lib_listener));
+    CHECK_EQ(w.ld->account_sockets(ha), 0);
+    {
+        LibLoader::Scope in_b(w.ld, hb);
+        api0->net->listen(9003, 1);
+        api0->job->start(job_fn, 0, 4096);
+    }
+    CHECK_EQ(w.ld->account_sockets(hb), 1);
+    CHECK_EQ(w.ld->account_jobs(hb), 1);
+    SvcJobH *bj = 0;
+    for (int i = 0; i < 4; i++) { if (g_jobs[i].used && !g_jobs[i].done) { bj = &g_jobs[i]; } }
+    CHECK(bj != 0);
+    int delays0 = 0;
+    w.m.on_delay = [&]() { delays0++; for (int i = 0; i < 4; i++) { if (g_jobs[i].used && g_jobs[i].cancel) { g_jobs[i].done = true; } } };      // the job answers the request to stop
+    CHECK_EQ(w.ld->release(hb, err, sizeof(err)), LIB_OK);                                  // asked to stop, waited for, joined; its socket closed
+    CHECK(bj->cancel && !bj->used && delays0 >= 1 && w.ld->info(hb) == 0);
+    CHECK_EQ(w.ld->account_sockets(hb) + w.ld->account_jobs(hb), 0);
+    w.m.on_delay = 0;
+    CHECK(g_open.size() == 1 && g_open.count(j2));                                          // only the socket of nobody is left
+    w.m.on_delay = 0;
+    w.ld->close_sockets(-1);
+    CHECK(g_open.empty());
+}
+
+// An allocation goes on the account of the code that asks (owner_at): a library's export called from anywhere takes its blocks on the library's account.
+static void calls_on_the_owners_account()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->add_services();
+    char err[LIB_ERR_MAX] = "";
+    const LibApi *api = 0;
+    w.m.twins["libx"] = [](const LibHost::Entry &, const LibApi *a, LibRecord *) { g_jobapi = a; return 0; };
+    w.m.twins["liby"] = [](const LibHost::Entry &, const LibApi *, LibRecord *) { return 0; };
+    int hx = -1, hy = -1;
+    CHECK_EQ(w.load(build(tr("libx", "X")), &hx, err), LIB_OK);
+    api = g_jobapi;
+    CHECK_EQ(w.load(build(tr("liby", "Y")), &hy, err), LIB_OK);
+    w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+    Img a("capp", "P");
+    a.kind = U2A3_KIND_APP;
+    a.residence = U2A3_RES_TRANSIENT;
+    a.reg = U2A3_NONE;
+    a.main = 4;
+    int hp = -1;
+    CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+    w.ld->set_current(hp);
+    const LibInfo *ix = w.ld->info(hx), *iy = w.ld->info(hy);
+    CHECK(ix && iy && ix->image_size > 8 && iy->image_size > 8);
+
+    // the application calls an export of libx: the return address of the call into malloc lies in libx's image, so the block is libx's
+    w.m.code_addr = ix->image_addr + 4;
+    void *p1 = api->mem->malloc(40);
+    uint32_t held1 = w.ld->held_bytes(hx);
+    SvcMutex *m1 = api->sync->mutex_new();
+    CHECK(p1 && m1);
+    CHECK_EQ(w.ld->account_blocks(hx), 1);
+    CHECK_EQ(w.ld->account_blocks(hp), 0);
+    CHECK_EQ(w.ld->held_bytes(hx), held1 + (uint32_t)sizeof(SvcMutex));                    // the mutex is libx's as well
+    // libx's export calls into liby's export, which allocates: liby's account, not the one of the first caller
+    w.m.code_addr = iy->image_addr + 8;
+    void *p2 = api->mem->malloc(24);
+    CHECK_EQ(w.ld->account_blocks(hy), 1);
+    CHECK_EQ(w.ld->account_blocks(hx), 1);
+    void *p3 = api->mem->realloc(p2, 48);                                                  // the new block is the account of the code that calls realloc
+    CHECK_EQ(w.ld->account_blocks(hy), 1);
+    // code that is in no image (the base, a native twin): the owner of the task, as before
+    w.m.code_addr = 0;
+    void *p4 = api->mem->malloc(16);
+    CHECK_EQ(w.ld->account_blocks(hp), 1);
+    // the scope of a call the base makes itself wins when the code is in no image, and ends with the object
+    {
+        LibLoader::Scope s(w.ld, hy);
+        void *p5 = api->mem->malloc(8);
+        CHECK_EQ(w.ld->account_blocks(hy), 2);
+        CHECK_EQ(w.ld->current(), hy);
+        api->mem->free(p5);
+    }
+    CHECK_EQ(w.ld->current(), hp);
+    { LibLoader::Scope none(w.ld, -1); CHECK_EQ(w.ld->current(), hp); }                    // a handle that is not loaded: no scope
+    api->mem->free(p4);
+    api->mem->free(p3);
+    api->mem->free(p1);
+    api->sync->mutex_free(m1);
+    CHECK_EQ(w.ld->account_blocks(hx) + w.ld->account_blocks(hy) + w.ld->account_blocks(hp), 0);
+    CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hy, err, sizeof(err)), LIB_OK);
+    CHECK_EQ(w.ld->release(hx, err, sizeof(err)), LIB_OK);
+}
+
+// The base's own job table (AppHost, linked for real with stubs of the screens): an application's stop and the end of an application reach the application's jobs and no library's (S14).
+struct StoreOs : VirtOs {
+    std::vector<std::pair<void (*)(void *), void *> > tasks;           // the tasks the base made; the test runs them when it wants
+    bool task_new(const char *, void (*fn)(void *), void *arg, int, uint32_t) { tasks.push_back(std::make_pair(fn, arg)); return true; }
+};
+static int ah_job(SvcJobH *, void *) { return 5; }
+struct AppHostTest {
+    static void jobs()
+    {
+        World w(U2A_BASE_MINOR);
+        w.ld->add_services();
+        CoreCtx cx;
+        memset(&cx, 0, sizeof(cx));                                                    // as every other test here: install() reads it (set_ctx)
+        StoreOs os;
+        CoreLock lock(&os);
+        AppIndex idx;
+        AppHost H(&cx, w.ld, &idx, &os, &lock, 0, 0);
+        H.install();                                                                   // set_job(its table), set_job_cancel
+        char err[LIB_ERR_MAX] = "";
+        w.m.twins["liba"] = [](const LibHost::Entry &, const LibApi *api, LibRecord *) { g_jobapi = api; return 0; };
+        w.m.mains["capp"] = [](const LibHost::Entry &, const LibApi *, AppCtx *) { return 0; };
+        int ha = -1, hp = -1;
+        CHECK_EQ(w.load(build(tr("liba", "A")), &ha, err), LIB_OK);
+        const LibApi *api = g_jobapi;
+        Img a("capp", "P");
+        a.kind = U2A3_KIND_APP;
+        a.residence = U2A3_RES_TRANSIENT;
+        a.reg = U2A3_NONE;
+        a.main = 4;
+        CHECK_EQ(w.load(build(a), &hp, err), LIB_OK);
+        w.ld->set_current(hp);
+        SvcJobH *lib_job = 0;
+        {
+            LibLoader::Scope in_lib(w.ld, ha);
+            lib_job = api->job->start(ah_job, 0, 4096);
+        }
+        SvcJobH *app_job = api->job->start(ah_job, 0, 4096);
+        CHECK(lib_job && app_job && lib_job != app_job && os.tasks.size() == 2);
+        CHECK_EQ(w.ld->account_jobs(ha), 1);
+        CHECK_EQ(w.ld->account_jobs(hp), 1);
+        H.stop_ = true;                                                                // the application is asked to end (close_session, or another application is opened)
+        {   // a call from a linked library's code: no image, the task's scope is the library (base 4.0)
+            int hl = -1;
+            CHECK_EQ(link_lib(w, "gamma", &hl, err), LIB_OK);
+            w.m.code_addr = 0;
+            LibLoader::Scope in_lib(w.ld, hl);
+            CHECK(!api->job->cancelled(lib_job) && !api->job->stop_requested());
+        }
+        w.m.code_addr = w.ld->info(hp)->image_addr + 4;                                // a call from the application's code
+        CHECK(api->job->stop_requested() && !api->job->cancelled(lib_job));
+        w.ld->cancel_jobs(hp);                                                         // what stop_jobs, close_session and the asked-to-end path do
+        CHECK(api->job->cancelled(app_job) && !api->job->cancelled(lib_job));
+        w.m.code_addr = 0;
+        H.stop_ = false;
+        CHECK(!api->job->cancelled(lib_job));
+        for (size_t i = 0; i < os.tasks.size(); i++) {
+            os.tasks[i].first(os.tasks[i].second);                                     // job_entry
+        }
+        CHECK_EQ(api->job->join(lib_job), 5);
+        CHECK_EQ(api->job->join(app_job), 5);
+        CHECK_EQ(w.ld->account_jobs(ha) + w.ld->account_jobs(hp), 0);
+        CHECK_EQ(w.ld->release(hp, err, sizeof(err)), LIB_OK);
+        CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
+    }
+};
+
+// What the base kept of an image (a table its code gave) is let go when the image is: the notice comes with the slot, before the memory goes back.
+static std::vector<int> g_gone;
+static uint32_t g_gone_addr, g_gone_size;
+static void gone(int h, uint32_t addr, uint32_t size) { g_gone.push_back(h); g_gone_addr = addr; g_gone_size = size; }
+static void discard_notice()
+{
+    World w(U2A_BASE_MINOR);
+    w.ld->set_discard_notify(gone);
+    char err[LIB_ERR_MAX];
+    int h = -1;
+    g_gone.clear();
+    CHECK_EQ(w.load(build(tr("alpha", "A")), &h, err), LIB_OK);
+    CHECK(g_gone.empty());
+    int ha = h;
+    CHECK_EQ(w.load(build(tr("beta", "B")), &h, err), LIB_OK);
+    uint32_t addr_a = w.ld->info(ha)->image_addr, size_a = w.ld->info(ha)->image_size;
+    CHECK_EQ(w.ld->release(ha, err, sizeof(err)), LIB_OK);
+    CHECK(g_gone.size() == 1 && g_gone[0] == ha);
+    CHECK(g_gone_addr == addr_a && g_gone_size == size_a && size_a > 0);      // the range of the image that goes
+    w.ld->set_discard_notify(0);
+    CHECK_EQ(w.ld->release(h, err, sizeof(err)), LIB_OK);                    // nobody told: nothing happens
+    CHECK_EQ(g_gone.size(), 1);
+}
+
+#include "test_online.inc"                                         // base 4.0: the table "online" a linked library exports, as netfs.cc reads it
+
 int main()
 {
     setvbuf(stdout, 0, _IONBF, 0);                                  // a mutant may crash: what it said before has to be out
     menu_record();
     unserved();
+    base_version();
+    polls();
     coexist();
     refusals();
     failures();
     apps();
     files();
+    budgets();
+    accounts();
+    scopes();
+    named_exports();
+    need_slots();
+    services();
+    net_and_jobs();
+    calls_on_the_owners_account();
+    AppHostTest::jobs();
+    discard_notice();
+    online_netfs();
     DONE("test_libload");
 }

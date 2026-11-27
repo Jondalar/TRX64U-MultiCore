@@ -77,16 +77,6 @@ bool trx_io_slim(void);
 // CAPS3 of the block, 0 without it or without the byte. Read once, then cached.
 uint8_t trx_io_caps3(void);
 
-// The SID of this bitstream is the 8-SID reDIP (reSID8): the app names it so and uses its filter control.
-// False on Gideon's bitstreams (UltiSID) and on ours without that engine.
-bool trx_io_resid8(void);
-
-// Programs the filter control of engine u (0 or 1): source (TRX_RS8_SRC_*), Auto bits, 6581 curve base and offset.
-void trx_io_resid8_filter(int u, uint8_t src, uint8_t auto_bits, int base, int offset);
-
-// Filter Off for engine u: all voices straight to the mixer, FC / RES / routing / filter mode bits without effect, volume applies.
-void trx_io_resid8_bypass(int u, bool bypass);
-
 // The 32-bit registers of pages 0 (from 0x100), 1, 5 and 6 over the byte bus:
 // writing byte 3 commits bytes 0-2, reading byte 0 takes bytes 1-3. The four byte
 // accesses of one register are one critical section: the block keeps the bytes of

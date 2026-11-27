@@ -1,5 +1,5 @@
 // T104 5.1/5.2 `media_slot: sectors` and T104.1 D16: an HDF served sector by sector through the mailbox, including an image of more than 4 GiB
-// (a sparse file behind CoreFs), against the Amiga model. The record is the Amiga's (coreapp/cores/amiga.cc); the code under test is sectors.cc.
+// (a sparse file behind CoreFs), against the Amiga model. The record is the Amiga's (cores/amiga/app/lib/amiga.cc); the code under test is sectors.cc.
 #include "check.h"
 #include "amiga_model.h"
 #include "sparsefs.h"

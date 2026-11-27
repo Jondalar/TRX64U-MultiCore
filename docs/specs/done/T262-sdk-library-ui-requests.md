@@ -1,0 +1,118 @@
+# T262 — A library builds lists, choices and tabs at run time with the SDK's own menu tools, and three base defects of the menu are gone
+
+**Status:** DONE (2026-11-25, D5); ACCEPTED 2026-11-25, asked by TRX64-Ultimate (FW session) with Alex's go to them (translated): "ask for it, but so that
+it moves the SDK forward generically".
+**Repo:** TRX64U-MultiCore — the SDK base's menu engine (`coreapp/src/menuctl.cc`, `picklist.*`, `ctx.h`), the library API
+(`app/sdkpkg/api.md`, `libload`), the record format (`tools/descrec.py`), the SDK release.
+**Number:** T262.
+**Origin:** the FW session's message of 2026-11-25: a UX review in ue2emu of trx64u with SDK 0.4.6, while reworking the online
+sub-app's UI (source and fields per source, results, Beyond64 as a third source). File:line refs are to the SDK 0.4.6 base sources
+(`base/src/coreapp/src/menuctl.cc` = MC). Not yet read here: every claim below is theirs until §5 confirms it in the code.
+**Depends on:** T239.3 (the SDK, the library API, record 6), T256 (overlay service: same release train).
+**Milestone:** M3.
+
+---
+
+## §1 The problem
+
+- **Who:** a library or sub-app author (first TRX64-Ultimate's online sub-app; then every core with a list of results, files or
+  history), and the person at the menu.
+- **What happens today** (reported, 0.4.6):
+  - A variable list needs N predeclared nodes ("Result 1..50") bound to per-slot states, the empty ones hidden.
+  - The base's choice list (`ops_ask_list`, `picklist`, `ctx.h:62`) is not in `api.md` for libraries and caps at 40 rows; a
+    library steps through values with RETURN instead.
+  - Tabs are fixed at the menu merge; a tab whose rows are all hidden stays on the strip.
+  - A `job` node is captioned like a file write ("Building the image 0%", MC:2117, MC:3284).
+  - The F3 search tab (id "search", MC:4760) takes no nodes: a library cannot offer itself as a search source.
+  - A `[[key]]` row cannot add itself to the foot legend.
+  - Defects: a Run after a fetch keeps the menu open (`pend_tick` drops `run_action`'s result, no R_CLOSE, MC:2559); focus is
+    lost when the focused row hides; every RETURN on an op row blanks the content about 250 ms and 2 of about 150 keys were lost
+    during redraws (ue2emu at real time, board unconfirmed).
+
+Parts:
+- **P1 Runtime list rows:** a node kind whose rows come from the library at run time (count; per row title, value, tone,
+  side-panel lines; RETURN calls an op with the row index; paging or "more" by a callback).
+- **P2 Choice list for libraries:** the pick list in the library API (or a node key `pick = "@state"`), scrollable, no 40 cap.
+- **P3 Tab visibility at run time:** a `[[tab]]` key `show = "@state"`.
+- **P4 Busy caption for job nodes:** the node's label or a busy text; a percentage only when the op reports progress.
+- **P5 Search providers:** libraries register as sources of the F3 search, with their fields; one form, a Source row.
+- **P6 Key rows in the foot legend.**
+- **P7 Defect: Run after a fetch closes the menu.**
+- **P8 Defect: focus moves to the next visible row when the focused row hides.**
+- **P9 Defect: no blank content and no lost key on RETURN of an op row.**
+
+## §2 Scenarios
+
+```gherkin
+Scenario: S1 a list of 200 results without predeclared nodes          # P1: unit of the menu engine + ue2emu picture
+Scenario: S2 a choice of 47 values, scrollable                       # P2: unit + ue2emu
+Scenario: S3 a tab appears after a search and goes when cleared        # P3: unit
+Scenario: S4 a job without progress shows its label, no percentage     # P4: unit
+Scenario: S5 one F3 search form with This device and a library source  # P5: unit + ue2emu
+Scenario: S6 a key row shows in the foot legend                        # P6: unit
+Scenario: S7 Run after a fetch: the menu closes, the machine runs      # P7: unit (pend_tick) + ue2emu
+Scenario: S8 the focused row hides: focus on the next visible row      # P8: unit
+Scenario: S9 150 RETURNs on op rows: no blank frame, every key taken   # P9: ue2emu at real time; board by Alex
+```
+
+## §3 Decisions
+
+- **D1 (Alex, 2026-11-25, Q1, translated: "why not in one go? It only takes longer again with the CI/CD"):** all nine parts, P1-P9,
+  in one SDK release, 0.5.0 (new API: minor version).
+- **D2 (coordinator, 2026-11-25, Q2: API names, a technical detail):** node kind `list` (P1), node key `pick` (P2), tab key
+  `show` (P3).
+- **D3 (Alex, 2026-11-25, translated: "Forget this test ... When the online.u2a is reworked I play with it for half an hour and then
+  it is fine"):** S9 is not run as a counted board test. The proof of T262 on the board is Alex's half hour with TRX64-Ultimate's
+  reworked online sub-app on SDK 0.5.0.
+- **D4 (coordinator, 2026-11-25, under D1 "in one go"):** TRX64-Ultimate's findings 1-14 on 0.5.0 and the `hw.cc:90` gap are fixed
+  in one release, SDK 0.5.1; 11, 12 and 14 are generic additions (record `[[key]]` rows of a library, a call that opens a path's action
+  sheet or places Browse's cursor, a file system's "size unknown").
+- **D5 (Alex, 2026-11-25, translated: "and FW is not waited for any more; if the session still finds something, it becomes a patch
+  release of the SDK on top"):** T262 is done with SDK 0.5.1 (`sdk-0.5.1-40f47ac8`, t239.3 run 45699830522); D3's half hour and
+  TRX64-Ultimate's UX review are no longer waited for. Their later findings go into an SDK patch release.
+
+## §4 Out
+
+(to be decided with Alex)
+
+## §5 Build notes
+
+Built 2026-11-25 on `t262-sdk` (from `t239.3`), fast-forwarded into `t239.3`; published as SDK 0.5.0, release `sdk-0.5.0-199705ec`
+(t239.3 run 45628574736 green). Base API 3.5; a library built against 3.4 loads unchanged (unit `libcompat`).
+
+- Part A (37061be04 P7, ff08e69b5 P3+P6+P8, de7e48137 P4, f14e37d25 P9). Causes confirmed in the code: P7 `pend_tick` dropped
+  `run_action`'s result; P8 `sync_show` rebuilt without refocus; P9 a changed value changed the screen signature and the whole pane
+  was rebuilt (365,569 px per RETURN; now 40,700-50,600 px: rows are rewritten in place on split, status and desk layouts; library,
+  app, grid and terminal layouts still rebuild); no key-dropping code was found (the run loop takes 24 queued keys per pass), the
+  shorter render is the fix; P4 the file-write caption; P6 the key table had no legend; P3 tabs fixed at merge.
+- Part B (334e6c813 P1+P2, c71441346 P5, 5cbefbb28 release): `list` is one row in its tab that opens its rows as a page (a tab holds
+  at most 128 items, read every frame: screens.cc MAXI); the old folder `pick` key stays, `pick = "@state"` (leading '@') is the
+  choice list; a search source is a `list` node at `F3/search`. Part C (8e91f9325): the list page draws the rows' tones and the
+  selected row's side lines in a SELECTED panel.
+- Review (one agent): 8 findings, 7 fixed with a unit each (6a9c152a4 pump close saves the reopen place, b0cf2efc2 stale ask_list,
+  7dbd16cfe heap budget counts the offsets, 964505682 rebuild closes an open node pick, 02f568514 menu never opens on a hidden tab,
+  16aab962c docs); one did not hold (an app session's menu always consumes its close). The t239.3 lint then found raw keys in the
+  search form's handler (menu controller gate, T192.3): moved into `pick_key` (199705ec7).
+- Tests: 27 coreapp units PASS, render bench 291,182 checks 0 failed (`t262_list` at 480p, 720p, 1080p), `tools/test_descrec.py`
+  119 OK, RISC-V build ok.
+- UX findings of TRX64-Ultimate on 0.5.0 (ue2emu, real network, 2026-11-25; their U21 D9, Alex: the online search does not use
+  P5, it stays their own form and results tab at F3 "3 Online"): (1) RETURN on a list page row blanks the pane (~100 ms) and the page
+  is rebuilt again ~1.5 s later: P9's in-place writing does not cover the list page; (2) slow first draw: half a page with the last
+  row cut and no panel, the F3 Search tab still blank 1.2 s after the key; (3) `<-` from P5 results discards them ("Cancelled"); (4)
+  with a source registered the search tab row reads "Name contains: press RETURN to type" although the form holds text, RETURN on the
+  local search opens the form instead of asking for a name, and the empty search tab's side panel says "No media found."; (5) the busy
+  text appears as title and row.
+  Their list from the U21 form (2026-11-25, u21-online dea01de): (6) goto_screen from an op the menu runs does not redraw, the
+  next key acts on the new screen; (7) the busy view replaces the whole form with a one-row page: the caption belongs on the job row,
+  the form stays; (8) a list node's count includes the '+' (more) row; (9) a list row cannot be greyed as a whole, only its right
+  column takes the tone; (10) a form keeps its scroll position when rows hide (first row out of view, empty space below); (11) a
+  library's menu record cannot hold `[[key]]` rows (u2a_pack: "a menu record has no key table and no windows"); (12) no call opens a
+  path's action sheet or puts Browse's cursor on a file; (13) `ask` holds 24 characters and refuses file-name characters for every
+  text, search text too; (14) request (Alex, their U21 D11): a file system (netfs) can say "size unknown" and the base's file list
+  shows "-" instead of "0 KB". Plus the gap every core move reported: `hw.cc:90` names `DRV_cart_regs_ADDR` without
+  `DRV_HAS_cart_regs`. All of it in one round, SDK 0.5.1 (D4), on `t239.3-sdk051`.
+- SDK 0.5.1 (D4), on `t239.3-sdk051`: part 1 (findings 1-10, 13, hw.cc; 10 commits), part 2 (11 library `[[key]]` rows, 12
+  `browse_at`/`browse_sheet`, 14 `FS_SIZE_UNKNOWN`, 13 file-name rule as default, base API 3.6), review (1 major: a library with only
+  key rows was evictable while the menu kept pointers into it; 7 minor), all fixed (2bd348f56, 11e77a792, 40f47ac86); fast tier on the
+  builder ok; published as `sdk-0.5.1-40f47ac8`.
+- D5: no further waiting on TRX64-Ultimate; their findings go into a patch release.

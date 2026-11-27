@@ -3,6 +3,8 @@
 
   unzip.u2a, unzip2.u2a   the loader's fixture ELF (tests/loader/fixtures) with its entry renamed to app_main, packed by tools/u2a_pack.py with the
                           real apps/unzip/app.toml as the menu record, versions 1 and 2 (the image is not run: the test runs the Mac build of the sources)
+  plain.u2a, ringapp.u2a  applications of the same fixture (needs the base only, needs "ring" which no slot of the test has)
+  libfile.u2a             one file of kind lib: the apps folder refuses it (base 4.0 loads no library file)
   t.zip, manifest.txt, files/<name>   a zip of synthetic files (deflated and stored, a folder, a nested folder, names of 100, 200 and 255 characters)
                           and the files it must give back
 
@@ -20,27 +22,20 @@ elf = open(os.path.join(root, "tests/loader/fixtures/testlib.at0.elf"), "rb").re
 assert elf.count(b"lib_register\0") == 1
 open(os.path.join(out, "testlib_fix.elf"), "wb").write(elf)
 open(os.path.join(out, "fix.elf"), "wb").write(elf.replace(b"lib_register\0", b"app_main\0\0\0\0\0"))
-needs = ["--needs", "base>=3.1", "--needs", "miniz>=1.0"]      # as apps/unzip/Makefile (T197)
+needs = ["--needs", "base>=4.0"]      # as apps/unzip/Makefile (APP_NEEDS; the image carries its own miniz, T239.3 D60)
 for name, ver in (("unzip.u2a", "1"), ("unzip2.u2a", "2")):
     subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, name),
                            "--kind", "app", "--residence", "transient", "--name", "unzip", "--version", ver] + needs +
                           ["--menu", os.path.join(root, "apps/unzip/app.toml")], stdout=subprocess.DEVNULL)
-# a second application that uses the library (S2) and the library itself: the fixture image under the real names, the code is the Mac build of the sources
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ziplist.u2a"),
-                       "--kind", "app", "--residence", "transient", "--name", "ziplist", "--version", "1"] + needs, stdout=subprocess.DEVNULL)
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "miniz.u2a"),
-                       "--kind", "lib", "--name", "miniz", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
-# D8 (eviction): a second library nobody here needs and an application that needs no library but the base
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "otherlib.u2a"),
-                       "--kind", "lib", "--name", "otherlib", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
+# an application that needs nothing but the base (the room check)
 subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "plain.u2a"),
-                       "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=3.1"], stdout=subprocess.DEVNULL)
-
-# D8 (holds): a library that imports miniz, and a resident application that needs miniz
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "outerlib.u2a"),
-                       "--kind", "lib", "--name", "outerlib", "--version", "1", "--needs", "base>=3.1", "--needs", "miniz>=1.0"], stdout=subprocess.DEVNULL)
-subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "resapp.u2a"),
-                       "--kind", "app", "--residence", "resident", "--name", "resapp", "--version", "1"] + needs, stdout=subprocess.DEVNULL)
+                       "--kind", "app", "--residence", "transient", "--name", "plain", "--version", "1", "--needs", "base>=4.0"], stdout=subprocess.DEVNULL)
+# an application whose need no slot of the test answers ("ring"): not available, never loaded
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "fix.elf"), "-o", os.path.join(out, "ringapp.u2a"),
+                       "--kind", "app", "--residence", "transient", "--name", "ringapp", "--version", "1", "--needs", "base>=4.0", "--needs", "ring>=2.0"], stdout=subprocess.DEVNULL)
+# the one file of kind lib the test keeps: base 4.0 loads no library file, so the apps folder lists nothing of it and the log says why (D58)
+subprocess.check_call([sys.executable, os.path.join(root, "tools/u2a_pack.py"), os.path.join(out, "testlib_fix.elf"), "-o", os.path.join(out, "libfile.u2a"),
+                       "--kind", "lib", "--name", "libfile", "--version", "1", "--needs", "base>=4.0"], stdout=subprocess.DEVNULL)
 
 def blob(seed, n):
     x = seed

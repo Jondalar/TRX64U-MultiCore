@@ -8,11 +8,10 @@
 
 enum BoardKind { BOARD_MULTICORE = 0, BOARD_MONOLITH = 1 };
 
-// The ID byte the ICAP loader of the MultiCore host answers at ICAP_BASE (0x10060600). The monolith decodes nothing there and reads 0.
+// The ID byte the ICAP loader of the MultiCore host answers at the block icap (0x10060600). The monolith decodes nothing there and reads 0.
 #define BOARD_ICAP_ID 0x7A
-// The directory of the settings file when there is no .cor beside which it could live (Alex, 2026-10-18, T104.2 Q1), and the only
-// place of the flash the application may write (fsif.h: fs_flash_exception).
-#define BOARD_MONOLITH_CFG_DIR "/flash/trx64u"
+// The longest core id a standalone installation's flash directory is named after ("/flash/<id>", board_set_core).
+#define BOARD_CORE_ID_MAX 31
 // Gideon's layout: the ROM files lie in this directory itself, not in a roms/<folder> below it.
 #define BOARD_MONOLITH_ROM_DIR "/flash/roms"
 
@@ -37,14 +36,32 @@ enum BoardCap {
 #define BOARD_FPGA_COMMAND_INTF 0x00040000u
 #define BOARD_IEC_VERSION       0x25
 
+// The blocks of the app's driver table that a probe asks for (T239.3 V-4b, D31): board_detect() runs a probe only when its bit is here, and the probe's capability is
+// struck without a read when it is not. hw.cc sets a bit from DRV_HAS_<block>; the block of each bit is named at the member of BoardProbe.
+enum BoardBlocks {
+    BB_ICAP    = 1u << 0,    // the ICAP loader (block icap, or icap_id with its siblings in the host's TOML A)
+    BB_DRIVE_A = 1u << 1,    // drive_a
+    BB_CMD_IF  = 1u << 2,    // cmd_if
+    BB_IEC     = 1u << 3,    // iec_status
+    BB_CART    = 1u << 4,    // c64cart
+    BB_RING    = 1u << 5,    // c64_debug
+    BB_REU     = 1u << 6,    // dma
+    BB_ALL     = 0x7Fu
+};
+
 // Every read the profile is made of. The board's implementation is hw.cc.
 class BoardProbe {
 public:
     virtual ~BoardProbe() { }
-    virtual uint8_t icap_id() = 0;           // ICAP_BASE + 0
-    virtual uint32_t fpga_caps() = 0;        // the ITU capability word
-    virtual uint8_t trx_caps() = 0;          // TRX_CAPS
-    virtual uint8_t iec_version() = 0;       // IEC_BASE + 0
+    virtual uint32_t blocks() { return BB_ALL; }   // BB_* of the blocks the app is linked with; a fake without an answer has them all
+    virtual uint8_t icap_id() = 0;           // the ID register of the ICAP loader (block icap, or icap_id and its siblings; hw.cc), read only when BB_ICAP is set
+    // T239.3 D37: the app is linked against a TOML A that has the block partition (decouple, release; hw.cc: DRV_HAS_partition). It is a link fact, not a read. An app with the loader but
+    // without it cannot decouple a partition, so the ID byte alone does not make the MultiCore profile: the hand-over page must then say a host started the app (board_detect).
+    // The default is true: the fakes of the tests that flip only the other reads need no change; hw.cc and test_board.cc answer for real.
+    virtual bool partition_linked() { return true; }
+    virtual uint32_t fpga_caps() = 0;        // the ITU capability word (read when BB_DRIVE_A or BB_CMD_IF is there: it has no block in TOML A, the drive and the command interface bits are what is asked of it)
+    virtual uint8_t trx_caps() = 0;          // TRX_CAPS (ident.caps; read when BB_CART or BB_RING is there)
+    virtual uint8_t iec_version() = 0;       // iec_status.version (IEC_BASE + 0; read when BB_IEC is there)
     virtual bool handover_valid() = 0;       // the page at HANDOVER_ADDR holds a block that handover_valid() accepts
 };
 
@@ -52,17 +69,24 @@ struct BoardProfile {
     BoardKind kind;
     bool has_handover;           // the page at HANDOVER_ADDR is valid (sum and magic). On the monolith only the legacy start of a large .cor writes
                                  // one (T112 Q1); a .cfw start wipes it, so a block that passes is ours and carries a .cor path.
-    bool can_return_host;        // the ICAP loader is there; "Return to host menu" exists only then
+    bool can_return_host;        // the host is there to return to (the profile is MultiCore: the loader answers and the app has the partition control or a valid hand-over page); "Return to host menu" exists only then
     bool flash_cfg;              // T228 DC13: a start without a .cor keeps its settings in a cfg file in the flash. Off under the MultiCore host (D11: the menu writes and
                                  // erases nothing in the flash); on for a standalone installation, where nothing else could persist them
-    const char *cfg_dir;         // where <folder>.cfg lives when there is no hand-over path (the flash directory when flash_cfg); null: in memory only
-    const char *boot_cfg;        // the file that holds the boot-attempt counter (libguard.h); in the flash, one of the two paths fs_flash_exception lets through
+    char cfg_dir[8 + BOARD_CORE_ID_MAX + 1];   // where <folder>.cfg lives when there is no hand-over path: "/flash/<core id>", set by board_set_core when flash_cfg; empty: in memory only
+    char boot_cfg[8 + BOARD_CORE_ID_MAX + 10]; // the file that holds the boot-attempt counter (libguard.h): "/flash/<core id>/boot.cfg" (board_set_core) or the host's "/Flash/boot.cfg"; empty until the core is known
     const char *rom_dir;         // searched first for the ROM files, as a directory; null: only <root>/roms/<folder>
     uint32_t probes;             // BC_* the hardware answered for
-    char why[96];                // "ICAP absent, no hand-over", for the log line
+    char why[96];                // "ICAP absent, no hand-over" or "ICAP loader, no partition, no hand-over: standalone", for the log line
 };
 
 BoardProfile board_detect(BoardProbe *p);
+
+// T239.3 P1-5: the standalone paths come from the core's description record. Called once the core is chosen, with its id (CoreDesc::core_id, the .cor id of
+// core.toml) and its settings folder (CoreDesc::folder). On the monolith: cfg_dir "/flash/<id>", boot_cfg "/flash/<id>/boot.cfg", and those two files, "<cfg_dir>/<folder>.cfg"
+// and boot_cfg, are what fs_flash_exception lets through the flash guard (fsif.h). A null, empty or malformed id (anything but A-Z a-z 0-9 _ -, 1 .. BOARD_CORE_ID_MAX) leaves
+// the settings in memory and registers nothing; the result is false for a malformed one. A folder that is null or malformed registers no settings file. The MultiCore profile is
+// not touched (its settings live beside the .cor, its counter in the host's file).
+bool board_set_core(BoardProfile *b, const char *core_id, const char *folder);
 
 const char *board_name(const BoardProfile &b);
 

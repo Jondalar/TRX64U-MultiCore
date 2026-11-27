@@ -24,41 +24,42 @@ bool is_cor(const char *path)
 
 }
 
-static void read_cor(CoreCtx *c, BundleExtras *out)
+// `name`: the core the bundle has to be for (its manifest's name); null: any (the descriptor is still to be made of the bundle, T239.3 D17)
+static void read_cor_at(CoreFs *fs, const char *cor_path, uint32_t host_key, const char *name, BundleExtras *out)
 {
     memset(out, 0, sizeof(*out));
-    if (!is_cor(c->cor_path)) {
+    if (!is_cor(cor_path)) {
         return;                                                  // started without a bundle (JTAG, the monolith): nothing to read
     }
-    CoreFile *f = c->fs->open(c->cor_path, false);
+    CoreFile *f = fs->open(cor_path, false);
     if (!f) {
-        snprintf(out->why, sizeof(out->why), "%s cannot be opened: the bundle's description and libraries are not read.", c->cor_path);
+        snprintf(out->why, sizeof(out->why), "%s cannot be opened: the bundle's description and libraries are not read.", cor_path);
         return;
     }
     FileSrc src(f);
-    cor_host_key = c->host_key;
+    cor_host_key = host_key;
     cor_result_t r = cor_probe(src, out->ci);
-    if ((r != COR_OK && r != COR_ERR_LARGE) || strcasecmp(out->ci.name, c->desc->cor_name) != 0) {
+    if ((r != COR_OK && r != COR_ERR_LARGE) || (name && strcasecmp(out->ci.name, name) != 0)) {
         const char *reason = (r != COR_OK && r != COR_ERR_LARGE) ? cor_result_str(r) : "this is another core's bundle";
-        snprintf(out->why, sizeof(out->why), "%s: %s; its description and libraries are not read.", c->cor_path, reason);
+        snprintf(out->why, sizeof(out->why), "%s: %s; its description and libraries are not read.", cor_path, reason);
         memset(&out->ci, 0, sizeof(out->ci));
-        c->fs->close(f);
+        fs->close(f);
         return;
     }
     out->probed = true;
     uint32_t n = out->ci.size[COR_PART_DESC];
     if (n) {
         if (n > DESCREC_MAX_SIZE) {
-            snprintf(out->why, sizeof(out->why), "The description record of %s is %u bytes; at most %u are read.", c->cor_path, (unsigned)n, DESCREC_MAX_SIZE);
+            snprintf(out->why, sizeof(out->why), "The description record of %s is %u bytes; at most %u are read.", cor_path, (unsigned)n, DESCREC_MAX_SIZE);
         } else {
             uint8_t *buf = new uint8_t[n];
             r = cor_read_part(src, out->ci, COR_PART_DESC, buf, 0, 0, true);
             DescRecord *d = r == COR_OK ? new DescRecord : 0;
             char why[160];
             if (r != COR_OK) {
-                snprintf(out->why, sizeof(out->why), "The description record of %s: %s.", c->cor_path, cor_result_str(r));
+                snprintf(out->why, sizeof(out->why), "The description record of %s: %s.", cor_path, cor_result_str(r));
             } else if (descrec_parse(buf, n, d, why, sizeof(why)) != 0) {
-                snprintf(out->why, sizeof(out->why), "%s: %s.", c->cor_path, why);
+                snprintf(out->why, sizeof(out->why), "%s: %s.", cor_path, why);
                 delete d;
                 d = 0;
             }
@@ -70,7 +71,12 @@ static void read_cor(CoreCtx *c, BundleExtras *out)
             }
         }
     }
-    c->fs->close(f);
+    fs->close(f);
+}
+
+static void read_cor(CoreCtx *c, BundleExtras *out)
+{
+    read_cor_at(c->fs, c->cor_path, c->host_key, c->desc->cor_name, out);
 }
 
 // T104.2 D10: a start that has no .cor, or whose .cor carries no (readable) menu record, uses the record the application carries for this core, if it does:
@@ -88,6 +94,108 @@ void bundle_read(CoreCtx *c, BundleExtras *out)
             delete d;
         }
     }
+}
+
+static char printable(uint8_t c)
+{
+    return (c >= 32 && c < 127) ? (char)c : '?';
+}
+
+int bundle_check_identity(CoreIo *io, const DescRecord *desc, char *why, int whylen)
+{
+    if (!desc || !desc->map) {
+        return 0;
+    }
+    const DescMap &m = *desc->map;
+    const DescBlock *b = descrec_block(*desc, m.ident_block);
+    const DescProp *pid = b ? descrec_prop(*desc, *b, "id") : 0;
+    const DescProp *pbuild = b ? descrec_prop(*desc, *b, "build") : 0;
+    if (!pid || !pbuild || pid->width != 32 || pbuild->width != 32) {
+        snprintf(why, whylen, "The core's description names no readable 32 bit ID and build in the block %s. The core stays held.", m.ident_block);
+        return -1;
+    }
+    uint32_t id = 0, build = 0;
+    if (!io || !io->read32(b->win.address + pid->offset, &id) || !io->read32(b->win.address + pbuild->offset, &build)) {
+        snprintf(why, whylen, "The bitstream's ID and build cannot be read from the block %s, so it cannot be shown to belong to this core. The core stays held.", m.ident_block);
+        return -1;
+    }
+    char have[5];
+    for (int i = 0; i < 4; i++) {
+        have[i] = printable((uint8_t)(id >> (8 * i)));
+    }
+    have[4] = 0;
+    if (strncmp(have, m.ident_id, 4) != 0) {
+        snprintf(why, whylen, "The bitstream says it is the core %s, this core's description is for %s. They do not belong together. The core stays held.", have, m.ident_id);
+        return -1;
+    }
+    if (!m.has_build) {
+        snprintf(why, whylen, "The core's description carries no build word of its bitstream (no packer stamped it), so the bitstream %s cannot be shown to be the one it was made for. The core stays held.", have);
+        return -1;
+    }
+    if (build != m.build) {
+        snprintf(why, whylen, "The bitstream of the core %s is build %08X, the description was made for build %08X. They do not belong together. The core stays held.", have, (unsigned)build, (unsigned)m.build);
+        return -1;
+    }
+    return 0;
+}
+
+const CoreDesc *BundleDescSource::describe(const uint8_t id[4], const Handover *h, char *msg, int msglen)
+{
+    char who[160];
+    snprintf(who, sizeof(who), "This application has no description for the core with the ID %c%c%c%c", printable(id[0]), printable(id[1]), printable(id[2]), printable(id[3]));
+    if (!h || !handover_valid(h) || !h->path[0] || !is_cor(h->path)) {
+        snprintf(msg, msglen, "%s, and there is no bundle to read one from. The core stays held.", who);
+        return 0;
+    }
+    if (env_) {                                                  // the bundle's medium first: a stick enumerates after the application starts (mediumwait.h)
+        MediumWait w;
+        medium_wait(fs_, h->path, env_, START_MEDIUM_WAIT_MS, &w);
+        if (w.waited) {
+            printf("[core] medium of %s: %s after %u ms\n", h->path, w.present ? "up" : "not seen", (unsigned)w.ms);
+        }
+    }
+    BundleExtras x;
+    read_cor_at(fs_, h->path, start_host_key(h), 0, &x);
+    // the record and its bytes are freed with every refusal; only the descriptor that is returned keeps them (its strings live in them)
+    struct Keep {
+        BundleExtras &x;
+        bool kept;
+        explicit Keep(BundleExtras &e) : x(e), kept(false) { }
+        ~Keep() { if (!kept) { delete x.desc; delete[] x.desc_bytes; } }
+    } keep(x);
+    if (!x.desc) {
+        snprintf(msg, msglen, "%s, and the bundle %s has no description record to make one of%s%s. The core stays held.", who, h->path, x.why[0] ? ": " : "", x.why);
+        return 0;
+    }
+    if (!x.desc->has_core) {
+        snprintf(msg, msglen, "%s, and the description record of %s has no data sections (no core section). The core stays held.", who, h->path);
+        return 0;
+    }
+    CoreDesc *d = new CoreDesc;
+    char why[200];
+    if (descrec_core(x.desc, hooks_, d, why, sizeof(why)) != 0) {
+        snprintf(msg, msglen, "%s: %s. The core stays held.", h->path, why);
+        delete d;
+        return 0;
+    }
+    if (memcmp(d->id, id, 4) != 0) {
+        snprintf(msg, msglen, "%s, and the description record of %s is for the core with the ID %c%c%c%c. The core stays held.", who, h->path, printable((uint8_t)d->id[0]),
+                 printable((uint8_t)d->id[1]), printable((uint8_t)d->id[2]), printable((uint8_t)d->id[3]));
+        delete d;
+        return 0;
+    }
+    if (strcasecmp(x.ci.name, d->cor_name) != 0) {
+        snprintf(msg, msglen, "%s: the bundle is \"%s\", its description record's core section says \"%s\". The core stays held.", h->path, x.ci.name, d->cor_name);
+        delete d;
+        return 0;
+    }
+    if ((!d->init || !d->release) && !d->hooks_lib) {                       // a record that names a hooks library has its control hooks with it (core_hooks.h)
+        snprintf(msg, msglen, "%s: the description record is complete, but the code of the core (the control hooks init and release) is not in this application. The core stays held.", h->path);
+        delete d;
+        return 0;
+    }
+    keep.kept = true;
+    return d;                                                   // the record and its bytes stay: the descriptor's strings live in them
 }
 
 int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoader *loader, LibLog *log, CoreDesc *out, MenuMerge *mm, const AppIndex *apps)
@@ -127,7 +235,7 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         n += apps->contributors(cs + n, APPS_MAX + 1);
     }
     CoreDesc own;
-    if (x && x->desc && (x->desc->has_own || x->desc->has_pad || x->desc->restart_clear)) {
+    if (x && x->desc && descrec_applies(*x->desc, base) && (x->desc->has_own || x->desc->has_pad || x->desc->restart_clear)) {
         descrec_apply(*x->desc, base, &own);                      // the core's own tasks, media, file types and settings are the record's (T104.2 D10), its pad
                                                                   // (T228 R10) and what its restart clears (R17) too
         // T228 R1: a task of the record that declares a hotkey gets its item on the Hotkeys page, behind the application's own (the record's table holds them)
@@ -137,6 +245,36 @@ int bundle_merge(CoreCtx *c, const CoreDesc *base, const BundleExtras *x, LibLoa
         base = &own;
     }
     int refused = contrib_merge(base, skel, ov, cs, n, ops_of(c), out, mm);
+    if (x && x->desc && x->desc->nkeys) {                         // base 3.3: the description's key table is the menu's (MenuCtl stage KS_CORE); the rows live in the record
+        mm->keys = x->desc->keys;
+        mm->nkeys = x->desc->nkeys;
+    }
+    for (int h = 0; loader && h < LIB_MAX; h++) {                // T262 D4 finding 11: the key rows of a library's menu record follow the core's, in load order, while the library is loaded
+        const LibInfo *li = loader->info(h);
+        if (li && li->menu && li->menu->nkeys && !(x && x->desc && descrec_merged(*x->desc, li->name))) {
+            contrib_add_keys(mm, li->name, li->menu->keys, li->menu->nkeys);
+        }
+    }
+    if (x && x->desc && x->desc->has_place) {                     // D32: the core's routes and places over the base's; a place that names an absent route is told and not applied
+        char why[160];
+        if (menu_place_merge(&x->desc->place, &mm->place_store, why, sizeof(why)) > 0 && log) {
+            char line[200];
+            snprintf(line, sizeof(line), "[menu] refused: %s", why);
+            log->line(line);
+        }
+        mm->has_place = true;
+    }
+    if (x && x->desc && x->desc->has_elem) {                      // T256 D8: the core's elements over the base's (the still, the PAUSED tag); one that does not fit is told and not applied
+        char why[160];
+        if (ovl_merge(menu_elem_base(), &x->desc->elem, &mm->elem_store, why, sizeof(why)) > 0 && log) {
+            char line[200];
+            snprintf(line, sizeof(line), "[menu] refused: %s", why);
+            log->line(line);
+        }
+        mm->has_elem = true;
+    }
+    // D32: the setting group of every row the table places (the extend functions no longer write one; the hotkey rows of the core's tasks came in with the core's own tables)
+    menu_place_groups(mm->has_place ? &mm->place_store : menu_place_base(), mm->settings, out->nsettings);
     for (int i = 0; log && i < mm->nerr; i++) {
         char line[CONTRIB_ERR_LEN + 24];
         snprintf(line, sizeof(line), "[menu] refused: %s", mm->err[i]);

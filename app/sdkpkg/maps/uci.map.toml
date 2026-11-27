@@ -1,0 +1,23 @@
+# The command interface block (the slot registers CMD_IF_BASE + 0 and + 1 that a core's UCI library drives, D48/D49). Offsets are bytes from the block's address.
+map = "uci"
+
+[[property]]
+name = "slot_base"
+offset = 0x00
+width = 8
+dir = "w"
+  [[property.state]]
+  name = "df1c"
+  value = 0x47
+
+[[property]]
+name = "slot_enable"
+offset = 0x01
+width = 8
+dir = "rw"
+  [[property.state]]
+  name = "off"
+  value = 0
+  [[property.state]]
+  name = "on"
+  value = 1

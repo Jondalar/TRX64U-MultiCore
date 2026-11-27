@@ -101,10 +101,11 @@ tree_key() {
   local body; body="$(mktemp)"
   (
     set -eo pipefail
-    # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key
+    # a core's logo (cores/<id>/logo/, T114) is a picture for the boot menu, not gateware: it never moves a key; nor does a core's app part
+    # (cores/<id>/app/, T239.3 D10/D11, D27: data the application reads, which no Vivado step reads)
     # set -e / pipefail are off on the left of `|| {...}` (bash ignores them there): every stage ends in an explicit `|| exit 1`
     local idx; idx="$(mktemp)" || exit 1
-    git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' > "$idx" || { rm -f "$idx"; exit 1; }
+    git -C "$ROOT" ls-files -s -- "$@" ':(exclude,glob)cores/*/logo/**' ':(exclude,glob)cores/*/app/**' > "$idx" || { rm -f "$idx"; exit 1; }
     (cd "$ROOT" && python3 -I "$CI_CODE/ci/code_hash.py" index < "$idx") || { rm -f "$idx"; exit 1; }
     rm -f "$idx"
     if [ -d "$ROOT/vendor/gideon" ]; then
@@ -178,14 +179,19 @@ gateware_key() {
 # T164 3a Q1, Alex 2026-11-01: "If that now needs a new core every time, then no include!" / "Copies instead."), so a change in host/ moves no large core's key
 # (run 1126 had rebuilt all of them for a host-only change). The shared files the host alone reads (host/gideon_vhdl.tcl) are left out of the key with host/.
 # The core's benches (sim/) and its measurement reports (mono/reports/) are in the core's sources for the layer check (ci/layers_check.sh) but are no input of the build.
+# mono_specs <core> [layers file]: the pathspecs of a large core's flat build, one per line (mono_key hashes them; ci/lane.sh step 3 diffs them, T213.3 P5)
+mono_specs() {
+  local lf="${2:-$ROOT/host/layers.txt}" l
+  while IFS= read -r l; do
+    case "$l" in host/*|:\(exclude\)host/*) ;; *) printf '%s\n' "$l";; esac
+  done < <(layer_specs "$lf" shared)
+  layer_specs "$lf" "core:$1"
+  printf '%s\n' ":(exclude)cores/$1/sim" ":(exclude)cores/$1/mono/reports"
+}
 mono_key() {
   local lf="${3:-$ROOT/host/layers.txt}" specs l env
   specs=()
-  while IFS= read -r l; do
-    case "$l" in host/*|:\(exclude\)host/*) ;; *) specs+=("$l");; esac
-  done < <(layer_specs "$lf" shared)
-  while IFS= read -r l; do specs+=("$l"); done < <(layer_specs "$lf" "core:$2")
-  specs+=(":(exclude)cores/$2/sim" ":(exclude)cores/$2/mono/reports")
+  while IFS= read -r l; do specs+=("$l"); done < <(mono_specs "$2" "$lf")
   env="$(core_toml_of "$(layer_root "$lf")" env "$2" | tr '\n' ' ')"
   KEY_EXTRA="mono $2 $1 vivado-env:2024.1 env=$env" tree_key "${specs[@]}"
 }
@@ -409,7 +415,7 @@ build_update_host() {
       --out "$out" "$bit" "$app"
 }
 
-# T174 D2.8: the emulator the app suites run in (tests/coreapp/emu/run.sh, tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
+# T174 D2.8: the emulator the app suites run in (tests/hostapp/emu_host.sh). A Linux image whose entrypoint is `ue2emu`; the
 # tag is the pinned emulator release (u64-emulator v0.7.0 = 4612884e7a63, S44). This is the ONE place that names it (UE2EMU_IMAGE in the environment
 # overrides); ci/ue2emu.sh runs it. The CI jobs have no docker: on GitHub they run in the image ghcr.io/<owner>/trx64u-emu (ci/emu/Dockerfile, built by ci-images.yml), in the Gitea
 # workflows (by hand, T239.1 D45) in u64-build-env:emu-$UE2EMU_TAG (ci/emu/build.sh); both have ue2emu on PATH.

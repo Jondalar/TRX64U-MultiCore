@@ -1,0 +1,21 @@
+# The source list of the ZX Spectrum core's design for tools/rtl_check.py (tests/rtl_check, the case of cores/zx/app/gateware.toml): the core's own files (cores/zx: layer2_zx.v, rtl/, trx/, gen/, shared/). The host copy in cores/zx/mono/host is the flat build's host, not the register path of the core window, so it is left out; a file that cores/zx/mono/build_mono.tcl adds to or takes from this path has to be changed here too.
+../cores/zx/gen/t80pa.v
+../cores/zx/layer2_zx.v
+../cores/zx/rtl/T80/T80.vhd
+../cores/zx/rtl/T80/T80_ALU.vhd
+../cores/zx/rtl/T80/T80_MCode.vhd
+../cores/zx/rtl/T80/T80_Pack.vhd
+../cores/zx/rtl/T80/T80_Reg.vhd
+../cores/zx/rtl/T80/T80pa.vhd
+../cores/zx/rtl/ula.sv
+../cores/zx/rtl/ym2149.sv
+../cores/zx/shared/zxcpc_audio.v
+../cores/zx/shared/zxcpc_keyeng.v
+../cores/zx/shared/zxcpc_nco.v
+../cores/zx/shared/zxcpc_tape.v
+../cores/zx/trx/zx_core.v
+../cores/zx/trx/zx_keys.v
+../cores/zx/trx/zx_mem.v
+../cores/zx/trx/zx_pixw.v
+../cores/zx/trx/zx_regs.v
+../cores/zx/trx/zx_win.v

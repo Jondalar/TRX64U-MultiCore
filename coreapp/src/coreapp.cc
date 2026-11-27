@@ -20,15 +20,18 @@
 #include "hw.h"
 #include "board.h"
 #include "fsif.h"
-#include "tempdisk.h"
+#include "fm_fs.h"
+#include "bundle.h"
+#include "libtab.h"
 #include "run.h"
+#include "appsvc.h"
 
 #include "videomode.h"
 #include "handover.h"
 #include "walltime.h"
 
-// trx_io.cc asks which TCP port the monitor app serves; a core application has none.
-extern "C" uint16_t app_trx_rpc_port(void) { return 0; }
+// trx_io.cc asks which TCP port the core's runtime service listens on for the identity block: the one announced through SvcNet::announce (appsvc.h), 0 while none was.
+extern "C" uint16_t app_trx_rpc_port(void) { return appsvc_rpc_port(); }
 
 // The scan mode the host application put up, which it hands over (T105): the host's scaler, overlay, pixel layer and
 // HDMI encoder need one to show the pixel layer, and a core that came up in a different one from the menu the user
@@ -59,14 +62,28 @@ static void app_task(void *)
         hp = &h;
         walltime_adopt(hp);                       // T191: the host's time, before any core asks for it (the Amiga RTC loads it at reset)
     }
+    coreapp_open_early(hp);                       // T239.3 P2-2 (M1): the picture, the splash and port 80 before anything waits for a medium
     const CoreDesc *desc = 0;
-    char msg[200];
-    StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io());
+    static char msg[512];                         // the held page's sentence: the bundle's path and the record's reason (bundle.cc)
+    // T239.3 D17: a core with no descriptor compiled in is described by its bundle's data record. Its code is the library the record names (`hooks`, core_hooks.h,
+    // bound when the core runs); the base's own operation groups it gets by the record's data (ops_glue.h ops_record_groups). The bundle's medium is waited for
+    // first, as the start does for the core's folder (mediumwait.h): a .cor on a stick that has not enumerated yet would hold the core.
+    class BoardMediumEnv : public MediumEnv {
+    public:
+        uint32_t now_ms() { return hw_io()->now_ms(); }
+        void delay_ms(uint32_t ms) { vTaskDelay(ms >= 5 ? pdMS_TO_TICKS(ms) + 1 : 1); }
+    };
+    static BoardMediumEnv medium_env;
+    static BundleDescSource desc_src(fm_fs(), 0, &medium_env);
+    coreapp_wait_named("Waiting for the core's medium");   // the medium wait (bundle.cc) shows no step of its own: the splash and port 80 say why the screen waits
+    StartResult r = start_identify((const uint8_t *)raw_id, hp, &desc, msg, sizeof(msg), hw_io(), &desc_src);
     STARTLOG("phase core identified: %s", msg);
     if (r != START_OK) {
-        ui_open(0);
         coreapp_held(msg, &board);                // the core stays held (the host's power-up hold, nobody writes C64_MODE)
     }
+    if (!board_set_core(&board, desc->core_id, desc->folder)) {
+        STARTLOG("core id or folder not valid for the flash paths: the settings stay in memory");
+    }     // T239.3 P1-5: the standalone paths come from the core's record, before the guard or the settings read them
     coreapp_run(desc, hp, &board);                // never returns
 }
 
@@ -97,9 +114,7 @@ extern "C" void ultimate_main(void *a)
     STARTLOG("phase USB hardware initialised (the USB task enumerates in the background)");
     board = board_detect(hw_board_probe());
     printf("[core] board: %s (%s)\n", board_name(board), board.why);
-    if (board.kind == BOARD_MONOLITH) {
-        tempdisk_init();                          // T228 R21: the Temp RAM disk as in TRX64-Ultimate's firmware (FW ramdisk.cc:16-44), not on the MultiCore host
-    }
+    libtab_init(board);                           // what the linked libraries do once the board is known (the temp RAM disk on the monolith, T228 R21)
     fs_flash_rw() = board.kind == BOARD_MONOLITH;       // T228 R21: /flash writable as in TRX64-Ultimate's firmware, the MultiCore host keeps its protection (T93 S14)
     video_init(board.has_handover ? (const Handover *)HANDOVER_ADDR : 0);
     STARTLOG("phase video mode up (the host's, from the hand-over)");

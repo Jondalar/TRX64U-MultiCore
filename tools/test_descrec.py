@@ -5,6 +5,8 @@ writes a record that its own reader (and the board's, tests/coreapp/test_descrec
   python3 tools/test_descrec.py        (also collected by python3 -m pytest tools/test_descrec.py)
 """
 import os
+import re
+import subprocess
 import sys
 import unittest
 
@@ -90,7 +92,7 @@ class Compiler(unittest.TestCase):
         self.assertEqual([t["n"] for t in d["tab"] if t["id"] in ("drives", "tools")], [4, 3])
         self.assertEqual([t["groups"] for t in d["tab"] if t["id"] == "drives"], ["drive_a,drive_b"])
         self.assertEqual([n["order"] for n in d["node"]], [1, 5, 10, -10])
-        self.assertEqual(d["ctab"], [{"area": "F7", "id": "more", "name": "More", "widget": "nodes", "groups": None, "n": 0}])
+        self.assertEqual(d["ctab"], [{"area": "F7", "id": "more", "name": "More", "widget": "nodes", "groups": None, "n": 0, "layout": None}])
         self.assertEqual(d["poll"], {"op": "test.task", "period_ms": 250})
         self.assertEqual(d["action"][0]["ext"], [".tst2", ".tst3"])
         self.assertEqual((d["setting"][0]["lo"], d["setting"][0]["hi"], d["setting"][0]["default"]), (8, 11, 9))
@@ -210,8 +212,8 @@ class Reader(unittest.TestCase):
             self.assertIn(part, str(e.exception))
 
 
-MENU = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "coreapp", "cores", "trx64u", "menu.toml")
-OPS = os.path.join(GOLD, "ops_trx64u.txt")
+MENU = os.path.join(GOLD, "desc_test.toml")          # T239.3 P1-8: trx64u's menu is TRX64-Ultimate's; the fixture of the made-up core stands in for "a core's own menu"
+OPS = os.path.join(GOLD, "ops_amiga1200.txt")        # what the shared application exports as the A1200
 
 
 def menu_text():
@@ -226,18 +228,6 @@ def ops_text():
 
 class OwnMenu(unittest.TestCase):
     """T104.2 D10: the tables of the core's own menu (task, media, filetype, core_setting), the info lines, the groups of tasks and media."""
-
-    def test_the_menu_of_trx64u_compiles_and_reads_back(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertTrue(r["own"] and r["route"])
-        # T228: 14 tasks (R2/R3 took Pause / resume, Reboot clear memory, Save C64 memory and Save REU memory; R1 added Timewarp... and Monitor...; R10
-        # Map USB controller buttons; R21: Save .C64RE Dump, Save MP3 Drv A-D); 216 core settings and 24 file types after the R21 merge (R22: no Telnet row; no .g71, no .d71; R26: no WiFi address rows); R1: no F2 and no F4 area
-        self.assertEqual((len(r["task"]), len(r["media"]), len(r["ftype"]), len(r["cset"])), (19, 3, 24, 216))
-        self.assertEqual([a["key"] for a in r["area"]], ["F1", "F3", "F5", "F7", "F8"])
-        self.assertEqual((r["tab"][0]["id"], r["tab"][0]["lines"]), ("home", None))        # the Home desk is a nodes tab: it names no information lines
-        d64 = next(f for f in r["ftype"] if f["ext"] == ".d64")
-        self.assertEqual((d64["inner_ext"], [a["label"] for a in d64["inner"]]), (".prg", ["Mount & run", "Real run"]))
-        self.assertEqual(next(c for c in r["cset"] if c["key"] == "Freeze mode")["when"], "reset")
 
     def test_every_key_of_the_new_tables_is_checked(self):
         for table, extra in (("task", 'label = "A"\nop = "x.y"\n'), ("media", 'name = "M"\nstate = "s"\n'), ("core_setting", 'key = "K"\nvalues = ["a","b"]\napply = "x"\n')):
@@ -290,6 +280,78 @@ class OwnMenu(unittest.TestCase):
         for what, text in bad.items():
             with self.assertRaises(D.DescError, msg=what):
                 D.compile_text(text)
+
+    def test_a_key_row_may_name_itself_for_the_foot_legend(self):   # T262 P6: `legend = "Label"` on an op row of one key
+        base = 'key = [\n  { node = "t", key = "x", op = "a.b" },\n  { node = "t", key = "ctrl+o", op = "a.c"%s },\n  { node = "t", key = "y", op = "a.d"%s },\n]\n'
+        plain = D.compile_text(base % ("", "") + MIN)
+        both = D.compile_text(base % (', legend = "Clear"', ', legend = "Go on"') + MIN)
+        self.assertEqual(len(both) - len(plain), 4 + 2 * 8 + len(b"Clear\0Go on\0"))     # the count, two pairs and the two strings; the rows are the bytes they were
+        r = D.parse_desc(both)
+        self.assertEqual([k.get("legend") for k in r["key"]], [None, "Clear", "Go on"])
+        self.assertEqual(D.parse_desc(plain)["key"][1].get("legend"), None)
+        for bad in (', legend = ""', ', legend = "' + "x" * 17 + '"', ', legend = 3', ', do = "swallow", legend = "L"'):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(base % (bad, "") + MIN)
+        with self.assertRaises(D.DescError):                       # a range or any key has no name to print
+            D.compile_text('key = [{ node = "t", key = "any", op = "a.b", legend = "L" }]\n' + MIN)
+        with self.assertRaises(D.DescError):
+            D.compile_text('key = [{ node = "t", codes = [65, 66], op = "a.b", legend = "L" }]\n' + MIN)
+
+    def test_a_job_node_may_name_its_busy_words(self):         # T262 P4: ui `busy` beside `job`
+        node = '\n[[node]]\nanchor = "F5/t"\nkind = "op"\nlabel = "Search"\nop = "a.b"\nui = { job = true, busy = "%s" }\n'
+        b = D.compile_text(MIN + node % "@a.busy|Asking")
+        self.assertIn(b"job;busy=@a.busy|Asking", b)
+        self.assertEqual(D.parse_desc(b)["node"][0]["ui"], "job;busy=@a.busy|Asking")
+        with self.assertRaises(D.DescError):
+            D.compile_text(MIN + node % "a;b")
+
+    def test_a_node_may_be_a_list_a_pick_or_a_search_source(self):   # T262 P1, P2, P5: kind list (rows of a state), ui pick = "@state", ui search/find/fields
+        lst = '\n[[node]]\nanchor = "F5/t"\nkind = "list"\nlabel = "Results"\nop = "a.take"\nstate = "a.rows"\nui = { more = "a.more" }\n'
+        r = D.parse_desc(D.compile_text(MIN + lst))
+        self.assertEqual(r["node"][0]["kind"], D.NODE_KINDS["list"])
+        self.assertEqual((r["node"][0]["op"], r["node"][0]["state"], r["node"][0]["ui"]), ("a.take", "a.rows", "more=a.more"))
+        doc = D.decoded_to_doc(r)
+        self.assertEqual((doc["node"][0]["kind"], doc["node"][0]["ui"]), ("list", {"more": "a.more"}))       # the decompiler names the kind again
+        for bad in (lst.replace('op = "a.take"\n', ''), lst.replace('state = "a.rows"\n', ''), lst.replace('ui = { more = "a.more" }', 'bind = [{ arg = "i", int = 1 }]'),
+                    lst.replace('a.more', 'More'), lst.replace('kind = "list"', 'kind = "op"')):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + bad)
+        pick = '\n[[node]]\nanchor = "F5/t"\nkind = "op"\nlabel = "Year"\nop = "a.set"\nbind = [{ arg = "value", text = true }]\nui = { pick = "%s" }\n'
+        b = D.compile_text(MIN + pick % "@a.years")
+        self.assertEqual(D.parse_desc(b)["node"][0]["ui"], "pick=@a.years")
+        D.compile_text(MIN + pick % "Pick the folder")                 # a label without '@' is still the job's folder pick
+        for bad in ("@", "@a b", "@" + "x" * 40):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + pick % bad)
+        src = '\n[[node]]\nanchor = "F3/search"\nkind = "list"\nlabel = "Online"\nop = "a.take"\nstate = "a.rows"\nui = { search = "Online", find = "a.find", fields = "Group,Handle" }\n'
+        r = D.parse_desc(D.compile_text(MIN + src))
+        self.assertEqual(r["node"][0]["ui"], "search=Online;find=a.find;fields=Group,Handle")
+        for bad in (src.replace('F3/search', 'F5/t'), src.replace('find = "a.find", ', ''), src.replace('"Group,Handle"', '"A,B,C,D,E"'), src.replace('"Group,Handle"', '"A,,B"'),
+                    src.replace('kind = "list"', 'kind = "op"')):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN + bad)
+        # the application's exports: the list's operations take index/answer, the search takes one query, the states exist
+        def arg(name, typ):
+            return {"name": name, "type": typ, "lo": 0, "hi": 1000000, "maxlen": 64, "labels": []}
+        ops = {"a.take": [arg("index", "int"), arg("answer", "string")], "a.more": [], "a.find": [arg("query", "string")], "a.set": [arg("value", "string")], "a.wrong": [arg("x", "int")]}
+        states = {"a.rows", "a.years"}
+        rec = D.parse_desc(D.compile_text(MIN + lst + src + pick % "@a.years"))
+        self.assertEqual(D.check_ops(rec, ops, states), [])
+        self.assertEqual(len(D.check_ops(rec, dict(ops, **{"a.take": ops["a.wrong"]}), states)), 2)      # both the list and the source name it
+        self.assertEqual(len(D.check_ops(rec, ops, {"a.years"})), 2)                                     # no state for the rows
+        self.assertEqual(len(D.check_ops(rec, dict(ops, **{"a.find": [arg("q", "string")]}), states)), 1)
+        self.assertEqual(len(D.check_ops(rec, ops, {"a.rows"})), 1)                                      # no state for the pick
+
+    def test_a_tab_may_be_shown_by_a_state(self):             # T262 P3: `show = "@state"`, alone or beside a layout and its ui
+        b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = "@zl.gate"'))
+        self.assertIn(b";show=@zl.gate", b)
+        b = D.compile_text(MIN.replace('"nodes"', '"nodes"\n  layout = "split"\n  ui = { title = "X" }\n  show = "@zl.gate"'))
+        self.assertIn(b"split;title=X;show=@zl.gate", b)
+        r = D.parse_desc(D.compile_text(MIN + '\n[[tab]]\narea = "F7"\nid = "more"\nname = "More"\nwidget = "nodes"\nshow = "@a.b"\n'))
+        self.assertEqual(r["ctab"][0]["layout"], ";show=@a.b")
+        for bad in ('"zl.gate"', '"@"', '1', '"@a b"'):
+            with self.assertRaises(D.DescError, msg=bad):
+                D.compile_text(MIN.replace('"nodes"', '"nodes"\n  show = ' + bad))
 
     def test_a_tab_may_name_pages(self):                      # T228 D18: a group of the tab that opens as a page
         b = D.compile_text(MIN.replace('"nodes"', '"settings"\n  groups = ["a", "b"]\n  ui = { sections = true, pages = "b" }'))
@@ -386,13 +448,6 @@ class Pad(unittest.TestCase):
         with self.assertRaises(D.DescError):
             D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_declares_its_joystick_pad(self):
-        r = D.parse_desc(D.compile_text(menu_text()))
-        self.assertEqual((r["pad"]["output"], r["pad"]["per_pad"], len(r["pad"]["buttons"])), ("joystick", True, 5))
-        self.assertEqual(r["poll"], {"op": "pad.poll", "period_ms": 16})
-        port = next(c for c in r["cset"] if c["apply"] == "pad.port")
-        self.assertEqual((port["group"], port["values"], port["default"]), ("input", ["Port 1", "Port 2"], 1))
-        self.assertIn(("input", "menu.pad_map_port"), [(t["group"], t["op"]) for t in r["task"]])
 
 
 RESTART = """
@@ -437,48 +492,19 @@ class Restart(unittest.TestCase):
             with self.assertRaises(D.DescError):
                 D.parse_desc(bytes(b))
 
-    def test_the_menu_of_trx64u_clears_the_c64_ram_on_a_restart(self):
-        self.assertEqual(D.parse_desc(D.compile_text(menu_text()))["restart"], {"clear_ram": 65536, "ram_only": True})
 
 
 class AgainstTheApplication(unittest.TestCase):
-    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_trx64u.txt)."""
+    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_amiga1200.txt)."""
 
     def check(self, text):
         ops, states = D.load_ops(ops_text())
         return D.check_ops(D.parse_desc(D.compile_text(text)), ops, states)
 
-    def test_the_menu_of_trx64u_is_what_the_application_exports(self):
-        self.assertEqual(self.check(menu_text()), [])
-        D.compile_checked(menu_text(), ops_text())
-
-    def test_it_refuses_what_the_application_does_not_have(self):
-        text = menu_text()
-        cases = [
-            ("an operation that is not exported", 'op = "machine.cold_reset"', 'op = "machine.cold_resetx"', "does not export"),
-            ("an argument the operation lacks", '{ arg = "slot", str = "iec:drive_a" }', '{ arg = "slotx", str = "iec:drive_a" }', "has no argument"),
-            ("an argument left unbound", 'bind = [ { arg = "path", file = true } ]\n  closes_menu = true\n\n[[filetype]]\next = ".d64"', 'bind = [ ]\n  closes_menu = true\n\n[[filetype]]\next = ".d64"', "unbound"),
-            ("a state that is not exported", 'state = "c64.program"', 'state = "c64.programx"', "state"),
-            ("an ask_state that is not exported", 'ask_state = "drive.suggest.d64"', 'ask_state = "drive.suggest.d65"', "state"),
-            ("a text that is no enum label", 'str = "unlinked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', 'str = "linked" } ]\n  closes_menu = true\n  [[filetype.action]]\n  label = "Run disk"', "does not take"),
-            ("a setting applied by a missing operation", 'apply = "drive.set_ram"', 'apply = "drive.set_ramx"', "does not export"),
-            ("an ask without the typed text", 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", text = true }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', 'bind = [ { arg = "slot", str = "iec:drive_a" }, { arg = "path", str = "x" }, { arg = "format", str = "g64" } ]\nask = "Name of the G64"', "binds it 0 times"),
-        ]
-        for what, old, new, word in cases:
-            self.assertGreaterEqual(text.count(old), 1, what)
-            bad = self.check(text.replace(old, new, 1))
-            self.assertTrue(bad and any(word in b for b in bad), "%s: %r" % (what, bad))
-
-    def test_the_packer_stops_at_the_first_such_menu(self):
-        with self.assertRaises(D.DescError) as e:
-            D.compile_checked(menu_text().replace('apply = "drive.set_ram"', 'apply = "nope"'), ops_text(), what="menu.toml")
-        self.assertIn("menu.toml", str(e.exception))
-        self.assertIn("nope", str(e.exception))
-
     def test_a_check_that_sees_nothing_is_no_check(self):
         # the export that names nothing refuses everything: the check is not vacuous
         bad = D.check_ops(D.parse_desc(D.compile_text(menu_text())), {}, set())
-        self.assertGreater(len(bad), 15)
+        self.assertGreater(len(bad), 5)
 
 
 class LibraryMenus(unittest.TestCase):
@@ -494,7 +520,7 @@ class LibraryMenus(unittest.TestCase):
         own = [n["label"] for n in D.parse_desc(base)["node"]]
         self.assertEqual((merged, kept, r["merged"]), (["gamma"], [], ["gamma"]))
         self.assertEqual([n["label"] for n in r["node"]], own + ["Gamma"])          # the menu's own nodes stay, the library's come after them
-        self.assertEqual([a["label"] for a in r["action"]], ["Play"])
+        self.assertEqual([a["label"] for a in r["action"]], [a["label"] for a in D.parse_desc(base)["action"]] + ["Play"])
         self.assertEqual(len(r["task"]), len(D.parse_desc(base)["task"]))                       # the core's own menu is what it was
         self.assertEqual(D.parse_desc(base)["merged"], [])
 
@@ -516,6 +542,1219 @@ class LibraryMenus(unittest.TestCase):
     def test_nothing_to_merge_leaves_the_bytes(self):
         base = D.compile_text(menu_text())
         self.assertEqual(D.merge_lib_menus(base, [])[0], base)
+
+
+VC20 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cores", "vc20", "app", "desc.toml")
+
+
+def vc20_numbers():
+    """cores/vc20/app/desc.toml with every name of its TOML A written out as the number it stands for (T239.3 V-2): the text the other tests of this file change."""
+    import re
+    names = D.toml_a_names(D.toml_loads(open(os.path.join(os.path.dirname(VC20), "gateware.toml")).read()))
+    text = open(VC20).read().replace('toml_a = "gateware.toml"\n', "")
+    text = re.sub(r'\b(reg\w*|fb_base|fb_stride) = "([a-z0-9_.]+)"', lambda m: "%s = %d" % (m.group(1), names[m.group(2)]), text)
+    return re.sub(r'\{ reg = "([a-z0-9_.]+)"', lambda m: "{ reg = %d" % names[m.group(1)], text)
+
+
+class CoreSections(unittest.TestCase):
+    """T239.3 D17: the data sections of version 6, from the VIC-20's own description."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = vc20_numbers()
+        cls.blob = D.compile_text(cls.text)
+
+    def test_the_vic20_description_is_a_version_6_record_that_reads_back(self):
+        import struct
+        b = self.blob
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (6, D.HEADER_V6))
+        r = D.parse_desc(b)
+        self.assertTrue(r["sections"])
+        self.assertEqual((r["core"]["id"], r["core"]["name"], r["core"]["caps"]), ("VC20", "VIC-20", ["iec", "drive_a"]))
+        self.assertEqual([x["role"] for x in r["rom"]], ["BASIC", "KERNAL", "CHAR", "1541 drive", "JiffyDOS VC-20 KERNAL", "JiffyDOS 1541 ROM"])
+        self.assertEqual(r["video"]["fb_base"], 0x01D00000)
+        self.assertEqual(r["freeze"], {"reg_status": 0xA4, "mask": 2, "timeout_ms": 200, "word": False})
+        self.assertEqual(r["mount"], {"names": ["Drive A"]})
+        self.assertEqual(r["hotkeys"]["mod"], [58, 255])
+        bound = [c["key"] for c in r["cset"] if c.get("reg_bind")]
+        self.assertEqual(bound, ["Memory Expansion (at next reset)", "Block 5 ($A000), when expanded", "Datasette port"])
+        self.assertIsNone(r["cset"][0]["apply"])
+        self.assertEqual(r["restart"], {"clear_ram": 65536, "ram_only": False})
+
+    def test_the_record_compiles_back_to_the_same_bytes(self):
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(self.blob))), self.blob)
+
+    def test_a_record_without_sections_stays_what_it_was(self):
+        import struct
+        b = D.compile_text(MIN)
+        self.assertEqual(struct.unpack_from("<HH", b, 4), (4, D.HEADER))
+        self.assertFalse(D.parse_desc(b)["sections"])
+
+    def _sections(self):
+        import struct
+        soff = struct.unpack_from("<I", self.blob, D.HEADER_V5)[0]
+        return soff
+
+    def test_a_section_the_reader_does_not_know_is_refused_by_number(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, self._sections(), 99)
+        with self.assertRaisesRegex(D.DescError, "section 99"):
+            D.parse_desc(bytes(b))
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        b = bytearray(self.blob)
+        soff = self._sections()
+        struct.pack_into("<I", b, soff + 4, 68)                      # the core section's length: 72 bytes -> 68
+        with self.assertRaisesRegex(D.DescError, "section"):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, soff + 8 + 4 * 1, 0x7FFFFFF0)       # its name: a string outside the table
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_the_sections_need_their_flag_and_their_place(self):
+        import struct
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, 12, struct.unpack_from("<I", b, 12)[0] & ~4)
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+        b = bytearray(self.blob)
+        struct.pack_into("<I", b, D.HEADER_V5, 100)                   # the sections would start inside the tables
+        with self.assertRaises(D.DescError):
+            D.parse_desc(bytes(b))
+
+    def test_a_rom_name_behind_a_gap_is_refused(self):
+        import struct
+        soff = self._sections()
+        at, sec = soff, None
+        while at < len(self.blob):                                              # walk the sections: id, length, payload
+            sid, ln = struct.unpack_from("<II", self.blob, at)
+            if sid == D.SEC_ROMS:
+                sec = at + 8
+                break
+            at += 8 + ln
+        self.assertIsNotNone(sec)
+        nw = sec + 4 + 4 * (3 + D.ROM_SIZES_MAX)                                # the first entry's name words
+        first = struct.unpack_from("<I", self.blob, nw)[0]
+        self.assertNotEqual(first, D.NONE)
+        b = bytearray(self.blob)
+        struct.pack_into("<II", b, nw, D.NONE, first)                           # NONE, name: the name sits behind a gap
+        with self.assertRaisesRegex(D.DescError, "name behind a gap"):
+            D.parse_desc(bytes(b))
+
+    def test_what_the_compiler_refuses(self):
+        for what, text in (
+                ("apply and reg_bind", self.text.replace('apply = "vc20.set_jiffy"', 'apply = "vc20.set_jiffy"\nreg_bind = { reg = 1, mask = 1 }')),
+                ("neither", self.text.replace('apply = "vc20.set_jiffy"', "")),
+                ("bytes per value", self.text.replace("bytes = [0x00, 0x10]", "bytes = [0x00]")),
+                ("no core", self.text.replace("[core]", "[core_gone]")),
+                ("a flag that is no key", self.text.replace('min_contract = 1', 'min_contract = 1\nmenu_last = true')),
+                ("a rom without a size", self.text.replace("sizes = [4096]", "sizes = []")),
+                ("a scale of 5", self.text.replace("scale = 3", "scale = 5"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_the_core_section_takes_eight_caps_and_the_reader_holds_the_same_limits(self):
+        import struct
+        caps9 = ", ".join('"c%d"' % i for i in range(9))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        text = self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9[:caps9.rindex(",")])        # eight: fine
+        D.parse_desc(D.compile_text(text))
+        saved = D.CAPS_MAX
+        try:
+            D.CAPS_MAX = 9                                                        # a writer that allows nine: the reader still refuses the record
+            big = D.compile_text(self.text.replace('caps = ["iec", "drive_a"]', "caps = [%s]" % caps9))
+        finally:
+            D.CAPS_MAX = saved
+        with self.assertRaisesRegex(D.DescError, "section core"):
+            D.parse_desc(big)
+        soff = self._sections()
+        for word, value in ((6, 256), (7, 65536), (9, 60001), (16, 65536)):      # min_contract, reset_ms, service_period_ms, live_ms
+            b = bytearray(self.blob)
+            struct.pack_into("<I", b, soff + 8 + 4 * word, value)
+            with self.assertRaisesRegex(D.DescError, "section core", msg=str(word)):
+                D.parse_desc(bytes(b))
+        b = bytearray(self.blob)                                                  # video: reg_latest (the ninth word) above 65535
+        at = soff + 8 + 72 + 8
+        struct.pack_into("<I", b, at + 4 * 8, 65536)
+        with self.assertRaisesRegex(D.DescError, "section video"):
+            D.parse_desc(bytes(b))
+
+    def test_the_hooks_library_of_a_core_is_a_19th_word_and_the_reader_holds_the_same_limits(self):
+        # T239.3 base 3.3 (core_hooks.h): [core] hooks = "<library name>" says the core's code is the export corehooks of that library of the bundle
+        import struct
+        self.assertNotIn("hooks", D.parse_desc(self.blob)["core"])
+        plain = D.compile_text(self.text)
+        b = D.compile_text(self.text.replace("[core]\n", '[core]\nhooks = "cmodel"\n', 1))
+        r = D.parse_desc(b)
+        self.assertEqual(r["core"]["hooks"], "cmodel")
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+        def core_len(blob):                                                       # section 1 is the first: its header (id, length) stands at the sections' offset
+            at = struct.unpack_from("<I", blob, D.HEADER_V5)[0]
+            self.assertEqual(struct.unpack_from("<I", blob, at)[0], 1)
+            return struct.unpack_from("<I", blob, at + 4)[0]
+        self.assertEqual((core_len(plain), core_len(b)), (72, 76))                # 18 words without the name, 19 with it
+        for what, text in (("empty", '""'), ("capitals", '"CModel"'), ("16 characters", '"0123456789abcdef"'), ("a dash", '"c-model"'), ("a number", "3")):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(self.text.replace("[core]\n", "[core]\nhooks = %s\n" % text, 1))
+        D.compile_text(self.text.replace("[core]\n", '[core]\nhooks = "0123456789abcde"\n', 1))      # 15 characters: the longest
+        with self.assertRaisesRegex(D.DescError, "hooks library name"):          # the reader refuses what the writer would not have written
+            D.parse_desc(b.replace(b"cmodel\0", b"cModel\0"))
+        with self.assertRaisesRegex(D.DescError, "hooks library name|a text is missing"):
+            D.parse_desc(b.replace(b"cmodel\0", b"\0model\0"))
+
+    def test_a_file_setting_is_kind_3_and_reads_back(self):
+        # T239.3 D17: a file the person selects (Setting::kind 3), live or reset, no values of its own
+        text = self.text + '\n[[core_setting]]\nkey = "Kit file"\nfile = true\nwhen = "reset"\napply = "vc20.use_kit"\n'
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Kit file"][0]
+        self.assertEqual((c["file"], c["when"], len(c["values"]), c["apply"]), (True, "reset", 1, "vc20.use_kit"))
+        self.assertFalse(any(x["file"] for x in r["cset"] if x["key"] != "Kit file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, extra in (("values", 'values = ["a", "b"]'), ("default", 'default = "x"'), ("text", "text = true"), ("reg_bind", "reg_bind = { reg = 1, mask = 1 }"),
+                            ("base", "base = 3"), ("empty", 'empty = "none"')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text + extra + "\n")
+        with self.assertRaises(D.DescError, msg="no apply"):
+            D.compile_text(text.replace('apply = "vc20.use_kit"', ""))
+
+    def test_register_bits_with_a_condition_and_up_to_64_bytes(self):
+        # a reg_bind setting may have a show_state (its offset sits above the time code) and 64 bytes; a text or a file setting may not be register bits
+        vals = ", ".join('"v%d"' % i for i in range(64))
+        by = ", ".join(str(i) for i in range(64))
+        head = '\n[[core_setting]]\nkey = "Wide"\nvalues = [%s]\nwhen = "reset"\nshow_state = "x.on == yes"\nreg_bind = { reg = 5, mask = 255, bytes = [%s] }\n'
+        b = D.compile_text(self.text + head % (vals, by))
+        r = D.parse_desc(b)
+        c = [x for x in r["cset"] if x["key"] == "Wide"][0]
+        self.assertEqual((len(c["reg_bind"]["bytes"]), c["show_state"]), (64, "x.on == yes"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + head % (vals + ', "v64"', by + ", 64"))
+        with self.assertRaises(D.DescError):
+            D.compile_text(self.text + '\n[[core_setting]]\nkey = "T"\ntext = true\nreg_bind = { reg = 5, mask = 1 }\n')
+
+    def test_a_video_of_zeros_is_no_picture_of_the_cores_own(self):
+        # the SuperCPU's picture goes through the host's scaler: scale 0 with every other number 0, and the freeze next to it
+        zero = "\n".join("%s = 0" % k for k in D.VIDEO_INTS)
+        sect = "[video]\n" + zero + "\n\n"
+        i, j = self.text.index("[video]"), self.text.index("[freeze]")
+        text = self.text[:i] + sect + self.text[j:]
+        r = D.parse_desc(D.compile_text(text))
+        self.assertEqual((r["video"]["scale"], r["video"]["w"], r["freeze"]["reg_status"]), (0, 0, 0x0A4))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), D.compile_text(text))
+        for what, t in (("a width", text.replace("w = 0", "w = 4")), ("a buffer count", text.replace("nbuf = 0", "nbuf = 2"))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(t)
+        with self.assertRaises(D.DescError, msg="scale 4"):
+            D.compile_text(self.text.replace("scale = 3", "scale = 4"))
+
+    def test_a_core_with_no_picture_has_an_empty_video_and_still_a_freeze_timeout(self):
+        head = '[core]\nid = "NOPI"\nname = "N"\ntitle = "N"\nshort_title = "N"\nfolder = "n"\nstore = "N"\n'
+        r = D.parse_desc(D.compile_text(head + "[video]\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n"))
+        self.assertEqual(r["video"]["scale"], 0)
+        self.assertEqual(r["freeze"], {"reg_status": 0, "mask": 0, "timeout_ms": 200, "word": False})
+        with self.assertRaises(D.DescError):                                      # one key of a picture is no picture: the scale is 1 to 3 then
+            D.compile_text(head + "[video]\nw = 320\n[freeze]\nreg_status = 0\nmask = 0\ntimeout_ms = 200\n")
+
+    def test_a_count_that_is_no_number_is_a_description_error(self):
+        for sect, key, bad, more in (("window_media", "nslots", '"2"', ""), ("window_media", "ntracks", "1.5", "nslots = 1\n"), ("sector_media", "nunits", "true", "")):
+            with self.assertRaisesRegex(D.DescError, "'%s' is a number" % key):
+                D.compile_text(self.text + "\n[%s]\n%s%s = %s\n" % (sect, more, key, bad))
+
+    def test_a_library_merged_into_it_keeps_the_sections(self):
+        lib = D.compile_text('[[node]]\nanchor = "F7/settings"\nkind = "op"\nlabel = "L"\nop = "l.go"\n')
+        blob, merged, kept = D.merge_lib_menus(self.blob, [("lib", lib)])
+        r = D.parse_desc(blob)
+        self.assertEqual((merged, r["core"]["id"], len(r["rom"]), r["mount"]["names"]), (["lib"], "VC20", 6, ["Drive A"]))
+        self.assertEqual([n["label"] for n in r["node"]], ["L"])
+
+
+class MoreSections(unittest.TestCase):
+    """T239.3 D17 part 2: sections 7 .. 17 (reset writes ... media replace) from the goldens the C++ test reads (tests/coreapp/test_descsec.cc)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.a_text, cls.x_text = src("desc_sections.toml"), src("desc_sections_extra.toml")
+        cls.a, cls.x = D.compile_text(cls.a_text), D.compile_text(cls.x_text)
+
+    def test_both_read_back_and_compile_to_the_same_bytes(self):
+        for b in (self.a, self.x):
+            self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_what_the_amiga_tables_hold(self):
+        r = D.parse_desc(self.a)
+        self.assertEqual([(x["reg"], x["value"]) for x in r["reset_write"]], [(0xA3, 0), (0xA6, 0x21)])
+        self.assertEqual(r["id_feature"], {"reg": 0xC, "mask": 8, "value": 8})
+        self.assertEqual(len(r["report_reg"]), 16)
+        self.assertEqual((len(r["rawkeys"]["hid"]), len(r["rawkeys"]["mod"]), r["rawkeys"]["caps_code"]), (0x68, 8, 0x62))
+        self.assertEqual((r["mouse"]["kind"], r["mouse"]["clamp"], r["mouse"]["step"]), ("counters", 4000, 127))
+        self.assertEqual((r["fbwin"]["x_origin"], r["fbwin"]["src_w"], r["fbwin"]["def_cols"]), (182, 753, 90))
+        self.assertEqual((r["romset"]["sizes"], r["romset"]["max"], r["romset"]["version"], r["romset"]["pick"]), ([262144, 524288], 8, True, True))
+        self.assertEqual((r["window_media"]["prefix"], r["window_media"]["nslots"], r["sector_media"]["nunits"]), ("DF", 4, 2))
+        self.assertEqual((r["pad"]["regs"], r["pad"]["per_pad"]), ([464, 0], True))
+
+    def test_what_no_descriptor_has_together(self):
+        r = D.parse_desc(self.x)
+        self.assertTrue(r["rom"][0]["check"] and not r["rom"][1]["check"])
+        self.assertEqual(r["alt_video"]["x0"], -8)
+        self.assertEqual(r["rawkeys"], {"held": True, "caps_usage": 255})
+        self.assertEqual([m.get("replace") for m in r["media"]], ["Replace Cartridge", None, "Replace Disk"])
+        self.assertEqual((r["romset"]["version"], r["romset"]["pick"]), (False, False))
+
+    CHOICE = '\n[[core_setting]]\nkey = "Kickstart file (at reload)"\nlabel = "Kickstart file"\nwhen = "reset"\nromset_choice = true\n'
+
+    def test_the_rom_sets_choice_is_a_setting_with_neither_operation_nor_register_bits(self):
+        text = self.a_text + self.CHOICE
+        b = D.compile_text(text)
+        r = D.parse_desc(b)
+        c = [c for c in r["cset"] if c["key"] == "Kickstart file (at reload)"][0]
+        self.assertEqual((c["apply"], c["values"], c["default"], c["when"], c["label"]), (None, ["Auto (3.1 first)"] + ["-"] * 8, 0, "reset", "Kickstart file"))
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        for what, bad in (("no rom set behind it", text.replace("[romset]", "[romset_gone]")),
+                          ("another key than the set's choice", text.replace('key = "Kickstart file (at reload)"\nlabel', 'key = "Other"\nlabel')),
+                          ("values of its own", text + 'values = ["a", "b"]\n'),
+                          ("an operation as well", text + 'apply = "x.y"\n')):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(bad)
+
+    def test_six_media_slots_and_six_mount_names_are_taken_and_seven_are_not(self):
+        def text(n):
+            return self.x_text + "".join('\n[[media]]\nname = "Extra%d"\nstate = "extra.s%d"\n' % (i, i) for i in range(n - 3)) + \
+                '\n[mount]\nnames = [%s]\n' % ", ".join('"S%d"' % i for i in range(n))
+        r = D.parse_desc(D.compile_text(text(6)))
+        self.assertEqual(len(r["media"]), 6)
+        with self.assertRaises(D.DescError):
+            D.compile_text(text(7))
+
+    def test_what_the_compiler_refuses(self):
+        a, x = self.a_text, self.x_text
+        for what, text in (
+                ("a reset write beyond a byte", a.replace("value = 0x21", "value = 0x121")),
+                ("an id feature with no mask", a.replace("mask = 0x8", "mask = 0")),
+                ("a report register of 3 bytes", a.replace("bytes = 1", "bytes = 3", 1)),
+                ("a mouse kind that does not exist", a.replace('kind = "counters"', 'kind = "ball"')),
+                ("a window media slot count of 5", a.replace("nslots = 4", "nslots = 5")),
+                ("a sector media with no prefix", a.replace('prefix = "HD"\n', "")),
+                ("a rom set of 9", a.replace("max = 8", "max = 9")),
+                ("a rom set with no size", a.replace("sizes = [262144, 524288]", "sizes = []")),
+                ("rawkeys with a short modifier table", a.replace("mod = [ 0x63, 0x60, 0x64, 0x66, 0x63, 0x61, 0x65, 0x67 ]", "mod = [ 0x63 ]")),
+                ("held rawkeys with a table", x.replace("held = true", "held = true\nreg = 1")),
+                ("a fbwin number out of range", a.replace("src_w = 753", "src_w = 40000")),
+                ("a field that is no key", a.replace("[mouse]", "[mouse]\nspeed = 1")),
+                ("sections without a core", x.replace("[core]", "[core_gone]")),
+                ("a replace that is empty", x.replace('replace = "Replace Disk"', 'replace = ""'))):
+            with self.assertRaises(D.DescError, msg=what):
+                D.compile_text(text)
+
+    def test_a_damaged_section_is_refused_by_name(self):
+        import struct
+        soff = struct.unpack_from("<I", self.a, D.HEADER_V5)[0]
+        at, found = soff, {}
+        while at < len(self.a):
+            sid, ln = struct.unpack_from("<II", self.a, at)
+            found[sid] = at
+            at += 8 + ln
+        for sid, name in ((D.SEC_RESETW, "reset writes"), (D.SEC_IDFEAT, "id feature"), (D.SEC_REPORT, "report registers"), (D.SEC_RAWKEYS, "raw keys"), (D.SEC_FBWIN, "picture window"),
+                          (D.SEC_MOUSE, "mouse"), (D.SEC_ROMSET, "rom set"), (D.SEC_WINMEDIA, "window media"), (D.SEC_SECMEDIA, "sector media")):
+            b = bytearray(self.a)
+            struct.pack_into("<I", b, found[sid] + 4, struct.unpack_from("<I", b, found[sid] + 4)[0] + 4)
+            with self.assertRaisesRegex(D.DescError, name, msg=name):
+                D.parse_desc(bytes(b))
+
+    def test_the_pad_with_one_port_may_leave_the_second_register_zero(self):
+        t = self.a_text
+        D.compile_text(t)
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("per_pad = true\n", ""))                     # two ports: both registers are real
+        with self.assertRaises(D.DescError):
+            D.compile_text(t.replace("regs = [0x1D0, 0]", "regs = [0, 0x1D0]"))    # the first never is 0
+
+
+class KeyTableWindowsAndJobs(unittest.TestCase):
+    """T239.3 base 3.3: the key table of a core's UI TOML (section 18), the register windows of its API TOML (section 19) and a job task. The C++ reader of the same
+    rules is tests/coreapp/test_deckeys.cc (fixture tests/coreapp/golden/desc_keys.toml)."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    FULL = """
+key = [
+  { layout = "terminal", key = "f10", do = "decline" },
+  { layout = "terminal", key = "runstop", do = "decline", when = "!monitor.wants_stop" },
+  { layout = "terminal", key = "any", op = "monitor.key", pass_key = true, directive = true, direct = true },
+  { layout = "timeline", key = "left", op = "tw.step", value = -1, status = true },
+  { layout = "timeline", key = "return", op = "tw.resume", status_ok = true, close = true },
+  { layout = "timeline", key = "ctrl+o", op = "tw.monitor", directive = true },
+  { layout = "timeline", codes = [32, 126], do = "swallow" },
+  { node = "scope", key = "x", op = "tw.step", value = 7, when = "tw.on" },
+]
+"""
+    WIN = """
+[[window]]
+name = "audio_mixer"
+address = 0xA0000600
+size = 0x14
+"""
+
+    def test_a_key_table_alone_is_a_version_6_record_that_needs_no_core(self):
+        b = D.compile_text(self.FULL)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertFalse(r["sections"])                                   # no core's data sections: a menu.toml with its key table
+        self.assertNotIn("core", r)
+        self.assertEqual(len(r["key"]), 8)
+        self.assertEqual(r["key"][2], {"layout": "terminal", "key": "any", "do": "op", "op": "monitor.key", "pass_key": True, "directive": True, "direct": True})
+        self.assertEqual(r["key"][3], {"layout": "timeline", "key": "left", "do": "op", "op": "tw.step", "value": -1, "status": True})
+        self.assertEqual(r["key"][1]["when"], "!monitor.wants_stop")
+        self.assertEqual(r["key"][6], {"layout": "timeline", "codes": [32, 126], "do": "swallow"})
+        self.assertEqual(r["key"][7]["node"], "scope")
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)            # decoding and compiling again gives the same bytes
+
+    def test_the_table_form_and_the_array_form_are_the_same_record(self):
+        rows = [{"layout": "timeline", "key": "esc", "op": "tw.cancel", "close": True}, {"layout": "timeline", "codes": [32, 126], "do": "swallow"}]
+        table = '[[key]]\nlayout = "timeline"\nkey = "esc"\nop = "tw.cancel"\nclose = true\n[[key]]\nlayout = "timeline"\ncodes = [32, 126]\ndo = "swallow"\n'
+        array = 'key = [ { layout = "timeline", key = "esc", op = "tw.cancel", close = true }, { layout = "timeline", codes = [32, 126], do = "swallow" } ]\n'
+        self.assertEqual(D.compile_text(table), D.compile_text(array))
+        self.assertEqual(D.compile_desc({"key": rows}), D.compile_text(array))
+        self.assertEqual(D._Toml(table).parse(), D._Toml(array).parse())
+
+    def test_the_key_names_are_the_keyboards(self):
+        with open(os.path.join(self.ROOT, "host-app", "software", "io", "c64", "keyboard.h")) as f:
+            text = f.read()
+        import re
+        defs = {m.group(1): int(m.group(2), 16) for m in re.finditer(r"#define\s+(KEY_\w+)\s+(0x[0-9A-Fa-f]+)", text)}
+        want = {"up": "KEY_UP", "down": "KEY_DOWN", "left": "KEY_LEFT", "right": "KEY_RIGHT", "return": "KEY_RETURN", "esc": "KEY_ESCAPE", "del": "KEY_BACK", "runstop": "KEY_BREAK",
+                "space": "KEY_SPACE", "home": "KEY_HOME", "pgup": "KEY_PAGEUP", "pgdn": "KEY_PAGEDOWN", "tab": "KEY_TAB", "f10": "KEY_F10", "scrlock": "KEY_SCRLOCK", "menu": "KEY_MENU"}
+        for i in range(1, 9):
+            want["f%d" % i] = "KEY_F%d" % i
+        self.assertEqual(sorted(D.KEY_NAMES), sorted(want))
+        for n, k in want.items():
+            self.assertEqual(D.KEY_NAMES[n], defs[k], n)
+        for letter, code in D.KEY_CTRL.items():
+            self.assertEqual(code, defs["KEY_CTRL_" + letter.upper()], letter)
+
+    def test_a_printable_character_and_the_codes_of_a_range(self):
+        b = D.compile_text('key = [ { node = "t", key = "q", op = "a.b" }, { node = "t", key = "~", op = "a.b" }, { node = "t", codes = [7, 7], op = "a.b" } ]')
+        r = D.parse_desc(b)["key"]
+        self.assertEqual([x.get("key") or x.get("codes") for x in r], ["q", "~", [7, 7]])
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_what_the_compiler_refuses(self):
+        def bad(row, msg):
+            with self.assertRaises(D.DescError, msg=msg) as e:
+                D.compile_text("key = [ %s ]" % row)
+            return str(e.exception)
+        bad('{ key = "any", op = "a.b" }', "neither layout nor node")
+        bad('{ layout = "terminal", node = "t", key = "any", op = "a.b" }', "both")
+        bad('{ layout = "terminal", op = "a.b" }', "no key")
+        bad('{ layout = "terminal", key = "a", codes = [1, 2], op = "a.b" }', "key and codes")
+        bad('{ layout = "terminal", key = "any" }', "no op and no do")
+        bad('{ layout = "terminal", key = "any", do = "op" }', "do = op without an operation")
+        bad('{ layout = "terminal", key = "any", do = "decline", op = "a.b" }', "a decline with an operation")
+        bad('{ layout = "terminal", key = "any", do = "swallow", close = true }', "a swallow with a flag")
+        bad('{ layout = "terminal", key = "any", do = "swallow", value = 1 }', "a swallow with a value")
+        bad('{ layout = "terminal", key = "any", do = "maybe", op = "a.b" }', "an unknown action")
+        bad('{ layout = "terminal", key = "any", op = "a.b", value = 1, pass_key = true }', "value and pass_key")
+        bad('{ layout = "terminal", key = "any", op = "a.b", value = 2147483648 }', "a value that does not fit")
+        bad('{ layout = "terminal", key = "any", op = "a.b", close = "yes" }', "a flag that is no boolean")
+        bad('{ layout = "terminal", key = "any", op = "a.b", pass = true }', "an unknown field")
+        bad('{ layout = "Terminal", key = "any", op = "a.b" }', "a layout name in capitals")
+        bad('{ node = "a b", key = "any", op = "a.b" }', "a node id with a blank")
+        bad('{ layout = "terminal", key = "nokey", op = "a.b" }', "a key name nobody has")
+        bad('{ layout = "terminal", key = "ctrl+q", op = "a.b" }', "a ctrl letter the keyboard does not deliver")
+        bad('{ layout = "terminal", key = " ", op = "a.b" }', "the blank is space")
+        bad('{ layout = "terminal", codes = [5, 4], op = "a.b" }', "lo above hi")
+        bad('{ layout = "terminal", codes = [0, 512], op = "a.b" }', "a code above 0x1FF")
+        bad('{ layout = "terminal", codes = [1], op = "a.b" }', "one code")
+        bad('{ layout = "terminal", key = "any", op = "a.b", when = "!" }', "a bare !")
+        bad('{ layout = "terminal", key = "any", op = "a.b", when = "!!x" }', "a double !")
+        bad('{ layout = "terminal", key = "any", op = "a.b", when = "" }', "an empty condition")
+        with self.assertRaises(D.DescError):
+            D.compile_text("key = []")
+        with self.assertRaises(D.DescError):
+            D.compile_text("key = [ %s ]" % ", ".join(['{ layout = "terminal", key = "a", op = "a.b" }'] * (D.KEYS_MAX + 1)))
+        D.compile_text("key = [ %s ]" % ", ".join(['{ layout = "terminal", key = "a", op = "a.b" }'] * D.KEYS_MAX))
+        with self.assertRaises(D.DescError):
+            D.compile_text("key = 5")
+
+    def test_the_reader_refuses_a_damaged_table(self):
+        import struct
+        b = D.compile_text(self.FULL)
+        at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4                   # the first row's words (the section is the only one)
+        self.assertEqual(struct.unpack_from("<I", b, D.HEADER_V5 + 4)[0], 8 + 4 + 36 * 8)
+        for what, row, word, value in (("do 3", 3, 4, 3), ("no operation", 3, 5, D.NONE), ("a decline with an operation", 0, 5, 0), ("an unknown flag", 3, 7, 1 | 4 | 16),
+                                       ("value and key", 3, 7, 1 | 2), ("a decline with a flag", 0, 7, 4), ("lo above hi", 3, 2, 0x200), ("a key above 0x1FF", 3, 3, 0x200),
+                                       ("lo any, hi not", 2, 3, 5), ("an empty condition", 1, 8, 0), ("neither scope", 3, 0, D.NONE), ("both scopes", 3, 1, 0)):
+            x = bytearray(b)
+            struct.pack_into("<I", x, at + 36 * row + 4 * word, value)
+            with self.assertRaisesRegex(D.DescError, "key rows", msg=what):
+                D.parse_desc(bytes(x))
+        for n in range(len(b)):
+            with self.assertRaises(D.DescError, msg=n):
+                D.parse_desc(b[:n])
+
+    def test_a_window_is_written_and_read_back_by_name(self):
+        b = D.compile_text(self.WIN + '[[window]]\nname = "u64_userport"\naddress = 0xA0000405\nsize = 1\n')
+        r = D.parse_desc(b)
+        self.assertEqual(r["window"], [{"name": "audio_mixer", "address": 0xA0000600, "size": 0x14}, {"name": "u64_userport", "address": 0xA0000405, "size": 1}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+
+    # the nine windows of TRX64-Ultimate's software/trx64u/base/desc.toml (the hand-over's grant list) with its names, addresses (firmware space) and sizes
+    HANDOVER_WINDOWS = (("speaker_enable", 0xA000000C, 0x1), ("u64_userport", 0xA0000405, 0x1), ("u64_hdmi_connectors", 0xA0000408, 0x2), ("u64_pwm_duty", 0xA000040D, 0x1),
+                        ("audio_mixer", 0xA0000500, 0x14), ("speaker_mixer", 0xA0000540, 0x6), ("resampler", 0xA0000580, 0xA), ("c64_palette", 0xA0080800, 0x440),
+                        ("hdmi_palette", 0xA0045000, 0x40))
+
+    def test_the_windows_of_the_handover_are_accepted_or_refused_by_the_base_block_they_hit(self):
+        # T239.3 V-3c: the readers translate the firmware's addresses by the [io] of host.toml (0x10100000) before the check against its base blocks. Of the nine windows of the
+        # hand-over, five pass; four lie over a base-owned block of host.toml and are refused (the hand-over grants them, host.toml owns them: Alex decides which stands).
+        refused = {"audio_mixer": "audio_mixer", "speaker_mixer": "speaker_mixer_a", "c64_palette": "c64_palette", "hdmi_palette": "overlay_palette"}
+        accepted = []
+        for name, addr, size in self.HANDOVER_WINDOWS:
+            text = '[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % (name, addr, size)
+            if name in refused:
+                with self.assertRaisesRegex(D.DescError, "covers the block %s of the base" % refused[name]):
+                    D.compile_text(text)
+            else:
+                self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 1)
+                accepted.append(name)
+        self.assertEqual(accepted, ["speaker_enable", "u64_userport", "u64_hdmi_connectors", "u64_pwm_duty", "resampler"])
+        self.assertEqual(len(self.HANDOVER_WINDOWS), len(accepted) + len(refused))
+
+    def test_a_window_in_firmware_space_is_translated_and_checked_as_in_the_toml_a(self):
+        # T239.3 V-3c: the same byte is refused at 0xA0000401 (firmware space), at 0x10100401 (the host TOML A's) and, through IOBASE 0x04000000, at 0x04100401
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            io = D._BASE_BLOCKS["io"] or (D.use_base_toml_a(D.HOST_TOML_A) or D._BASE_BLOCKS["io"])
+            self.assertEqual(io, (0x10000000, 0x10100000))
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x04100401, 1, io), 0x10100401)
+            self.assertEqual(D.window_to_toml_a(0x10100401, 1, io), 0x10100401)       # an address of the TOML A stays
+            self.assertEqual(D.window_to_toml_a(0xA0100000, 1, io), 0xA0100000)       # beyond the 1 MiB of the firmware's U2P space: not translated
+            with self.assertRaises(D.DescError):
+                D.window_to_toml_a(0xA00FFFFF, 2, io)                                  # a block that leaves the space it starts in
+            msgs = []
+            for a in (0xA0000401, 0x10100401, 0x04100401):
+                with self.assertRaises(D.DescError) as c:
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = 1\n' % a)
+                msgs.append(re.search(r"covers the block (\w+) of the base \(0x([0-9A-F]+)", str(c.exception)).groups())
+            self.assertEqual(msgs[0], msgs[1])
+            self.assertEqual(msgs[1], msgs[2])
+            self.assertEqual(msgs[0][0], "u64_sys")
+            # the board's reader of the record is the same: a version 7 TOML A with other bases moves the window by them
+            self.assertEqual(D.window_to_toml_a(0xA0000401, 1, (0x20000000, 0x20100000)), 0x20100401)
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_a_window_may_not_start_in_a_firmware_span_and_leave_it(self):
+        # the bug it prevents: a straddling block kept its untranslated address, which on the board is DDR, not I/O
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0xA00FFFFF, 2), (0xA00FFFF8, 16), (0x04FFFFFF, 2)):
+                with self.assertRaisesRegex(D.DescError, "ends beyond", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA00FFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')          # a free address of the board's space
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_a_window_must_lie_wholly_in_the_io_span_of_the_toml_a(self):
+        # T239.3 V-3c: the host's bus converter sends addr[23:0] of any address with bit 28 set to the I/O bus; the span is [iobase, iobase + 16 MiB) = 0x10000000 .. 0x10FFFFFF
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            for a, size in ((0x1FFFFF00, 0x200), (0x9FFFFFF0, 0x600), (0x11100550, 1), (0x10FFFFF0, 0x20), (0x0FFFFFF0, 0x20), (0x00001000, 0x10)):
+                with self.assertRaisesRegex(D.DescError, "I/O span", msg="%x" % a):
+                    D.compile_text('[[window]]\nname = "w"\naddress = 0x%X\nsize = %d\n' % (a, size))
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10FFFFF0\nsize = 16\n')          # ends exactly at the span's end: accepted
+            D.compile_text('[[window]]\nname = "w"\naddress = 0x10100900\nsize = 16\n')
+            D.compile_text('[[window]]\nname = "w"\naddress = 0xA0000405\nsize = 1\n')          # firmware U2P space, translated into the span
+            self.assertTrue(D.in_io_span(0x10FFFFF0, 16, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x10FFFFF0, 17, (0x10000000, 0x10100000)))
+            self.assertFalse(D.in_io_span(0x11000000, 1, (0x10000000, 0x10100000)))
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_the_window_table_holds_the_base_blocks_of_the_host_toml_a(self):
+        # T239.3 V-3b (D30 point 1, point 4): the source of the refusal is the base blocks of the TOML A the app is linked with; basereg.def stays gone
+        self.assertFalse(hasattr(D, "base_registers"))
+        self.assertFalse(os.path.exists(os.path.join(self.ROOT, "coreapp", "src", "basereg.def")))
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        text = open(path).read()
+        rows = D.base_blocks_of(text, path)
+        doc = D.toml_loads(text)
+        self.assertEqual(rows, [(b["name"], b["address"], b["size"]) for b in doc["block"] if b["owner"] == "base"])
+        self.assertIn(("cart_regs", 0x10040000, 0x100), rows)
+        self.assertNotIn("core_trx_io", [r[0] for r in rows])                  # a block of the core is not in the table
+        tab = D.basetab_text(rows, "host.toml", D.io_bases_of(text, path)).splitlines()
+        self.assertEqual(len(tab) - 2, len(rows))
+        self.assertIn("BASE_IO(0x10000000u, 0x10100000u)", tab)
+        self.assertIn("BASE_BLOCK(cart_regs, 0x10040000u, 0x100u)", tab)
+        src = open(os.path.join(self.ROOT, "coreapp", "src", "descrec.cc")).read()
+        self.assertIn('#include "basetab.h"', src)
+        self.assertNotIn("0x10040000", src)                                    # the app holds no address of its own
+        self.assertEqual(D.HOST_TOML_A and os.path.realpath(D.HOST_TOML_A), os.path.realpath(path))
+
+    def test_the_host_toml_a_names_a_block_of_layer_2_as_its_identity(self):
+        # T239.3 D39: host.toml has the [identity] block core_trx_io (owner core, no properties); both readers take it, a base-owned identity block still needs id and build
+        path = os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")
+        maps = D.load_maps([os.path.join(self.ROOT, "app", "sdkpkg", "maps")])
+        r = D.parse_desc(D.compile_checked(open(path).read(), maps=maps))
+        self.assertEqual(r["identity"]["block"], "core_trx_io")
+        self.assertEqual({b["name"]: b["owner"] for b in r["block"]}["core_trx_io"], "core")
+        text = open(path).read().replace('block = "core_trx_io"', 'block = "cart_regs"')
+        with self.assertRaisesRegex(D.DescError, "no readable property"):
+            D.compile_checked(text, maps=maps)
+
+    def test_a_window_beside_the_base_blocks_is_accepted(self):
+        D._BASE_BLOCKS["rows"] = None
+        try:
+            rows = D.base_blocks_of(open(D.HOST_TOML_A).read())
+            top = max(a + n for _, a, n in rows)
+            lo = min(a for _, a, _ in rows)
+            beside = (("next_to_the_last", top, 0x10), ("end_of_the_span", 0x10FFFFF0, 0x10), ("between_two_blocks", 0x10100405, 1))
+            text = "".join('[[window]]\nname = "%s"\naddress = 0x%X\nsize = %d\n' % w for w in beside)
+            self.assertEqual(len(D.parse_desc(D.compile_text(text))["window"]), 3)
+            self.assertEqual(D.base_block_hit(0x10100404, 1)[1], 0x10100404)   # the byte before the window is a base block, in the address space of the table
+            self.assertEqual(D.base_block_hit(top, 0x10), None)                  # the table is what the check reads: the first byte past the last block is free
+        finally:
+            D._BASE_BLOCKS["rows"] = None
+
+    def test_what_a_window_must_be(self):
+        def bad(text):
+            with self.assertRaises(D.DescError):
+                D.compile_text(text)
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 0x100001\n')
+        bad('[[window]]\nname = "w"\naddress = 0xFFFFFFF0\nsize = 0x20\n')
+        bad('[[window]]\nname = "W"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0000600\nsize = 4\nflags = 1\n')
+        bad('[[window]]\naddress = 0xA0000600\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = -1\nsize = 4\n')
+        bad('[[window]]\nname = "w"\naddress = 0xA0100000\nsize = 0x100000\n')        # beyond the firmware's U2P span and outside the I/O span
+        import struct
+        b = bytearray(D.compile_text(self.WIN))
+        at = struct.unpack_from("<I", b, D.HEADER_V5)[0] + 8 + 4
+        struct.pack_into("<I", b, at + 4, 0xA0000408)                       # the reader takes a window beside the base blocks as the compiler does
+        struct.pack_into("<I", b, at + 8, 1)
+        self.assertEqual(D.parse_desc(bytes(b))["window"][0]["address"], 0xA0000408)
+        for n in range(len(b)):
+            with self.assertRaises(D.DescError):
+                D.parse_desc(bytes(b[:n]))
+
+    def test_a_data_section_still_needs_its_core(self):
+        with self.assertRaisesRegex(D.DescError, "needs \\[core\\]"):
+            D.compile_text('[[reset_write]]\nreg = 1\nvalue = 2\n' + self.WIN)
+        b = D.compile_text(self.FULL + '[core]\nid = "TEST"\nname = "Test"\ntitle = "T"\nshort_title = "T"\nfolder = "test"\nstore = "test"\n' + self.WIN)
+        r = D.parse_desc(b)
+        self.assertTrue(r["sections"])
+        self.assertEqual((r["core"]["id"], len(r["window"]), len(r["key"])), ("TEST", 1, 8))
+
+    def test_a_job_task(self):
+        b = D.compile_text('[[task]]\ngroup = "top"\nlabel = "Dump"\nop = "ring.dump"\njob = true\n[[task]]\nlabel = "Plain"\nop = "ring.plain"\n'
+                           '[[task]]\nlabel = "Named"\nop = "ring.save"\nask = "Name"\nbind = [ { arg = "name", text = true } ]\njob = true\n')
+        r = D.parse_desc(b)
+        self.assertEqual([t["job"] for t in r["task"]], [True, False, True])
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), b)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 4)                          # a job needs no version of its own: a flag of the task
+        head = '[[task]]\nlabel = "Dump"\nop = "ring.dump"\n'
+        for text in (head + 'job = true\nhotkey = "J"\n', head + 'job = true\nask = "N"\npick_dir = true\n', head + 'job = "yes"\n'):
+            with self.assertRaises(D.DescError, msg=text):
+                D.compile_text(text)
+        import struct
+        t0 = struct.unpack_from("<I", b, 24 + 8 * D.ORDER.index("task"))[0]
+        for what, add in (("a hotkey", ord("J") << 8), ("a folder", 2), ("an unknown flag", 8)):
+            x = bytearray(b)
+            struct.pack_into("<I", x, t0 + 16, struct.unpack_from("<I", x, t0 + 16)[0] | add)
+            with self.assertRaises(D.DescError, msg=what):
+                D.parse_desc(bytes(x))
+
+    def test_the_key_rows_are_checked_against_what_the_application_exports(self):
+        ops = "op\ttw.step\tvalue:int:-100:100:0:\nop\ttw.cancel\nop\tmon.key\tkey:int:0:8191:0:\nstate\tmon.stop\n"
+        o, st = D.load_ops(ops)
+
+        def check(row):
+            return D.check_ops(D.parse_desc(D.compile_text("key = [ %s ]" % row)), o, st)
+        self.assertEqual(check('{ layout = "a", key = "left", op = "tw.step", value = -1 }, { layout = "a", key = "esc", op = "tw.cancel" }, { layout = "a", key = "any", op = "mon.key", pass_key = true, when = "!mon.stop" }'), [])
+        self.assertTrue(any("not exported" in b for b in check('{ layout = "a", key = "left", op = "tw.nope" }')))
+        self.assertTrue(any("takes" in b for b in check('{ layout = "a", key = "left", op = "tw.step" }')))                       # the operation wants its value
+        self.assertTrue(any("takes" in b for b in check('{ layout = "a", key = "left", op = "tw.cancel", value = 1 }')))          # and this one none
+        self.assertTrue(any("outside" in b for b in check('{ layout = "a", key = "left", op = "tw.step", value = 1000 }')))
+        self.assertTrue(any("state" in b for b in check('{ layout = "a", key = "left", op = "tw.cancel", when = "mon.nope" }')))
+
+    def test_two_files_are_one_record(self):
+        menu = 'machine_info = "A"\n' + self.FULL
+        desc = self.WIN + '[core]\nid = "TEST"\nname = "Test"\ntitle = "T"\nshort_title = "T"\nfolder = "test"\nstore = "test"\n'
+        both = D.compile_files([("menu.toml", menu), ("desc.toml", desc)])
+        r = D.parse_desc(both)
+        self.assertEqual((r["core"]["name"], len(r["key"]), len(r["window"]), r["machine_info"]), ("Test", 8, 1, "A"))
+        self.assertEqual(D.compile_files([("desc.toml", desc), ("menu.toml", menu)]), both)       # the order of the files changes nothing
+        self.assertEqual(D.compile_files([("one.toml", menu)]), D.compile_text(menu))                # one file is what it was
+        with self.assertRaises(D.DescError) as e:
+            D.compile_files([("menu.toml", self.FULL), ("desc.toml", self.FULL + self.WIN)])
+        self.assertIn("menu.toml", str(e.exception))
+        self.assertIn("desc.toml", str(e.exception))
+        self.assertIn("'key'", str(e.exception))
+        with self.assertRaises(D.DescError) as e:
+            D.compile_files([("a.toml", '[[node]]\nanchor = "F5/x"\nkind = "op"\nlabel = "L"\nop = "o"\n'), ("b.toml", '[[node]]\nanchor = "F5/x"\nkind = "op"\nlabel = "M"\nop = "o"\n')])
+        self.assertIn("a.toml", str(e.exception))
+        self.assertIn("b.toml", str(e.exception))
+        with self.assertRaisesRegex(D.DescError, "bad.toml"):
+            D.compile_files([("menu.toml", menu), ("bad.toml", "key = [")])
+
+    def test_a_library_that_brings_a_key_table_or_windows_stays_for_the_run_time(self):
+        lib = D.compile_text(self.WIN)
+        base = D.compile_text('[core]\nid = "TEST"\nname = "Test"\ntitle = "T"\nshort_title = "T"\nfolder = "test"\nstore = "test"\n')
+        blob, merged, kept = D.merge_lib_menus(base, [("lib", lib)])
+        self.assertEqual((blob, merged), (base, []))
+        self.assertEqual([k[0] for k in kept], ["lib"])
+
+    def test_a_record_without_them_is_what_it_was(self):
+        for f in FIXTURES:
+            b = D.compile_text(src(f))
+            r = D.parse_desc(b)
+            self.assertNotIn("key", r)
+            self.assertNotIn("window", r)
+            self.assertLess(int.from_bytes(b[4:6], "little"), 6)
+
+
+class TomlA(unittest.TestCase):
+    """T239.3 P1-1 (D30, D34): TOML A, record version 7. The C++ reader's side is tests/coreapp/test_desctoml.cc (same fixture)."""
+    MAPS = os.path.join(os.path.dirname(GOLD), "..", "..", "app", "sdkpkg", "maps")
+    BASE = ('[io]\niobase = 0x04000000\nu2p_io_base = 0xA0000000\n[identity]\nid = "TSTA"\nblock = "ident"\n'
+            '[[block]]\nname = "ident"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0000800\nsize = 0x100\n'
+            '[[block.property]]\nname = "id"\noffset = 0\nwidth = 32\ndir = "r"\n'
+            '[[block.property]]\nname = "build"\noffset = 4\nwidth = 32\ndir = "r"\n')
+
+    def fixture(self):
+        return D.compile_checked(src("desc_toml_a.toml"), maps=D.load_maps([self.MAPS]))
+
+    def test_the_fixture_is_version_7_and_reads_back_whole(self):
+        b = self.fixture()
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 7)
+        r = D.parse_desc(b)
+        self.assertEqual(r["io"], {"iobase": 0x04000000, "u2p_io_base": 0xA0000000})
+        self.assertEqual(r["identity"], {"id": "TSTA", "block": "ident", "build": 0x1234ABCD})
+        self.assertEqual([x["name"] for x in r["block"]], ["ident", "cart_flash", "cmd_if", "mixer"])
+        cart = r["block"][1]
+        self.assertEqual(len(cart["property"]), 14)
+        evt = next(p for p in cart["property"] if p["name"] == "evt")
+        self.assertEqual((evt["width"], evt["dir"]), (32, "r"))
+        op = next(f for f in evt["field"] if f["name"] == "op")
+        self.assertEqual([(x["name"], x["value"]) for x in op["state"]], [("program", 1), ("sector_erase", 2), ("chip_erase", 3)])
+        self.assertEqual(r["block"][3]["owner"], "core")
+        desc = next(p for p in cart["property"] if p["name"] == "desc")          # the descriptor: a run of 43 byte registers
+        self.assertEqual((desc["offset"], desc["width"], desc["count"], desc["dir"]), (0x40, 8, 43, "w"))
+        self.assertNotIn("count", evt)                                          # a single register carries no count
+
+    def test_what_is_decoded_compiles_to_the_same_bytes(self):
+        b = self.fixture()
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(D.parse_desc(b))), b)
+
+    def test_a_module_that_serves_several_drivers_is_one_block_per_range(self):
+        doc = self.BASE + ('[[block]]\nname = "page4"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0004000\nsize = 0x100\nmap = "c64cart"\n'
+                           '[[block]]\nname = "page3"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0003000\nsize = 0x100\n')
+        r = D.parse_desc(D.compile_checked(doc, maps=D.load_maps([self.MAPS])))
+        self.assertEqual([x["module"] for x in r["block"]], ["trx_io"] * 3)
+
+    def test_a_property_with_a_count_is_a_run_of_registers(self):
+        # the run of the 1541's dirty bytes, the parameter RAM and the DMA window of the SDK's maps, and one of 16 bit registers: each element has the width, the run is one property
+        maps = D.load_maps([self.MAPS])
+        doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
+                           '[[block]]\nname = "win"\nmodule = "dma"\nowner = "base"\naddress = 0xA0050000\nsize = 0x10000\nmap = "dma"\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000600\nsize = 0x20\n'
+                           '[[block.property]]\nname = "gain"\noffset = 0x4\nwidth = 16\ncount = 4\ndir = "rw"\n'
+                           '[[block.property.field]]\nname = "g"\nshift = 0\nbits = 4\n'
+                           '[[block.property]]\nname = "one"\noffset = 0xC\nwidth = 8\ndir = "rw"\n')
+        blob = D.compile_checked(doc, maps=maps)
+        r = D.parse_desc(blob)
+        props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
+        self.assertEqual(props["drv"]["dirty"]["count"], 128)
+        self.assertEqual((props["drv"]["param_addr"]["width"], props["drv"]["param_addr"]["count"]), (32, 256))
+        self.assertNotIn("param", props["drv"])                                   # the interleaved words are two runs (the stride test)
+        self.assertEqual(props["win"]["mem"]["count"], 0x10000)
+        self.assertEqual((props["regs"]["gain"]["width"], props["regs"]["gain"]["count"]), (16, 4))
+        self.assertNotIn("count", props["regs"]["one"])
+        self.assertEqual(props["regs"]["gain"]["field"][0]["name"], "g")         # fields hold for every element
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the count, and compiles back to the same bytes
+
+    def test_a_run_with_a_stride_is_one_of_two_interleaved_runs(self):
+        # the 1541's parameter RAM (address word, length / time word per half track) and reSID8's curve registers (base, offset per engine): each word is a run of its own
+        maps = D.load_maps([self.MAPS])
+        doc = self.BASE + ('[[block]]\nname = "drv"\nmodule = "c1541"\nowner = "base"\naddress = 0xA0020000\nsize = 0x4000\nmap = "cbm1541"\n'
+                           '[[block]]\nname = "sid"\nmodule = "trx_io"\nowner = "base"\naddress = 0xA0030000\nsize = 0x100\nmap = "sid"\n'
+                           '[[block]]\nname = "regs"\nmodule = "x"\nowner = "core"\naddress = 0xA0000500\nsize = 0x20\n'
+                           '[[block.property]]\nname = "tight"\noffset = 0x0\nwidth = 16\ncount = 4\ndir = "w"\n'
+                           '[[block.property]]\nname = "wide"\noffset = 0x8\nwidth = 8\ncount = 4\nstride = 3\ndir = "w"\n')
+        blob = D.compile_checked(doc, maps=maps)
+        r = D.parse_desc(blob)
+        props = {b["name"]: {p["name"]: p for p in b["property"]} for b in r["block"][1:]}
+        pa, pl = props["drv"]["param_addr"], props["drv"]["param_len"]
+        self.assertEqual((pa["offset"], pa["count"], pa["stride"], pl["offset"], pl["count"], pl["stride"]), (0x1000, 256, 8, 0x1004, 256, 8))
+        self.assertEqual([f["name"] for f in pl["field"]], ["length_m1", "bit_time"])
+        cb, co = props["sid"]["curve_base"], props["sid"]["curve_offset"]
+        self.assertEqual((cb["offset"], cb["count"], cb["stride"], co["offset"], co["count"], co["stride"]), (0x04, 2, 4, 0x06, 2, 4))
+        self.assertEqual(props["regs"]["wide"]["stride"], 3)
+        self.assertNotIn("stride", props["regs"]["tight"])                        # consecutive registers: the stride is the width and is not written
+        self.assertEqual(D.compile_desc(D.decoded_to_doc(r)), blob)               # the record carries the stride, and compiles back to the same bytes
+
+    def test_the_key_table_and_windows_records_stay_below_version_7(self):
+        for f in FIXTURES:
+            self.assertLess(int.from_bytes(D.compile_text(src(f))[4:6], "little"), 7)
+
+    def test_a_map_comes_from_a_file(self):
+        maps = D.load_maps([self.MAPS])
+        self.assertEqual(sorted(maps), ["audio_master", "c64cart", "c64cart_regs", "cbm1541", "dma", "gcr_coder", "icap", "partition", "sid", "uci", "wd177x"])
+        b = '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "%s"\n'
+        self.assertTrue(D.compile_checked(self.BASE + b % "uci", maps=maps))
+
+    def test_the_package_reads_the_maps_beside_its_tools(self):
+        # the SDK package (tools/sdk_pack.sh) holds descrec.py in <sdk>/tools and the maps in <sdk>/maps: toml_a_names with no maps given (cor_pack.py pack --desc) reads them there
+        import shutil
+        import tempfile
+        b = self.BASE + '[[block]]\nname = "u"\nmodule = "uci"\nowner = "base"\naddress = 0x04044000\nsize = 0x10\nmap = "uci"\n'
+        code = "import sys; sys.path.insert(0, sys.argv[1]); import descrec; print(len(descrec.toml_a_names(descrec.toml_loads(sys.stdin.read()))))"
+        with tempfile.TemporaryDirectory() as t:
+            os.mkdir(os.path.join(t, "tools"))
+            shutil.copy(D.__file__, os.path.join(t, "tools"))
+            shutil.copytree(self.MAPS, os.path.join(t, "maps"))
+            r = subprocess.run([sys.executable, "-I", "-c", code, os.path.join(t, "tools")], input=b, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertGreater(int(r.stdout), 2)                                     # the identity's two properties and the map's
+
+    HOST_TOMLA =os.path.join(os.path.dirname(GOLD), "..", "..", "coreapp", "gateware", "host.toml")
+
+    def _host_fragment(self):
+        with open(self.HOST_TOMLA) as f:
+            return D.ldfrag(f.read(), D.load_maps([self.MAPS]), "host.toml")
+
+    def test_the_link_fragment_of_the_apps_comes_from_the_hosts_toml_a(self):
+        # T239.3 V-3: the shared app and the host app link the ldfrag of coreapp/gateware/host.toml (their Makefiles write it); the maps hold today's addresses
+        frag = self._host_fragment()
+        syms = dict((l.split(" = ")[0], int(l.split(" = ")[1].rstrip(";\n"), 16)) for l in frag.splitlines() if l.startswith("__"))
+        # today's values: the -D options the Makefiles passed before T239.3 P1-2, and the literals of hw.cc
+        self.assertEqual((syms["__iobase"], syms["__u2p_io_base"]), (0x10000000, 0x10100000))
+        for n, a in (("id_id", 0x10060600), ("data_data", 0x10060610), ("enable_enable", 0x10060614), ("count_count0", 0x10060618), ("count_count3", 0x1006061B)):
+            self.assertEqual(syms["__reg_icap_" + n], a, n)
+        self.assertEqual(syms["__blk_partition"], 0x10060620)
+        for n, a in (("decouple", 0x10060620), ("release", 0x10060621)):
+            self.assertEqual(syms["__reg_partition_" + n], a, n)
+        # the shared app's own TOML A (its driver table) names the same two bases and the same ICAP registers
+        with open(os.path.join(os.path.dirname(self.HOST_TOMLA), "shared.toml")) as f:
+            doc = D.toml_loads(f.read())
+        self.assertEqual((doc["io"]["iobase"], doc["io"]["u2p_io_base"]), (syms["__iobase"], syms["__u2p_io_base"]))
+        icap = [b for b in D.resolve_maps(doc, D.load_maps([self.MAPS]))["block"] if b["name"] == "icap"][0]
+        for p in icap["property"]:
+            hit = [a for n, a in syms.items() if n.startswith("__reg_icap_") and a == icap["address"] + p["offset"]]
+            self.assertEqual(len(hit), 1, p["name"])
+
+    def test_the_fixed_fragment_and_the_base_register_table_are_gone(self):
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        for rel in ("host-app/target/u64ii/riscv/trx_io.toml", "host-app/target/u64ii/riscv/trx_io.ld", "coreapp/src/basereg.def"):
+            self.assertFalse(os.path.exists(os.path.join(root, rel)), rel)
+
+    def test_the_host_build_takes_its_bases_from_the_fragment(self):
+        import tempfile
+        frag = self._host_fragment()
+        want = {k: int(re.search(r"^__%s = (0x[0-9A-F]+);" % k, frag, re.M).group(1), 16) for k in ("iobase", "u2p_io_base")}
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run([sys.executable, "-I", os.path.join(root, "tools", "descrec.py"), "hostio", os.path.join(root, "coreapp", "gateware", "host.toml"), d], check=True)
+            text = open(os.path.join(d, "hostio.h")).read()
+        self.assertEqual({k: int(v, 16) for k, v in re.findall(r"#define (IOBASE|U2P_IO_BASE) (0x[0-9A-F]+)u", text)},
+                         {"IOBASE": want["iobase"], "U2P_IO_BASE": want["u2p_io_base"]})
+        for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):          # the headers hold no default of their own
+            with open(os.path.join(root, rel), newline="") as f:
+                src = f.read()
+            self.assertIn('#include "hostio.h"', src)
+            self.assertFalse(re.search(r"#define (IOBASE|U2P_IO_BASE) 0x", src), rel)
+
+    def test_every_symbol_a_driver_names_is_in_the_fragment(self):
+        import re
+        root = os.path.join(os.path.dirname(GOLD), "..", "..")
+        frag = self._host_fragment()
+        have = set(re.findall(r"^(__\w+) =", frag, re.M))
+        for rel in ("host-app/software/system/iomap.h", "host-app/software/system/u2p.h"):
+            with open(os.path.join(root, rel)) as f:
+                named = set(re.findall(r"\b(__(?:reg_|blk_)\w+|__iobase|__u2p_io_base)\b", f.read()))
+            self.assertTrue(named, rel)
+            self.assertFalse(named - have, "%s names %s, the fragment has no such symbol" % (rel, sorted(named - have)))
+        for mk in ("coreapp", "hostapp"):
+            with open(os.path.join(root, "host-app", "target", "u64ii", "riscv", mk, "Makefile")) as f:
+                text = f.read()
+            self.assertNotIn("-DIOBASE", text)
+            self.assertNotIn("-DU2P_IO_BASE", text)
+            self.assertIn("LIBS    += $(IOFRAG)", text)
+            self.assertIn("coreapp/gateware/host.toml", text)
+            self.assertNotIn("trx_io.ld", text)
+
+    def test_a_fragment_is_checked_as_a_record_is(self):
+        maps = D.load_maps([self.MAPS])
+        ok = '[io]\niobase = 1\nu2p_io_base = 2\n[[block]]\nname = "i"\nmodule = "icap"\nowner = "base"\naddress = 0x100\nsize = 0x100\nmap = "icap"\n'
+        self.assertIn("__reg_i_count3 = 0x0000011B;", D.ldfrag(ok, maps))
+
+
+
+class RoutesAndPlaces(unittest.TestCase):
+    """T239.3 D32: the routes and places of a core's UI TOML (sections 23 and 24). The C++ reader of the same rules is tests/coreapp/test_uiplace.cc (fixture
+    tests/coreapp/golden/desc_places.toml); the SDK's own table is coreapp/base_ui.toml, which tools/gen_base_ui.py turns into the C++ table."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    T = """
+[[group_route]]
+group = "extras"
+area = "F5"
+tab = "video"
+heading = "Extras"
+
+[[group_route]]
+group = "hk"
+area = "F7"
+tab = "settings"
+heading = "Hotkeys"
+label = "Hotkeys"
+page = true
+
+[[place]]
+op = "volume.apply"
+route = "extras"
+group = "video"
+order = -5
+
+[[place]]
+op = "home.apply"
+key = "Home Directory"
+order = 75
+
+[[place]]
+op = "tone.apply"
+group = "audio_2"
+"""
+
+    def test_the_tables_are_a_version_6_record_that_needs_no_core_and_read_back(self):
+        b = D.compile_text(self.T)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertEqual(r["group_route"], [{"group": "extras", "area": "F5", "tab": "video", "heading": "Extras"},
+                                            {"group": "hk", "area": "F7", "tab": "settings", "heading": "Hotkeys", "label": "Hotkeys", "page": True}])
+        self.assertEqual(r["place"], [{"op": "volume.apply", "route": "extras", "group": "video", "order": -5},
+                                      {"op": "home.apply", "key": "Home Directory", "order": 75},
+                                      {"op": "tone.apply", "group": "audio_2"}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(__import__("tomllib").loads(self.T)), b)
+
+    def test_a_place_names_an_operation_the_application_exports(self):
+        ops = "op\tvolume.apply\tvalue:int:0:40:0:\nop\thome.apply\tvalue:int:0:2000:0:\n"
+        D.compile_checked('[[place]]\nop = "volume.apply"\norder = 1\n', ops)
+
+    def test_the_base_table_is_whole_and_current(self):
+        rec = D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
+        names = {r["group"] for r in rec["group_route"]}
+        self.assertEqual([r["group"] for r in rec["group_route"]], ["video", "audio", "hotkeys", "appinput", "storage", "menu"])
+        for p in rec["place"]:
+            self.assertIn(p["route"], names, p["op"])
+            self.assertIn("group", p)
+            self.assertIn("order", p)
+        orders = [p["order"] for p in rec["place"]]
+        self.assertEqual(orders, sorted(orders))                       # the order the application adds the rows in
+        self.assertEqual(len(orders), len(set(orders)))
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class Elements(unittest.TestCase):
+    """T256 T-2 (D8): the elements of a core's UI TOML (section 25). The C++ reader and the merge over the base's table are tested in tests/coreapp/test_bundle.cc with
+    the fixture tests/coreapp/golden/desc_elements.toml."""
+    def test_the_fixture_is_a_record_that_needs_no_core_and_reads_back(self):
+        text = src("desc_elements.toml")
+        b = D.compile_text(text)
+        self.assertEqual(int.from_bytes(b[4:6], "little"), 6)
+        r = D.parse_desc(b)
+        self.assertEqual(r["element"], [{"name": "bar", "anchor": "bottom_mid", "dy": -20, "w": 400, "h": 40},
+                                        {"name": "paused", "anchor": "top_left", "dx": 10, "dy": 12, "w": 126, "h": 30}])
+        self.assertFalse(r["sections"])
+        self.assertEqual(D.compile_desc(__import__("tomllib").loads(text)), b)
+
+
+class BaseRows(unittest.TestCase):
+    """T239.3 D32, P2-4's QC entry: the rows of the seven extend functions are rows of the base UI TOML (coreapp/base_ui.toml): label, key, kind, values and default, and for a list that
+    changes at run time its pick (the key a core's row names it with). tools/gen_base_ui.py compiles them into coreapp/src/base_rows.inc; tests/coreapp/test_baserows.cc checks them against the code that serves them."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    ROW = '[[core_setting]]\nkey = "Picture"\nvalues = ["Auto"]\npick = "video.modes"\napply = "picture.apply"\n'
+
+    def base(self):
+        return D.parse_desc(D.compile_checked(open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read(), app_base=True))
+
+    def test_every_row_is_whole_and_every_row_has_a_place(self):
+        rec = self.base()
+        keys = [r["key"] for r in rec["cset"]]
+        self.assertEqual(len(keys), len(set(k.lower() for k in keys)))
+        for r in rec["cset"]:
+            self.assertTrue(r["apply"], r["key"])
+            self.assertEqual(r["when"] in ("text", "secret") or r["default"] < len(r["values"]), True, r["key"])
+            self.assertTrue(any(p["op"] == r["apply"] and (not p.get("key") or p["key"].lower() == r["key"].lower()) for p in rec["place"]), r["key"])
+        by = {r["key"]: r for r in rec["cset"]}
+        self.assertEqual(by["Picture"]["pick"], "video.modes")
+        self.assertEqual(by["Hotkey modifier"]["pick"], "hotkeys.modifiers")
+        self.assertEqual(by["Volume"]["values"][by["Volume"]["default"]], "100%")
+        self.assertEqual((by["Mouse Sensitivity"]["base"], by["Mouse Sensitivity"]["values"][by["Mouse Sensitivity"]["default"]]), (1, "8"))
+        self.assertEqual(by["Home Directory"]["when"], "text")
+
+    def test_a_base_row_carries_its_pick_and_values(self):
+        r = D.parse_desc(D.compile_desc(D.toml_loads(self.ROW), app_base=True))
+        self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("video.modes", ["Auto"]))
+
+    def test_a_run_time_list_is_named_by_pick_in_a_base_row_and_in_a_core_row(self):
+        row = '[[core_setting]]\nkey = "Scheme"\nvalues = ["Blue"]\npick = "hotkeys.keys"\napply = "x.apply"\n'
+        for app_base in (True, False):
+            r = D.parse_desc(D.compile_desc(D.toml_loads(row), app_base=app_base))
+            self.assertEqual((r["cset"][0]["pick"], r["cset"][0]["values"]), ("hotkeys.keys", ["Blue"]))
+        with self.assertRaises(D.DescError):
+            D.compile_desc(D.toml_loads(row.replace("hotkeys.keys", "video.modes")))     # a core's row names a list the application serves to it
+        self.assertNotIn("provider", open(os.path.join(self.ROOT, "coreapp", "base_ui.toml")).read().replace("# ", "").split("[lists]", 1)[1])
+        self.assertNotIn("Color Scheme", [r["key"] for r in self.base()["cset"]])      # T239.3 D56: no base row for the colour scheme or the transparency
+        self.assertNotIn("Overlay Transparency", [r["key"] for r in self.base()["cset"]])
+
+    def test_the_rows_are_the_ones_the_application_exports(self):
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class DriverTable(unittest.TestCase):
+    """T239.3 P2-3 (D31, D34): the driver table generated from TOML A (`descrec.py drivers`), and the shared app's TOML A that the drivers are linked against."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    MAPS = os.path.join(ROOT, "app", "sdkpkg", "maps")
+    SHARED = os.path.join(ROOT, "coreapp", "gateware", "shared.toml")
+
+    def generate(self, text):
+        return D.drivers_files(D.resolve_maps(D.toml_loads(text), D.load_maps([self.MAPS])))
+
+    def shared(self):
+        with open(self.SHARED) as f:
+            return f.read()
+
+    def test_a_block_a_register_a_field_and_a_state_each_get_their_macro(self):
+        h, c = self.generate(src("desc_toml_a.toml"))
+        for line in ("#define DRV_cart_flash_ADDR 0xA0004000u", "#define DRV_cart_flash_SIZE 0x100u", "#define DRV_cart_flash_OWNER 0", "#define DRV_HAS_cart_flash 1",
+                     "#define DRV_cart_flash_fl_enable_ADDR (DRV_cart_flash_ADDR + 0x0u)", "#define DRV_cart_flash_fl_enable_on 1u",
+                     "#define DRV_cart_flash_evt_op_SHIFT 30", "#define DRV_cart_flash_evt_op_MASK 0xC0000000u", "#define DRV_cart_flash_evt_op_chip_erase 3u",
+                     "#define DRV_mixer_OWNER 1", "#define DRV_IDENT_ID \"TSTA\"", "#define DRV_IDENT_BLOCK \"ident\"", "#define DRV_U2P_IO_BASE 0xA0000000u"):
+            self.assertIn(line, h.splitlines())
+        self.assertIn('{ "cart_flash", "trx_io", 0, 0xA0004000u, 0x100u },', [ln.strip() for ln in c.splitlines()])
+        self.assertIn("const unsigned drv_nblocks = 4;", c)
+
+    def test_a_register_has_an_access_macro_for_each_direction_its_map_allows(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        names = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        self.assertIn("DRV_ident_id_RD", names)                       # r: no write
+        self.assertNotIn("DRV_ident_id_WR", names)
+        self.assertIn("DRV_cart_flash_fl_magic1_WR", names)           # w: no read
+        self.assertNotIn("DRV_cart_flash_fl_magic1_RD", names)
+        self.assertIn("DRV_cart_flash_rom_sel_RD", names)             # rw: both
+        self.assertIn("DRV_cart_flash_rom_sel_WR", names)
+        self.assertIn("(*DRV_PTR(uint16_t, DRV_cart_flash_fl_magic1_ADDR) = (uint16_t)(v))", h)   # the access is as wide as the property
+
+    def test_every_block_has_its_write_macros_for_every_source(self):
+        # T239.3 D53 (D50's read-only define is gone): a block of the base has its _WR macros like a block of the core, with no guard around them
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        self.assertNotIn("DRV_BASE_READ_ONLY", h)
+        names = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        self.assertIn("DRV_cart_flash_rom_sel_WR", names)                         # cart_flash is a block of the base
+        self.assertTrue([n for n in names if n.startswith("DRV_mixer_") and n.endswith("_WR")])       # mixer is a block of the core
+
+    def test_a_run_of_registers_has_its_count_and_takes_the_index_of_the_element(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        lines = h.splitlines()
+        self.assertIn("#define DRV_cart_flash_desc_COUNT 43u", lines)
+        self.assertIn("#define DRV_cart_flash_desc_ADDR (DRV_cart_flash_ADDR + 0x40u)", lines)
+        self.assertIn("#define DRV_cart_flash_desc_STRIDE 1u", lines)
+        self.assertIn("#define DRV_cart_flash_desc_WR(i, v) (*DRV_PTR(uint8_t, DRV_cart_flash_desc_ADDR + (uint32_t)(i) * DRV_cart_flash_desc_STRIDE) = (uint8_t)(v))", lines)
+        names = {ln.split()[1].split("(")[0] for ln in lines if ln.startswith("#define ")}
+        self.assertNotIn("DRV_cart_flash_desc_RD", names)                         # w: no read
+        self.assertNotIn("DRV_cart_flash_rom_sel_COUNT", names)                 # a single register has no count
+        self.assertNotIn("DRV_cart_flash_rom_sel_STRIDE", names)
+
+    def test_a_run_with_a_stride_has_its_stride_in_the_driver_table(self):
+        h, _ = self.generate(src("desc_toml_a.toml"))
+        lines = h.splitlines()
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE 4u") for ln in lines))
+        self.assertTrue(any(ln.startswith("#define DRV_") and ln.endswith("_STRIDE) = (uint16_t)(v))") and "(uint32_t)(i) * DRV_" in ln for ln in lines))
+
+    def test_the_driver_table_is_the_same_text_for_the_same_toml(self):
+        self.assertEqual(self.generate(src("desc_toml_a.toml")), self.generate(src("desc_toml_a.toml")))
+
+    def test_a_block_the_toml_lacks_has_no_macro_to_name_it(self):
+        full = self.shared()
+        cut = full[:full.index("[[block]]\nname = \"icap\"")] + full[full.index("[[block]]\nname = \"c64_debug\""):]
+        h, c = self.generate(full)
+        h2, c2 = self.generate(cut)
+        self.assertIn("#define DRV_HAS_icap 1", h.splitlines())
+        self.assertNotIn("DRV_HAS_icap", h2)
+        self.assertNotIn("DRV_icap_", h2)
+        self.assertNotIn('"icap"', c2)
+        self.assertIn("DRV_HAS_cmd_if", h2)
+
+    BASE = TomlA.BASE
+
+    def test_the_shared_app_toml_a_compiles_and_every_block_has_a_map_the_drivers_use(self):
+        maps = D.load_maps([self.MAPS])
+        blob = D.compile_checked(self.shared(), maps=maps)
+        r = D.parse_desc(blob)
+        self.assertEqual([b["name"] for b in r["block"]], ["ident", "resid8", "cart_regs", "drive_a", "drive_wd", "cmd_if", "gcr_coder", "icap", "partition", "audio_master", "c64_debug", "iec_status", "c64cart", "dma"])
+        self.assertEqual([b["name"] for b in r["block"] if b["owner"] != "base"], ["cmd_if", "gcr_coder"])   # the command interface and its GCR coder are core blocks (D48, D49): no base code drives them
+
+    def test_every_register_a_shared_driver_names_is_in_the_table(self):
+        import re
+        h, _ = self.generate(self.shared())
+        defined = {ln.split()[1].split("(")[0] for ln in h.splitlines() if ln.startswith("#define ")}
+        # hw.cc names the ICAP registers in two forms (HW_ICAP_*): the shared app's block icap, and the five blocks of the host's TOML A that the VIC-20's app takes (V-4b)
+        host = D.toml_loads(open(os.path.join(self.ROOT, "coreapp", "gateware", "host.toml")).read())
+        shared = D.toml_loads(self.shared())
+        merged = D.resolve_maps(D.merge_toml_a({"io": shared["io"], "identity": shared["identity"], "block": [shared["block"][0]]}, host,
+                                               ["icap_id", "icap_data", "icap_enable", "icap_count", "partition"], "t"), D.load_maps([self.MAPS]))
+        defined |= {ln.split()[1].split("(")[0] for ln in D.drivers_files(merged, "t")[0].splitlines() if ln.startswith("#define ")}
+        for f in ("hw.cc", "dmasvc.cc", "resid8.cc", os.path.join("..", "..", "app", "lib", "cbm1541", "d1541_drive.cc")):
+            with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
+                for n, line in enumerate(fh, 1):
+                    for tok in re.findall(r"\bDRV_[A-Za-z0-9_]+", line):
+                        if tok in ("DRV_PTR", "DRV_PTR_HEADER") or tok.startswith("DRV_HAS_"):
+                            continue
+                        self.assertIn(tok, defined, "%s:%d names %s, which the shared TOML A does not define" % (f, n, tok))
+
+    def test_an_app_linked_for_a_toml_a_without_a_block_has_no_access_to_it_in_its_sources(self):
+        # the registers of icap, partition and audio_master are named only inside an #if / #ifdef that names the block's DRV_HAS_ macro (hw.cc; D37, D36), and no other source of
+        # coreapp/src names one of them (volume.cc and tone.cc ask DRV_HAS_audio_master only)
+        import re
+        blocks = ("icap", "partition", "audio_master")
+        for f in sorted(os.listdir(os.path.join(self.ROOT, "coreapp", "src"))):
+            if not f.endswith((".cc", ".h")) or f == "hw.cc":
+                continue
+            with open(os.path.join(self.ROOT, "coreapp", "src", f)) as fh:
+                for b in blocks:
+                    self.assertIsNone(re.search(r"DRV_%s_" % b, fh.read()), "%s names %s" % (f, b))
+                    fh.seek(0)
+        with open(os.path.join(self.ROOT, "coreapp", "src", "hw.cc")) as fh:
+            stack, bad = [], []                     # per open #if: [text, in the #else part]
+            for n, line in enumerate(fh, 1):
+                t = line.strip()
+                if t.startswith(("#ifdef", "#ifndef", "#if ")):
+                    stack.append([t, False])
+                elif t.startswith("#else") and stack:
+                    stack[-1][1] = True
+                elif t.startswith("#endif") and stack:
+                    stack.pop()
+                else:
+                    for b in blocks:
+                        used = ("DRV_%s_" % b in line) or (b == "icap" and "HW_ICAP_" in line and not t.startswith("//"))
+                        guard = ("DRV_HAS_" + b, "HW_HAS_ICAP") if b == "icap" else ("DRV_HAS_" + b,)       # the alias block of hw.cc (HW_ICAP_*) is the one place that names the table's ICAP registers
+                        if used and not any(any(g in c for g in guard) and not e for c, e in stack):
+                            bad.append((n, b))
+            self.assertEqual(bad, [], "hw.cc names a block outside an #if of its DRV_HAS_ macro at %s" % bad)
+
+    def test_the_command_line_writes_both_files_and_leaves_an_unchanged_one_alone(self):
+        import subprocess, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            cmd = [sys.executable, os.path.join(self.ROOT, "tools", "descrec.py"), "drivers", self.SHARED, d, "--maps", self.MAPS]
+            subprocess.check_call(cmd)
+            self.assertEqual(sorted(os.listdir(d)), ["drvtab.c", "drvtab.h"])
+            m = os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns
+            subprocess.check_call(cmd)
+            self.assertEqual(os.stat(os.path.join(d, "drvtab.h")).st_mtime_ns, m)
+
+
+class TomlANames(unittest.TestCase):
+    """T239.3 V-2: a register of the description named from the core's TOML A (api.md 6.14.20), on the VIC-20's own files."""
+
+    def test_the_names_of_the_vic20_make_the_record_its_numbers_made(self):
+        written_out = vc20_numbers()
+        self.assertNotIn("toml_a", written_out)
+        self.assertNotIn('"machine.status"', written_out)
+        self.assertEqual(D.compile_text(open(VC20).read(), VC20), D.compile_text(written_out))
+        r = D.parse_desc(D.compile_text(open(VC20).read(), VC20))
+        self.assertEqual((r["freeze"]["reg_status"], r["video"]["reg_fb_base"], r["video"]["fb_base"]), (0xA4, 0xC4, 0x01D00000))
+        self.assertEqual([c["reg_bind"]["reg"] for c in r["cset"] if c.get("reg_bind")], [0xA1, 0xA2, 0xB0])
+
+
+class ExampleCore(unittest.TestCase):
+    """T239.3 S17: the SDK's example core has a TOML A of its own (the base's blocks and one block of the core's, its map beside it), a description with the library that is its code, and
+    the menu record of its library; the three compile and merge from the files of the package alone."""
+    ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    EX = os.path.join(ROOT, "app", "sdkpkg", "example")
+    MAPS = [os.path.join(ROOT, "app", "sdkpkg", "maps"), os.path.join(EX, "gateware")]
+
+    def read(self, *p):
+        with open(os.path.join(self.EX, *p)) as f:
+            return f.read()
+
+    def test_the_toml_a_of_the_example_has_a_block_of_the_core_and_its_map(self):
+        blob = D.compile_checked(self.read("gateware", "example.toml"), maps=D.load_maps(self.MAPS))
+        r = D.parse_desc(blob)
+        self.assertEqual(r["identity"]["id"], "EXMP")
+        own = [b for b in r["block"] if b["owner"] == "core"]
+        self.assertEqual([b["name"] for b in own], ["example_ctl"])
+        self.assertEqual([p["name"] for p in own[0]["property"]], ["control", "status"])
+        self.assertTrue(all(b["owner"] == "base" for b in r["block"] if b["name"] != "example_ctl"))
+        h, _ = D.drivers_files(D.resolve_maps(D.toml_loads(self.read("gateware", "example.toml")), D.load_maps(self.MAPS)))
+        self.assertIn("#define DRV_example_ctl_control_WR(v)", h)
+        self.assertIn("#define DRV_example_ctl_OWNER 1", h)
+
+    # the registers of a TOML A as {(absolute address, width, dir): (block, property)} with the maps resolved, and the extents of its core blocks (the host hands every byte of one to layer 2, whatever properties the block names)
+    def _registers(self, path):
+        doc = D.resolve_maps(D.toml_loads(open(path).read()), D.load_maps(self.MAPS))
+        regs, windows = {}, []
+        for b in doc["block"]:
+            if b["owner"] == "core":
+                windows.append((b["address"], b["address"] + b["size"]))
+            for p in b.get("property", []):
+                regs[(b["address"] + p["offset"], p["width"], p["dir"])] = (b["name"], p["name"])
+        return doc, regs, windows
+
+    def test_the_base_blocks_come_from_one_source_the_toml_a_of_the_host(self):
+        # T239.3 V-3c (D30 point 4): coreapp/gateware/host.toml (checked against the RTL of host/ by tools/rtl_check.py) is the one source of the base blocks. The copies are
+        # shared.toml (the TOML A of the shared app) and, through it, example.toml: every register a copy names is a register of host.toml at the same address, width and direction,
+        # or lies in a window of host.toml that the host hands to layer 2 (the identity block at 0x101A0000 is in the window of core_trx_io); the bases agree.
+        gw = os.path.join(self.ROOT, "coreapp", "gateware")
+        host, hregs, hwin = self._registers(os.path.join(gw, "host.toml"))
+        shared, sregs, _ = self._registers(os.path.join(gw, "shared.toml"))
+        self.assertEqual(shared["io"], host["io"])
+        missing = sorted(set(v[0] for k, v in sregs.items() if k not in hregs and not any(lo <= k[0] < hi for lo, hi in hwin)))
+        # not in host.toml, not decoded in host/: the UCI window answers 0 (host.toml's header names it); the one block of the shared app that this check cannot tie to the RTL
+        self.assertEqual(missing, ["cmd_if"])
+        # block by block: a shared.toml block of the same name has the address and size of host.toml's; the owner differs only where named here
+        hblocks = {b["name"]: b for b in host["block"]}
+        by_name = {b["name"]: b for b in shared["block"]}
+        owner_core_in_host = ["drive_a", "dma"]                                       # host.toml: owner core (layer 2 has the drive); shared.toml: base (the shared app drives them); gcr_coder is core in both (D48, D49)
+        absent_in_host = ["cmd_if", "ident", "icap", "resid8", "c64cart", "drive_wd"]      # drive_wd: inside host.toml's drive_a extent; cmd_if: no decode; ident, c64cart: host.toml's core_trx_io window; icap: four blocks icap_* of host.toml (the loader) and the block partition of both; resid8: a core block of the shared app, not in host.toml
+        self.assertEqual(sorted(n for n in by_name if n not in hblocks), sorted(absent_in_host))
+        for n, b in by_name.items():
+            if n in absent_in_host:
+                continue
+            if n == "drive_a":      # host.toml hands the drive's whole 0x4000 extent to layer 2 (the WD177x block drive_wd is inside it, no block of host.toml: 64 blocks is the limit); the shared app's block is the 1541's own 0x1800
+                self.assertEqual(b["address"], hblocks[n]["address"])
+                self.assertLessEqual(b["size"], hblocks[n]["size"])
+                self.assertEqual(by_name["drive_wd"]["address"], b["address"] + b["size"])
+                self.assertLessEqual(by_name["drive_wd"]["address"] + by_name["drive_wd"]["size"], hblocks[n]["address"] + hblocks[n]["size"])
+            else:
+                self.assertEqual((b["address"], b["size"]), (hblocks[n]["address"], hblocks[n]["size"]), n)
+            self.assertEqual(b["owner"] != hblocks[n]["owner"], n in owner_core_in_host, n)
+        self.assertEqual([hblocks[n]["owner"] for n in owner_core_in_host], ["core"] * len(owner_core_in_host))
+        icap = by_name["icap"]
+        inside = sorted(b["name"] for b in host["block"] if b["owner"] == "base" and icap["address"] <= b["address"] and b["address"] + b["size"] <= icap["address"] + icap["size"] and b["name"].startswith("icap_"))
+        self.assertEqual(len(inside), 4)
+        ex = D.toml_loads(self.read("gateware", "example.toml"))
+        raw = D.toml_loads(open(os.path.join(gw, "shared.toml")).read())
+        self.assertEqual([b for b in ex["block"] if b["owner"] == "base"], [b for b in raw["block"] if b["owner"] == "base"])   # cmd_if and gcr_coder are core blocks of the shared TOML A (D48), the example runs no UCI
+        self.assertEqual(ex["io"], raw["io"])
+
+    def test_the_description_of_the_example_names_its_hooks_library_and_merges_the_menu_of_the_library(self):
+        desc = D.compile_text(self.read("app", "desc.toml"))
+        self.assertEqual(D.parse_desc(desc)["core"]["hooks"], "example")
+        menu = D.compile_text(self.read("menu.toml"))
+        blob, merged, kept = D.merge_lib_menus(desc, [("example", menu)])
+        self.assertEqual((merged, kept), (["example"], []))
+        self.assertEqual(D.parse_desc(blob)["core"]["hooks"], "example")
 
 
 if __name__ == "__main__":

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # Stage `trxapps`: our own two RISC-V applications, built here instead of on the Mac (T94 P6).
 #   host-app/  -> hostapp.app / hostapp.elf   the boot menu that loads a core from a .cor (T101)
-#   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every core,
-#                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants
-#   apps/miniz      -> miniz.u2a      the zip library unzip.u2a imports (T197), shipped beside it
+#   coreapp/   -> coreapp.bin / coreapp.elf   the blueprint a core runs (T93), one image for every blueprint core,
+#                 and a copy per blueprint core under coreapps/<core>.app, the name pack_cores_mc.sh wants; a core with a TOML B of its own
+#                 (cores/<id>/app/sdk.toml, SDK_OWN_APPS) gets no copy but its app linked from the SDK package (tools/sdk_core_app.sh), under the same name
+#   apps/miniz      no file of its own (T239.3 D60): the zip code is compiled into unzip.u2a (apps/unzip/Makefile); no core app and not the host app links it
 #   apps/unzip      -> unzip.u2a      Unzip to folder / Unzip here / Extract one file on .zip (T104.3, T180 D9): shipped in the package and the release, the
 #                 one copy every core reads from <root>/cores/apps/ (coreapp/src/appindex.h)
-#   apps/trex_crt   -> trex_crt.u2a   Dump / Inspect / Flash cartridge and Write to Cartridge on .crt (T228 R21: FW's trex_crt on our app ABI), shipped like unzip
-#   apps/softboot   -> softboot.u2a   Run as Softboot on .cfw/.ue2/.u64, offered off the MultiCore host only (T228 DC1), shipped like unzip
-#   app/lib/testlib -> testlib.u2a            the board's test library (T104.1 D10): a .u2a of format 3, built with the
-#                 image's riscv32-unknown-elf compiler; copied to <stick>/trx/lib/ it is loaded at the next core start
+#   (trex_crt.u2a, softboot.u2a and online.u2a are trx64u's features: TRX64-Ultimate builds them itself, T261 D6; their sources are not in this repository)
+#   (app/lib/testlib is no build of this stage since base 4.0: the base loads no library file, T239.3 D58; its ELF fixtures for tests/loader are made by its Makefile)
 #
 # Until this stage existed the core applications came from the generic package trx64-coreapps, uploaded
 # by hand from a Mac, and the host app for an update file was whatever lay in a local result/ directory.
@@ -19,7 +18,8 @@
 # third-party parts (lwip, lvgl, FreeRTOS, chan_fat, httpd) are links into our copy of Gideon's software, so its
 # tree belongs in the key.
 #
-# T174 D1: this stage BUILDS images and nothing else - minutes, and package and update wait for it. The host tests, the render benches and the
+# T174 D1: this stage BUILDS images and, since T239.3 D17, the SDK package with its check (tools/sdk_check.sh builds the example library and runs its host test; whether
+# that test belongs in the stage `render` is Alex's decision, open) - minutes, and package and update wait for it. The host tests, the render benches and the
 # 64 bit file benches are the stage `render` (ci/render.sh) with a key of its own; they no longer sit in front of the package.
 # Incremental: the build runs in a persistent tree per branch (/cache/multicore/build/ci-<branch>, tools/treesync.py copies only the files whose
 # content changed, so make rebuilds only what changed); the heavy slot is let go as soon as the images are built (R1c).
@@ -28,12 +28,17 @@
 #                                --clean (or CI_BUILD_CLEAN=1) empties the persistent tree first: a build from scratch
 #                                --compile-only: compile and link the two applications and stop (tools/dev.sh build): no images, no stage result
 #   TRX_BUILD_INPLACE=1          build in this very tree (tools/dev.sh: the tree is the synced working tree; no image cache, no slot, no sync)
+#   TRXAPPS_ONLY=sdk|host        T239.5 (D8, the build step of a lane of the matrix): sdk = the shared base, its libraries, the sub-apps (.u2a) and the SDK package (its
+#                                check is the lane's step 7); host = the host app and its emulator build. Unset: everything below (the old pipeline's stage images). The value is in the key.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 clean="${CI_BUILD_CLEAN:-}" compile_only=""
 for a in "$@"; do case "$a" in --clean) clean=1 ;; --compile-only) compile_only=1 ;; *) echo "ci/trxapps.sh: unknown argument $a" >&2; exit 2 ;; esac; done
 inplace="${TRX_BUILD_INPLACE:-}"
+only="${TRXAPPS_ONLY:-}"
+case "$only" in ""|sdk|host) ;; *) echo "ci/trxapps.sh: TRXAPPS_ONLY is sdk or host, not $only" >&2; exit 2 ;; esac
+part() { [ -z "$only" ] || [ "$only" = "$1" ]; }   # part sdk|host: this run builds that part
 
 out="$(stage_dir trxapps)"
 # T174 D2.2/D4 (Alex, 2026-11-07: the app is built and tested natively first, RISC-V last): the parent starts this child only after `apptests` is green.
@@ -43,26 +48,29 @@ out="$(stage_dir trxapps)"
 # the shell would be served out of the cache and never reach the board.
 key=""; cache=""
 if [ -z "$inplace" ]; then
-  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app apps/unzip apps/miniz apps/trex_crt apps/softboot cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
+  key="$(cd "$ROOT" && set -o pipefail && git ls-files -s -- host-app coreapp uicore ci/version.sh app tools/sdk_pack.sh tools/sdk_api.py tools/sdk_check.sh tools/check_no_roms.sh tools/u2a_pack.py tools/descrec.py tools/libtab.py tools/core_toml.py tools/sdk_core_app.sh tools/app_build.py tools/rtl_check.py tools/cor_pack.py tools/menusim tools/gen_base_ui.py tools/check_d24.py tools/d24_ledger.txt tests/lvgl_objs.sh tests/overlay_probe.h tests/drv_fake.h tests/parallel.sh tests/coreapp ':(glob)cores/*/app/**' LICENSE apps/unzip apps/miniz cores/apple2/rtl/roms vendor/gideon/software vendor/gideon/tools vendor/gideon/target vendor/gideon/roms > "$out/.keyall" && cut -f2 "$out/.keyall" | python3 ci/code_hash.py keep > "$out/.keynames" && [ -s "$out/.keynames" ] && { awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.keynames" "$out/.keyall"; printf 'image %s\n' "$(image_id build)"; printf 'own-app %s\n' "$(python3 -I "$ROOT/tools/core_toml.py" list-own-app | tr '\n' ' ')"; } | sha256sum | cut -c1-16)" || { echo "trxapps: stage key failed" >&2; exit 1; }
   rm -f "$out/.keynames" "$out/.keyall"
+  key="$key${only:+-$only}"
   cache="${CI_TRXAPPS_CACHE:-/cache/trxapps}/$key"
 fi
 
 # The blueprint cores: a descriptor in coreapp/src/table.cc, so the one image serves them (T93 D14).
-# The table also holds the C64 ("TRX2", T104.2), but `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's
-# application for it, and the C64 descriptor is for the TRX64 Ultimate monolith (coreapp.bin from this stage, staged over JTAG).
-# Every core whose core.toml says blueprint is in the list below. The A1200 runs the generic image since 2026-10-20 (T104, Alex: "Yes of
-# course ... A1200 with the new app in a core please", translated), vc20 and c264 since 2026-10-22 (Alex: "apart from trx64 and c64u,
-# switch everything to the generic core app for now", translated), the A500 (`amiga`) since 2026-10-24 (Alex: "the app must also be switched
-# to generic!", translated). amiga1200 has no descriptor since T97 (not built); coreapp/cores/amiga.cc is the amiga source. coreapp/cores/vc20.cc and c264.cc
+# `trx64` is not in this list: its core.toml says app = "ultimate", the host runs Gideon's application for it. trx64u is TRX64-Ultimate's (T239.3 D21):
+# its application is built there, and this stage builds none for it.
+# Every core whose core.toml says blueprint is in the list below; diag has its own app since T260 P7 (cores/diag/app, its matrix lane). The A1200 ran the generic image from 2026-10-20 (T104) until T213.3: it has its
+# own app now, built by its matrix lane (ci/lane.sh core:amiga1200), not by this stage (T239.5 D13). vc20 (since V-4 its own app, SDK_OWN_APPS), atari800 (its own app since T239.5 D15, SDK_OWN_APPS), nes, c264, zxnext, neogeo and amiga (large cores with an app of their own since T239.5 D15, SDK_OWN_APPS; c264 had the generic app since 2026-10-22, Alex: "apart from trx64 and c64u,
+# switch everything to the generic core app for now", translated); the A500 (`amiga`) had it from 2026-10-24 (Alex: "the app must also be switched
+# to generic!", translated) until T239.5 D15: its own app now (cores/amiga/app, its source cores/amiga/app/lib/amiga.cc). cores/vc20/app/lib/vc20.cc and cores/c264/app/lib/c264.cc
 # replace the machine code of the fork branch t90-c16app.
-BLUEPRINT_CORES="${BLUEPRINT_CORES:-atari800 nes apple2 zx cpc zxnext snes neogeo vc20 c264 pet amiga ddt_novic diag}"
-# T228 R25 (Alex 2026-11-18): the cores with a core app image of their own, <name>:<descriptor>:<heap>. Linked from the objects of the shared
-# image (the core app Makefile's target `own`), each with its own core only and its own heap; the shared image leaves them out (table.cc).
-# trx64u: 0x950000 (the shared image keeps 0x7A0000). Its own image ends its static part at 12.4 MB of the 14.4 MB region with 0x7A0000;
-# 0x950000 leaves 312 KB between the end of the static part and the region's end, where the start-up stack grows down (linker.x
-# __crt0_stack_begin; the shared image ran with 87 KB there before R25).
-OWN_IMAGES="${OWN_IMAGES:-trx64u:c64_desc:0x950000}"
+BLUEPRINT_CORES="${BLUEPRINT_CORES:-apple2 snes}"
+# T239.3 V-4 (D28 point 3, D31): the cores whose app is linked from the SDK package alone, with the libraries and the TOML A its cores/<id>/app/sdk.toml names (tools/sdk_core_app.sh), not copied from the
+# shared image. The VIC-20 is the first (S11); the shared image holds none of its code (no core table entry, no source in the Makefile), the packages' coreapps/vc20.app is the linked app.
+# T239.3 V-5 (D25): the stage key holds every cores/*/app tree and the output of list-own-app (it follows the `pipeline` flag of the core.toml files), so a new TOML B or a changed flag is a new key. The list is the cores whose TOML B names a descriptor ([app] desc, tools/core_toml.py list-own-app), not a name written here; a core of it that is also in BLUEPRINT_CORES would get the shared image
+# first and the linked app after it, so the stage refuses that, and a core of the list gets exactly one app (checked after the loop below).
+SDK_OWN_APPS="${SDK_OWN_APPS:-$(python3 -I "$ROOT/tools/core_toml.py" list-own-app | tr '\n' ' ')}"
+for c in $SDK_OWN_APPS; do
+  case " $BLUEPRINT_CORES " in *" $c "*) echo "trxapps: $c has a TOML B of its own (SDK_OWN_APPS) and is in BLUEPRINT_CORES: it would be given the shared app (D25)" >&2; exit 1;; esac
+done
 
 if [ -n "$cache" ] && [ -f "$cache/DONE" ]; then
   echo "=== trxapps $key: from cache $cache"
@@ -114,31 +122,45 @@ else
   for lib in lwip lvgl; do nice -n 15 make -j"$J" -C "$H/libs/riscv/$lib"; done
   # `gitinfo` first and alone: `all` has it beside the compile targets and in parallel the rule rewrites gitinfo.h while a source that
   # includes it is compiled (T93 5.15)
-  for a in hostapp coreapp; do
+  # T265 P2: the recovery program first - the host app links its slot image (recovery_slot.app)
+  apps=""; part host && apps="hostrecovery hostapp"; part sdk && apps="$apps coreapp"
+  for a in $apps; do
     make -C "$H/u64ii/riscv/$a" gitinfo
     nice -n 15 make -j"$J" -C "$H/u64ii/riscv/$a"
   done
-  for spec in $OWN_IMAGES; do                       # T228 R25: the images of their own, from the same objects
-    IFS=: read -r on od oh <<<"$spec"
-    nice -n 15 make -C "$H/u64ii/riscv/coreapp" own OWN="$on" OWN_DESC="$od" OWN_HEAP="$oh"
-  done
+
+  # T239.3 P3-1 (D31, S8): the symbol check on what the app's TOML B names: every source of its libraries is linked, and no generic object uses a symbol a library defines
+  # (the generic application reaches the libraries through the library table only). The file is the TOML B of the shared app.
+  ! part sdk || NM=riscv32-unknown-elf-nm python3 -I "$B/tools/libtab.py" symcheck "$B/coreapp/libs/shared.toml" "$H/u64ii/riscv/coreapp/output" "$B"
+
+  # T239.3 P2-6 (S8): the core application built for the other cores holds no trx64u symbol. The set is the code set P2-6 deleted (ring, ringfile, ringops, monitor, monsrv, u64cfg, trxmon's tm_*,
+  # trx64u_ops), and the names TRX64-Ultimate's libraries define when they are linked into one image with the base (plat_*, srv_*); nm without -C and global symbols only, so only unmangled (C) names match, not a static and a C++ member such as MenuCtl::ring_listed does not; nm over the
+  # shared image's ELF here, over the base archive of the SDK (libtrxbase.a, after make sdkbase) and over every linked core app's ELF below (nm_trx64u).
+  nm_trx64u() {
+    local bad
+    bad="$(riscv32-unknown-elf-nm "$1" | awk '$2 ~ /^[TDBRWV]$/ { if ($3 ~ /^(ring_|trx_ring|mon_|monsrv_|u64cfg_|tm_|trx64u_|plat_|srv_)/) print $3 }' | sort -u | head -20)"
+    [ -z "$bad" ] || { echo "trxapps: $1 holds trx64u symbols (S8, T239.3 P2-6):" >&2; echo "$bad" >&2; exit 1; }
+  }
+  ! part sdk || nm_trx64u "$H/u64ii/riscv/coreapp/result/coreapp.elf"
 
   if [ -n "$compile_only" ]; then
     echo "=== trxapps --compile-only: both applications compile and link ($((SECONDS - _t_b))s)"
-    size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
+    size "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.elf" "$H/u64ii/riscv/coreapp/result/coreapp.elf" 2>/dev/null || ls -l "$H/u64ii/riscv/hostapp/result/" "$H/u64ii/riscv/coreapp/result/"
     exit 0
   fi
 
   # T104.2 S12: the boot ROM starts an application from the slot at 0x220000 and takes at most 0x1E0000 - 12 bytes of it; an image that
   # does not fit would build, flash and not start. The number goes in the log on every build.
-  python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
-  for spec in $OWN_IMAGES; do
-    on="${spec%%:*}"
-    python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app"
-    cp "$H/u64ii/riscv/coreapp/result/coreapp_$on.bin" "$H/u64ii/riscv/coreapp/result/coreapp_$on.elf" "$H/u64ii/riscv/coreapp/result/coreapp_$on.app" "$out/"
-  done
+  if part sdk; then
+    python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/coreapp/result/coreapp.app"
+    cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
+  fi
+  if part host; then
+  # T265 P2 (S10): the recovery program must fit the 0x3F000 slot below the host application with its record and its CRC-32 trailer (0x3EFF0 bytes of data); the slot image
+  # (tools/rec_trailer.py in the program's makefile) refuses a bigger one already, this is the same number in the log
+  python3 -I "$B/tools/check_app_size.py" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.app" 0x3EFF0
+  cp "$H/u64ii/riscv/hostrecovery/result/hostrecovery.app" "$H/u64ii/riscv/hostrecovery/result/hostrecovery.elf" "$H/u64ii/riscv/hostrecovery/result/recovery_slot.app" "$out/"
   cp "$H/u64ii/riscv/hostapp/result/hostapp.app" "$H/u64ii/riscv/hostapp/result/hostapp.elf" "$out/"
-  cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$H/u64ii/riscv/coreapp/result/coreapp.elf" "$H/u64ii/riscv/coreapp/result/coreapp.app" "$out/"   # the .app: what ue2emu and tools/trxdbg.sh boot staged take (T104.2)
   # T174 D2.8: the host app for the emulator (tests/hostapp/emu_host.sh): the same sources with HOSTAPP_EMU_FLASH, which only flashfw.cc reads (the emulated
   # flash chip is accepted). Rebuilt from that one object and the link, then the tree is put back to the board build (touch + make again) so a later
   # incremental build and the images above stay what the board gets. Never packed, never flashed: it lives in this stage's hand-over as hostapp_emu.*.
@@ -149,6 +171,7 @@ else
   touch "$B/host-app/software/hostapp/flashfw.cc"
   nice -n 15 make -j"$J" -C "$hdir"
   cmp -s "$hdir/result/hostapp.app" "$out/hostapp.app" || { echo "trxapps: the board build of the host app changed while the emulator build was made" >&2; exit 1; }
+  fi
   # The library build path (app/lib/lib.mk) with the compiler of this image. app/ is in the key above, so a change to it rebuilds the stage.
   # Built beside its sources (the outputs are gitignored) and cleaned again - which also keeps the tree equal to the checkout for the next sync.
   # T174 D3: the two library applications are keyed by the content of what they read (their folder, the library makefile, the SDK, the core application
@@ -156,7 +179,7 @@ else
   # instead of building and cleaning every run (the stage key above is coarser: any change in app/ or coreapp/ rebuilds the stage, but not these two).
   libapp() {   # libapp DIR NAME.u2a : DIR relative to the tree
     local d="$1" n="$2" k c
-    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/sdk coreapp/src tools/u2a_pack.py tools/descrec.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
+    k="$( (cd "$ROOT" && git ls-files -s -- "$d" apps/miniz app/lib/app.mk app/lib/lib.mk app/lib/sdkroot.mk app/lib/lib.ld app/sdk coreapp/src tools/u2a_pack.py tools/descrec.py > "$out/.liball" && cut -f2 "$out/.liball" | python3 ci/code_hash.py keep > "$out/.libnames" && [ -s "$out/.libnames" ] && awk -F'\t' 'NR==FNR{k[$0];next} ($2 in k)' "$out/.libnames" "$out/.liball"; rm -f "$out/.libnames" "$out/.liball"; riscv32-unknown-elf-gcc --version | head -1; echo "$d $n") | sha256sum | cut -c1-16)"
     c="${CI_TRXAPPS_CACHE:-/cache/trxapps}/lib-apps/$k"
     if [ -f "$c/$n" ]; then echo "=== trxapps $n: from cache $c (key $k)"; cp "$c/$n" "$out/"; return 0; fi
     nice -n 15 make -j"$J" -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- "$n"
@@ -164,29 +187,57 @@ else
     make -C "$B/$d" RV_PREFIX=riscv32-unknown-elf- clean
     mkdir -p "$c.tmp$$" 2>/dev/null && cp "$out/$n" "$c.tmp$$/$n" && rm -rf "$c" && mv "$c.tmp$$" "$c" || true
   }
-  libapp app/lib/testlib testlib.u2a
+  if part sdk; then
   # T180 D9: Unzip, an application of several C files (app/lib/app.mk); same compiler, built beside its sources and cleaned again
   libapp apps/unzip unzip.u2a
-  # T197 P1: the zip code is the library (apps/miniz, resident, format 3); unzip.u2a imports it and carries none of it. S2: the size shows it - an application
-  # that linked its own miniz would be as large as the library.
-  libapp apps/miniz miniz.u2a
-  # T228 R21: the cartridge tools and Softboot, applications like Unzip (app/lib/app.mk); no library needed, so nothing to compare
-  libapp apps/trex_crt trex_crt.u2a
-  libapp apps/softboot softboot.u2a
-  uz=$(wc -c < "$out/unzip.u2a"); mz=$(wc -c < "$out/miniz.u2a")
-  echo "=== trxapps: unzip.u2a $uz bytes, miniz.u2a $mz bytes"
-  [ "$uz" -lt "$mz" ] || { echo "trxapps: unzip.u2a ($uz bytes) is not smaller than the zip library ($mz): it carries its own miniz (T197 S2)" >&2; exit 1; }
+  # T239.3 D60: unzip.u2a carries the zip code of miniz (apps/miniz, linked into its image) and needs the base only.
+  echo "=== trxapps: unzip.u2a $(wc -c < "$out/unzip.u2a") bytes"
+  fi
+  if [ -z "$only" ]; then
   mkdir -p "$out/coreapps"
   # The .bin, never the .app: cor_pack puts the image at app_load as it is and jumps to app_entry, so an
   # .app's 12-byte header would sit on the entry point - that is what shipped on 2026-10-15 and left the
   # Atari and the NES executing their own load address (T93 5.12).
   for c in $BLUEPRINT_CORES; do cp "$H/u64ii/riscv/coreapp/result/coreapp.bin" "$out/coreapps/$c.app"; done
+  fi
   command -v ccache >/dev/null && ccache --show-stats | head -8 || true
   echo "=== trxapps: images built in $((SECONDS - _t_b))s"
 
   # T174 R1c: the RISC-V build is done and this stage holds nothing else that needs Vivado's slot: let it go before the cache entry is written
   # (heavy_lock keeps its lock on fd 9 and HEAVY_SLOT; Alex, T100 D14 open item 2). Run 1133 held slot 0 for 36 minutes of tests.
   if [ -n "${HEAVY_SLOT:-}" ]; then exec 9>&-; echo "heavy slot $HEAVY_SLOT released after the build"; unset HEAVY_SLOT; fi
+
+  # T239.3 D17 / P8, D31 / P3-2: the SDK package (tools/sdk_pack.sh) from this build's sources and its base archives (`make sdkbase`: the objects of the sources that depend on nothing a core decides,
+  # the libraries, the lists of the rest), after the heavy slot is let go, into the hand-over beside the images (uploaded by the matrix's SDK lane), and its check (tools/sdk_check.sh): the example
+  # library, its menu record and the example core's app built from the unpacked package alone. The package carries no app image. The sources of the package are in the stage key above
+  # (app/ with app/sdkpkg, the packer tools, the menu simulator and the rig it builds from, the two scripts).
+  if part sdk; then
+  nice -n 15 make -C "$H/u64ii/riscv/coreapp" sdkbase
+  nm_trx64u "$H/u64ii/riscv/coreapp/output/sdkbase/lib/libtrxbase.a"                 # S8: the base archive defines none of the names of TRX64-Ultimate's libraries
+  SDK_COMMIT="${SDK_COMMIT:-$(cd "$ROOT" && git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)}" bash "$B/tools/sdk_pack.sh" "$out" "$H/u64ii/riscv/coreapp/output/sdkbase"
+  # the package's check; the SDK lane of the matrix runs it as its own step 7 (ci/lane.sh sdk test), not inside the build
+  [ "$only" = sdk ] || RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_check.sh" "$out"/trx64-sdk-*.tar.gz
+  # T239.5: the shared app's link map, for the core lanes' S12 check (the library a core's TOML B shares with the shared app is the same, and linked in both)
+  cp "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/"
+  fi
+  if [ -z "$only" ]; then
+  # T239.3 V-4 (S11): the app of each core of SDK_OWN_APPS, linked from the unpacked package alone against its TOML A and TOML B; the check of its link map is in the script. coreapps/<core>.app is the
+  # linked image (cor_pack takes the .bin, as for the shared image above), <core>.map beside it.
+  for c in $SDK_OWN_APPS; do
+    RV_PREFIX=riscv32-unknown-elf- bash "$B/tools/sdk_core_app.sh" "$out"/trx64-sdk-*.tar.gz "$c" "$out/coreapps"
+  done
+  for c in $SDK_OWN_APPS; do nm_trx64u "$out/coreapps/$c.elf"; done
+  # V-5: the app of such a core is the linked one and none of the shared image's copies: no blueprint copy of it exists in the hand-over, and its image is not the shared image
+  for c in $SDK_OWN_APPS; do
+    [ -s "$out/coreapps/$c.app" ] || { echo "trxapps: $c has no linked app in coreapps/" >&2; exit 1; }
+    ! cmp -s "$out/coreapps/$c.app" "$H/u64ii/riscv/coreapp/result/coreapp.bin" || { echo "trxapps: coreapps/$c.app is the shared image (D25)" >&2; exit 1; }
+  done
+  # S12: the cbm1541 library of the VIC-20's TOML B is the one of the shared app's, and both link maps (coreapp.map, vc20.map) have its sources as inputs.
+  # trx64u's own image is TRX64-Ultimate's since P1-8 (6696d1028): no build here makes coreapp_trx64u.map any more.
+  case " $SDK_OWN_APPS " in *" vc20 "*)
+    python3 -I "$B/tools/libtab.py" samelib "$B/coreapp/libs/shared.toml" "$B/cores/vc20/app/sdk.toml" cbm1541 "$H/u64ii/riscv/coreapp/output/coreapp.map" "$out/coreapps/vc20.map";;
+  esac
+  fi
 
   if [ -n "$cache" ]; then
     mkdir -p "$cache.tmp.$$"
@@ -199,9 +250,11 @@ fi
 
 printf '%s\n' "${key:-inplace}" > "$out/trxapps_key"
 ( cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo inplace ) > "$out/trxapps_commit"
-ls -l "$out" "$out/coreapps"
-for spec in $OWN_IMAGES; do sha256sum "$out/coreapp_${spec%%:*}.bin"; done
-sha256sum "$out/hostapp.app" "$out/coreapp.bin" "$out/testlib.u2a" "$out/unzip.u2a" "$out/miniz.u2a" "$out/trex_crt.u2a" "$out/softboot.u2a"; [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
+ls -l "$out"; [ ! -d "$out/coreapps" ] || ls -l "$out/coreapps"
+sums=()
+part host && sums+=("$out/hostapp.app")
+part sdk && sums+=("$out/coreapp.bin" "$out/unzip.u2a")
+sha256sum "${sums[@]}"; ! part sdk || [ ! -f "$out/coreapp.app" ] || sha256sum "$out/coreapp.app"   # an older cache entry has no .app
 : > "$out/DONE"
 echo "=== trxapps done in $(lap)"
 

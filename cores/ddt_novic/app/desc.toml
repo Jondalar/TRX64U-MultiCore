@@ -1,0 +1,41 @@
+# The data description of DDT Look Ma, No VIC (T239.3 D17): what cores/ddt_novic/app/lib/ddt_novic.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the description record
+# (record 6 of the .cor, section layout in coreapp/src/descrec.h). What the record cannot hold is code, and stays in the core's C++: init (hold the machine), release, and the memory operations.
+# The gateware's facts are in the core's TOML A, gateware.toml: a register is written as the name of its property, "block.property", a reset value as "block.property.state"; tools/descrec.py makes
+# the numbers of them (api.md 6.14.20).
+toml_a = "gateware.toml"
+
+[core]
+id = "DDTN"
+name = "DDT Look Ma, No VIC"
+title = "DDT Look Ma, No VIC"
+short_title = "NOVIC"
+folder = "ddt_novic"
+store = "DDT Look Ma, No VIC Settings"
+min_contract = 1
+reset_ms = 20
+
+# 352 x 200 shown 3 x 3 (1056 x 600), centred on 1920 x 1080; the buffers are the core's reset values of FB_BASE / FB_STRIDE
+[video]
+w = 352
+h = 200
+scale = 3
+x0 = 432
+y0 = 240
+fb_base = "video.fb_base.reset"
+fb_stride = "video.fb_stride.reset"
+nbuf = 4
+reg_latest = "video.fb_latest"
+reg_seq = "video.frame_seq"
+reg_fb_base = "video.fb_base"
+reg_fb_stride = "video.fb_stride"
+
+[freeze]
+reg_status = "machine.status"
+mask = 0x02
+timeout_ms = 200
+
+# ---- tasks: the core has no ROMs, no settings, no media; the machine starts by itself
+[[task]]
+label = "Reset"
+op = "machine.cold_reset"
+closes_menu = true

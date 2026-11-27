@@ -86,6 +86,18 @@ class ReleaseBundleTest(unittest.TestCase):
         self.assertEqual(open(os.path.join(d, "trx64host_update_deadbeef_20261015.cfw"), "rb").read(),
                          open(self.cfw, "rb").read())
 
+    def test_recovery_file_ships_as_the_app_and_the_text_says_where_it_goes(self):
+        # T265 S10: hostrecovery.app is the bundle's host app byte for byte; INSTALL.md says to copy it to the ROOT of a stick or the SD card
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertEqual(open(os.path.join(d, "hostrecovery.app"), "rb").read(), open(self.app, "rb").read())
+        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
+        self.assertIn("| `hostrecovery.app` |", txt)
+        self.assertIn("root of the stick or the SD card", txt)
+        self.assertRegex(txt, r"[0-9a-f]{64}  hostrecovery\.app")
+        self.assertIn("The board stays dark after an updater of another firmware", txt)
+
     def test_unzip_ships_and_the_install_text_says_where_it_goes(self):
         # T180 D9: unzip.u2a rides along beside the .cor files; INSTALL.md names /cores/apps/ and lists it in the checksums
         u2a = os.path.join(self.d, "unzip.u2a")
@@ -100,19 +112,6 @@ class ReleaseBundleTest(unittest.TestCase):
         self.assertRegex(txt, r"[0-9a-f]{64}  unzip\.u2a")
         self.assertIn("unzip.u2a", open(os.path.join(d, "SHA256SUMS")).read())
 
-    def test_miniz_ships_beside_unzip(self):
-        # T197 P5: the zip library rides along with unzip.u2a and the install text names it
-        for n in ("unzip.u2a", "miniz.u2a"):
-            open(os.path.join(self.d, n), "wb").write(n.encode())
-        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--u2a", os.path.join(self.d, "unzip.u2a"), "--u2a", os.path.join(self.d, "miniz.u2a"))
-        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
-        d = os.path.join(self.out, "trx64mc-main-deadbeef")
-        self.assertEqual(open(os.path.join(d, "miniz.u2a"), "rb").read(), b"miniz.u2a")
-        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
-        self.assertIn("miniz.u2a            the zip library", txt)
-        self.assertIn("Unzip needs the zip library `miniz.u2a`", txt)
-        self.assertRegex(txt, r"[0-9a-f]{64}  miniz\.u2a")
-
     def test_no_u2a_no_unzip_text(self):
         # the control: without --u2a the bundle says nothing about Unzip, so the line above comes from the file and not from the template
         r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2)
@@ -124,6 +123,64 @@ class ReleaseBundleTest(unittest.TestCase):
     def test_missing_u2a_is_refused(self):
         r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--u2a", os.path.join(self.d, "nope.u2a"))
         self.assertNotEqual(r.returncode, 0)
+
+    def _diag_inputs(self):
+        # T239.5 D21: a package as ci/package.sh makes it: diag.cor next to vc20.cor and the SD/ tree the core lanes delivered (diag's, and one of another core)
+        diag = os.path.join(self.d, "diag.cor")
+        core(diag, "Port Diagnostics")
+        sd = os.path.join(self.d, "SD")
+        for rel, body in (("cores/diag/tests/avprobe.toml", b"a=1\n"), ("cores/diag/presets/p.toml", b"b=2\n"), ("cores/vc20/extra/x.toml", b"c=3\n")):
+            os.makedirs(os.path.dirname(os.path.join(sd, rel)), exist_ok=True)
+            open(os.path.join(sd, rel), "wb").write(body)
+        return diag, sd
+
+    def _sd_names(self, d):
+        import zipfile
+        z = os.path.join(d, "SD.zip")
+        return sorted(zipfile.ZipFile(z).namelist()) if os.path.exists(z) else []
+
+    def test_pre_release_carries_diag_and_its_sd_folder(self):
+        diag, sd = self._diag_inputs()
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd)
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertTrue(os.path.exists(os.path.join(d, "diag.cor")))
+        self.assertIn("cores/diag/tests/avprobe.toml", self._sd_names(d))
+        self.assertIn("cores/vc20/extra/x.toml", self._sd_names(d))
+        txt = open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read()
+        self.assertIn("SD.zip", txt)
+        self.assertNotIn("by FTP", txt.split("Port Diagnostics", 1)[-1][:3000])
+
+    def test_release_bundle_has_neither_diag_nor_its_sd_folder(self):
+        diag, sd = self._diag_inputs()
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd, "--release")
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        d = os.path.join(self.out, "trx64mc-main-deadbeef")
+        self.assertFalse(os.path.exists(os.path.join(d, "diag.cor")))
+        self.assertTrue(os.path.exists(os.path.join(d, "vc20.cor")))                 # another core is unchanged
+        self.assertEqual(self._sd_names(d), ["cores/vc20/extra/x.toml"])         # the other core's SD files stay, diag's go
+        self.assertNotIn("avprobe", open(os.path.join(d, "SHA256SUMS")).read())
+        self.assertNotIn("diag.cor", open(os.path.join(d, "INSTALL.md"), encoding="utf-8").read())
+
+    def test_only_a_core_with_the_sd_key_delivers_a_folder(self):
+        # the lane delivers cores/<id>/<[app] sd> only when the key is set: the A1200's sd/ holds the SD controller's RTL
+        def sdk(c):
+            return subprocess.run([sys.executable, "-I", os.path.join(ROOT, "tools", "core_toml.py"), "sdk", c, "sd"], capture_output=True, text=True).stdout.strip()
+        self.assertEqual(sdk("diag"), "sd")
+        self.assertTrue(os.path.isdir(os.path.join(ROOT, "cores", "amiga1200", "sd")))
+        self.assertEqual(sdk("amiga1200"), "")
+
+    def test_release_bundle_without_any_sd_file_has_no_sd_zip(self):
+        diag, sd = self._diag_inputs()
+        import shutil
+        shutil.rmtree(os.path.join(sd, "cores", "vc20"))
+        r = self.run_it("--update", self.cfw, "--update-ue2", self.ue2, "--cor", diag, "--sd", sd, "--release")
+        self.assertEqual(r.returncode, 0, r.stderr[-2000:])
+        self.assertFalse(os.path.exists(os.path.join(self.out, "trx64mc-main-deadbeef", "SD.zip")))
+
+    def test_diag_is_the_pre_release_only_core_and_no_other(self):
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "core_toml.py"), "pre-release-only"], capture_output=True, text=True)
+        self.assertEqual(r.stdout.split(), ["diag"], r.stderr)
 
     def test_half_a_pair_is_refused(self):
         # the negative control: it must fail, and before anything is written

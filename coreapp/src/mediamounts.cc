@@ -1,4 +1,5 @@
 #include "mediamounts.h"
+#include "menubuild.h"
 #include "engines.h"
 #include "boot.h"
 #include "cfgfile.h"
@@ -7,8 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-
-static const char *const persist_values[] = { "No", "Yes" };
 
 const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
 {
@@ -21,6 +20,10 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             return 0;
         }
     }
+    const BaseRow *row = menu_base_row(PERSIST_OP, PERSIST_KEY);      // the row is the base UI TOML's: off by default, it has to be set actively (Alex, 2026-11-04)
+    if (!row) {
+        return "settings: the base UI TOML has no Persist row";
+    }
     if (d->nsettings + 1 > SETTINGS_MAX) {
         return "settings: no room for the Persist item the application adds";
     }
@@ -29,15 +32,7 @@ const char *persist_extend(const CoreDesc *d, CoreDesc *out, Setting *store)
             store[i] = d->settings[i];
         }
     }
-    Setting &p = store[d->nsettings];
-    p = Setting();
-    p.key = PERSIST_KEY;
-    p.values = persist_values;
-    p.nvalues = 2;
-    p.def = 0;                                     // Alex, 2026-11-04: "off by default, it has to be set actively"
-    p.when = WHEN_LIVE;
-    p.apply = PERSIST_OP;
-    p.group = "storage";
+    menu_base_setting(store[d->nsettings], *row);
     out->settings = store;
     out->nsettings = d->nsettings + 1;
     return 0;
@@ -100,6 +95,29 @@ const char *mounts_slot_spec(CoreCtx *c, int idx)
     return h.mounted && h.spec[0] ? h.spec : 0;
 }
 
+int mounts_unit_source(CoreCtx *c, const char *slot, char *buf, int n)
+{
+    if (!c || !c->desc || !slot || !buf || n <= 0) {
+        return -1;
+    }
+    buf[0] = 0;
+    size_t sl = strlen(slot);
+    sl -= sl && slot[sl - 1] == ':';
+    for (int i = 0; i < nwin(c) + nsec(c); i++) {
+        char name[32];
+        mounts_slot_name(c, i, name, sizeof(name));
+        if (strlen(name) == sl && !strncasecmp(name, slot, sl)) {
+            const char *spec = mounts_slot_spec(c, i);
+            if (!spec || !spec[0]) {
+                return 0;
+            }
+            snprintf(buf, n, "%s", spec);
+            return 1;
+        }
+    }
+    return -1;
+}
+
 static bool slot_mounted(CoreCtx *c, int idx)
 {
     if (idx >= nwin(c) + nsec(c)) {
@@ -153,6 +171,21 @@ void mounts_changed(CoreCtx *c, bool sector, int n)
 void mounts_engine_changed(CoreCtx *c, int n)
 {
     changed_idx(c, nwin(c) + nsec(c) + n);
+}
+
+// SvcCtx::mount_notify: the slots a library marked since the last pass are stored, once each. Under the core lock. Marks wait until the start has mounted what the
+// .cfg stores (mounts_ready), as a change of the core's own engine does.
+void mounts_pass(CoreCtx *c)
+{
+    if (!c->mounts_ready) {
+        return;
+    }
+    for (int i = 0; i < 32 && i < neng(c); i++) {
+        if (c->mounts_dirty[i]) {
+            c->mounts_dirty[i] = 0;                                 // before the spec is read: a mark that comes in now is stored at the next pass
+            changed_idx(c, nwin(c) + nsec(c) + i);
+        }
+    }
 }
 
 // What is mounted now is what the file says (item on), or the file says nothing (item off)

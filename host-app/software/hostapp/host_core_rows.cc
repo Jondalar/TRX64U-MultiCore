@@ -875,8 +875,8 @@ void hc_wifi_texts(HcWifiTexts *t)
 // ---- the settings page ----------------------------------------------------------------------------------------------------------------------------
 const char *hc_set_name(int kind)
 {
-    static const char *const id[] = { "direct", "auto", "secs", "hdmi", "protect", "wifi", "ftp", "esp", "cores", "report" };
-    return kind >= 0 && kind < 10 ? hc_item_title("settings", id[kind]) : "";
+    static const char *const id[] = { "direct", "auto", "secs", "hdmi", "protect", "wifi", "ftp", "esp", "cores", "report", "av" };
+    return kind >= 0 && kind < 11 ? hc_item_title("settings", id[kind]) : "";
 }
 
 int hc_set_kinds(int *k)
@@ -891,6 +891,7 @@ int hc_set_kinds(int *k)
         }
     }
     k[n++] = SK_HDMI;
+    k[n++] = SK_AV;
     if (HOSTAPP_FLASH_LOCK) {
         k[n++] = SK_PROTECT;                     // T152 D9: only in a build with HOSTAPP_FLASH_LOCK
     }
@@ -941,6 +942,11 @@ void hc_set_row_text(int kind, const char *&name, char (&v)[64], const char *&he
         help = "Only what the screen names is offered. A change asks for a key within 8 s, else it goes back. RETURN opens the modes the screen names; V opens them from every view. Nothing is applied while you browse.";
         break;
     }
+    case SK_AV:
+        name = hc_set_name(SK_AV);
+        snprintf(v, sizeof(v), "%s", cfg.vid_av ? "RGB" : "off");
+        help = "The menu and the cores' pictures on the A/V port, for a SCART RGB cable. off: nothing on the port. Saved at once.";
+        break;
     case SK_PROTECT:
         name = hc_set_name(SK_PROTECT);
         snprintf(v, sizeof(v), "%s", flashprot_enabled() ? "on" : "off");
@@ -988,6 +994,7 @@ bool hc_set_toggle_state(int kind)
     case SK_DIRECT: return hc_cfg().direct;
     case SK_AUTO: return hc_cfg().countdown > 0;
     case SK_PROTECT: return flashprot_enabled();
+    case SK_AV: return hc_cfg().vid_av != 0;
     case SK_FTP: return ftp_state_now().on;
     }
     return false;
@@ -996,13 +1003,13 @@ bool hc_set_toggle_state(int kind)
 const char *hc_set_key_name(int kind)
 {
     static const char *const n[] = { "settings.direct", "settings.auto", "settings.secs", "settings.hdmi", "settings.protect", "settings.wifi", "settings.ftp",
-                                     "settings.esp", "settings.cores", "settings.report" };
-    return kind >= 0 && kind < 10 ? n[kind] : "";
+                                     "settings.esp", "settings.cores", "settings.report", "settings.av" };
+    return kind >= 0 && kind < 11 ? n[kind] : "";
 }
 
 int hc_set_kind_of(const char *key)
 {
-    for (int k = 0; k < 10; k++) {
+    for (int k = 0; k < 11; k++) {
         if (!strcmp(key, hc_set_key_name(k))) {
             return k;
         }

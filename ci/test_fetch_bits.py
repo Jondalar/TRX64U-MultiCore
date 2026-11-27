@@ -21,7 +21,7 @@ from fakegh import FakeGH  # noqa: E402
 
 REF = [l.split()[1] for l in open(os.path.join(os.path.dirname(HERE), "host", "layers.txt")) if l.startswith("reference:")][0]
 K = lambda c: "%016x" % c
-H, R, V, Z, M = "host-" + K(1), "core-%s-%s" % (REF, K(3)), "core-vc20-" + K(4), "core-zx_next-" + K(5), "mono-amiga1200-" + K(6)
+H, A, R, V, Z, M = "host-" + K(1), "aux-" + K(2), "core-%s-%s" % (REF, K(3)), "core-vc20-" + K(4), "core-zx_next-" + K(5), "mono-amiga1200-" + K(6)
 sha = lambda b: hashlib.sha256(b).hexdigest()
 
 
@@ -58,7 +58,7 @@ class FetchTest(unittest.TestCase):
         self.cache, self.hand = os.path.join(self.tmp, "bit"), os.path.join(self.tmp, "handoff")
         self.host_bit = b"host bitstream"
         self.hsha = sha(self.host_bit)
-        self.names = [H, R, V, Z, M]
+        self.names = [H, A, R, V, Z, M]
         open(os.path.join(self.tmp, "keys"), "w").write("\n".join(self.names) + "\n")
         self.publish_all()
 
@@ -70,12 +70,14 @@ class FetchTest(unittest.TestCase):
         host = release_files({"host.bit": self.host_bit, "key": b"k", "from": b"built abc"}, {"host.steps.txt": b"steps", "host.timing.rpt": b"timing"},
                              {"host_sha": self.hsha, "extra_files": {"static_routed.dcp": "f" * 64}})
         self.gh.add_release("bit-" + H, host)
+        self.gh.add_release("bit-" + A, release_files({"ddr2_test.bit": b"aux"}, {}, {"wns_ns": "0.1"}))
         for n, c in ((R, REF), (V, "vc20"), (Z, "zx_next")):
             self.gh.add_release("bit-" + n, release_files({c + "_partial.bit": b"p " + c.encode(), c + "_full.bit": b"f " + c.encode()}, {c + ".steps.txt": b"s"}, {"host_sha": self.hsha}))
         self.gh.add_release("bit-" + M, release_files({"amiga1200_mono.bit": b"mono"}, {}, {"wns_ns": "0.1"}))
 
     def fetch(self, target=None, ok=True, names_only=False):
-        env = {"PATH": os.environ["PATH"], "CI_BIT_CACHE": self.cache, "CI_HANDOFF": self.hand, "FETCH_KEYS": os.path.join(self.tmp, "keys"), "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base}
+        env = {"PATH": os.environ["PATH"], "CI_BIT_CACHE": self.cache, "CI_HANDOFF": self.hand, "FETCH_KEYS": os.path.join(self.tmp, "keys"), "MC_BUILDS_REPO": self.gh.repo, "BUILDS_API": self.gh.base,
+               "FETCH_FILLERS": "zx_next"}
         r = subprocess.run([os.path.join(HERE, "fetch_bits.sh")] + (["--names"] if names_only else []) + ([target] if target else []), env=env, capture_output=True, text=True)
         self.assertEqual(r.returncode == 0, ok, r.stdout + r.stderr)
         return r
@@ -136,6 +138,10 @@ class FetchTest(unittest.TestCase):
         self.fetch("large:amiga1200")
         self.assertEqual(self.entries(), [M])
         self.fetch("core:nosuch", ok=False)
+        shutil.rmtree(self.cache)
+        self.fetch("host")                                                               # T265 P5: host, aux, the reference core and the flash filler (here zx_next)
+        self.assertEqual(self.entries(), sorted(n for n in self.names if n in (H, A, R, Z)))
+        self.assertEqual(self.fetch("host", names_only=True).stdout.split(), [n for n in self.names if n in (H, A, R, Z)])
 
     def refused(self, entry_name=None):
         self.fetch(ok=False)

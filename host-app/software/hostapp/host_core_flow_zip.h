@@ -1,7 +1,8 @@
-// Unzip in the File Browser (T197 P3): a .zip is unpacked by the same unzip.u2a + miniz.u2a the cores run (apps/unzip, apps/miniz), loaded from <medium>/cores/apps and
-// "/SD/cores/apps" by the loader of coreapp/src (appindex, libload). The flow is a job like the others (host_core_job.h): it finds the application, asks which of the three
-// actions, loads the application with the library it needs, runs it and shows how it ended. What the application asks while it works (message, choose, the bar) is
-// drawn as pages of this flow. No LVGL, no FreeRTOS: the machine behind the loader (heap, instruction cache, the call into the image) and the files are the environment's.
+// Unzip in the File Browser (T197 P3): a .zip is unpacked by the same unzip.u2a the cores run (apps/unzip), loaded from <medium>/cores/apps and "/SD/cores/apps" by the loader
+// of coreapp/src (appindex, libload); the image carries its own miniz (T239.3 D60) and needs the base only. The flow is a job like the others
+// (host_core_job.h): it finds the application, asks which of the three actions, loads the application, runs it and shows how it ended. What the application asks while it works
+// (message, choose, the bar) is drawn as pages of this flow. No LVGL, no FreeRTOS: the machine behind the loader (heap, instruction cache, the call into the image) and the files
+// are the environment's.
 #ifndef HOST_HOSTCORE_FLOW_ZIP_H
 #define HOST_HOSTCORE_FLOW_ZIP_H
 
@@ -13,7 +14,7 @@ struct HcZipEnv {
     const HcFlowEnv *base;
     CoreFs *fs;                    // the files (the board: fm_fs())
     LibHost *libhost;              // heap, code placement and the call into an image (the board: hostzip_board.cc; a bench: its own)
-    void *rig;                     // the loader, the registry and the index: made on the first use, kept (a library stays loaded, as in a core)
+    void *rig;                     // the loader, the registry and the index: made on the first use, kept
 };
 
 class HcJob;

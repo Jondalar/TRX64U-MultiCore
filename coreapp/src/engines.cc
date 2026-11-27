@@ -1,15 +1,32 @@
 #include "engines.h"
 #include "video.h"
-#include "pad.h"
+#include "mouse_api.h"
+#include "pad_api.h"
+#include "libtab.h"
 #include <stdio.h>
 #include <string.h>
+
+// The tables of the mouse and pad libraries (libtab.h): none in an app linked without them, and then there is no mouse and no pad.
+static const MouseApi *mouse_lib(void)
+{
+    const MouseApi *a = (const MouseApi *)libtab_export(MOUSE_API_NAME, 1);
+    return a && a->size >= sizeof(MouseApi) ? a : 0;
+}
+
+static const PadApi *pad_lib(void)
+{
+    const PadApi *a = (const PadApi *)libtab_export(PAD_API_NAME, 1);
+    return a && a->size >= sizeof(PadApi) ? a : 0;
+}
 
 Engines *engines_of(CoreCtx *c)
 {
     if (!c->eng) {
         c->eng = new Engines();                   // value-initialised: every slot empty, no list
-        mouse_sink_configure(c->desc ? c->desc->mouse : 0);
-        mouse_sink_reset();
+        if (const MouseApi *m = mouse_lib()) {
+            m->configure(c->desc ? c->desc->mouse : 0);
+            m->reset();
+        }
         rawkeys_configure(c->desc ? c->desc->rawkeys : 0);
     }
     return c->eng;
@@ -65,7 +82,9 @@ void engines_after_hold(CoreCtx *c)
 // window is at the gateware's default again, so the look at the display window starts from there.
 void engines_after_reload(CoreCtx *c)
 {
-    pad_reset();                                  // the pad registers are at zero again: the next pace writes the words
+    if (const PadApi *p = pad_lib()) {
+        p->reset();                               // the pad registers are at zero again: the next pace writes the words
+    }
     if (!c->eng) {
         return;
     }
@@ -73,7 +92,9 @@ void engines_after_reload(CoreCtx *c)
     if (c->video) {
         c->video->set_view(0, 0);                 // the layer shows the whole picture again
     }
-    mouse_sink_reset();
+    if (const MouseApi *m = mouse_lib()) {
+        m->reset();
+    }
     rawkeys_reset();
 }
 
@@ -102,17 +123,33 @@ bool engines_poll(CoreCtx *c)
     bool more = sec_service(c, 16) != 0;
     win_service(c);
     sec_idle(c);
-    mouse_sink_pace(c);
+    if (const MouseApi *m = mouse_lib()) {
+        m->pace(c);
+    }
     rawkeys_pace(c);
-    pad_pace(c);
+    if (const PadApi *p = pad_lib()) {
+        p->pace(c);
+    }
     fbwin_poll(c);
     return more;
 }
 
 static int op_led_load(CoreCtx *c, const OpArgs &a, OpOut &) { ledload_set(c, a.i(0) == 0); return OPE_OK; }
 
-static int op_mouse_sens(CoreCtx *, const OpArgs &a, OpOut &) { mouse_sink_set_sensitivity(a.i(0)); return OPE_OK; }
-static int op_mouse_accel(CoreCtx *, const OpArgs &a, OpOut &) { mouse_sink_set_acceleration(a.i(0)); return OPE_OK; }
+static int op_mouse_sens(CoreCtx *, const OpArgs &a, OpOut &)
+{
+    if (const MouseApi *m = mouse_lib()) {
+        m->set_sensitivity(a.i(0));
+    }
+    return OPE_OK;
+}
+static int op_mouse_accel(CoreCtx *, const OpArgs &a, OpOut &)
+{
+    if (const MouseApi *m = mouse_lib()) {
+        m->set_acceleration(a.i(0));
+    }
+    return OPE_OK;
+}
 
 static int op_poll(CoreCtx *c, const OpArgs &, OpOut &o)
 {

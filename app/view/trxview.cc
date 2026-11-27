@@ -6,6 +6,7 @@
 // panel skin, UNSCII for the terminal skin, so no font binary is added to the repository.
 #include <ctype.h>
 #include "trxview.h"
+#include "trx_scheme_names.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -45,7 +46,7 @@ void trx_skin_set(TrxSkin s) { g_skin = s; }
 
 // The colour schemes of Gideon's "Color Scheme" item (userinterface.cc `colors`): the panel skin's eleven colours, in the order of TrxTheme (bg, surface, surface2,
 // line, ink, muted, accent, ok, warn, bad, accent_soft). Scheme 1, "Ultimate Black", is the concept's own palette.
-static const uint32_t k_schemes[7][11] = {
+static const uint32_t k_schemes[TRX_SCHEME_COUNT][11] = {
     { 0x2b2070, 0x352879, 0x40318d, 0x5a4ab0, 0xe8e0ff, 0xb0a6e8, 0xffffff, 0x8bdc8b, 0xffd070, 0xff8080, 0x4a3da0 },     // Standard Blue
     { 0x070a12, 0x0d1220, 0x111827, 0x273047, 0xf4f2fb, 0x9da6bd, 0x8376ff, 0x6de7ff, 0xffc15a, 0xff7a72, 0x1c1a3f },     // Ultimate Black
     { 0x0a140c, 0x101e12, 0x16281a, 0x2a4a30, 0xd8f4da, 0x86b08a, 0x70e070, 0x70e0b0, 0xe8d060, 0xff7a72, 0x143018 },     // C128 Style
@@ -56,7 +57,7 @@ static const uint32_t k_schemes[7][11] = {
 };
 void trx_scheme_set(int n)
 {
-    if (n < 0 || n > 6) {
+    if (n < 0 || n >= TRX_SCHEME_COUNT) {
         return;
     }
     const uint32_t *c = k_schemes[n];
@@ -591,7 +592,7 @@ static void set_label_w(lv_obj_t *lab, const char *s, const lv_font_t *f, int ro
 }
 
 // The row's user data: what the row was last given, so a change can be written without reading LVGL's styles back.
-enum { ROW_VAL = 1, ROW_SEL = 2, ROW_DIM = 4, ROW_STRONG = 8, ROW_MARK = 16 };
+enum { ROW_VAL = 1, ROW_SEL = 2, ROW_DIM = 4, ROW_STRONG = 8, ROW_MARK = 16, ROW_HEAD = 32 };
 
 // T187 D9: a ring with a gap at the top right, 10 px, beside a label: "takes effect at the next reset". One object (its notch is a child of it, not of the row).
 #define RESET_MARK_D 10
@@ -741,7 +742,7 @@ lv_obj_t *trx_row_at(lv_obj_t *par, int x, int y, int w, const TrxRow &r_in, int
     if (r.heading) {                                            // T187 D1: the group's name, quiet; the same children as every row (marks hidden, the label), so a window move needs no special case
         const char *hl = shout(r.label);
         set_label_w(trx_txt(row, t.space_md, 3, hl, t.caption, t.muted, w - 2 * t.space_md), hl, t.caption, w - 2 * t.space_md);
-        lv_obj_set_user_data(row, (void *)(uintptr_t)ROW_DIM);
+        lv_obj_set_user_data(row, (void *)(uintptr_t)(ROW_DIM | ROW_HEAD));
         if (next_y) {
             *next_y = y + h + 1;
         }
@@ -834,35 +835,66 @@ bool trx_row_texts(lv_obj_t *row, char *lab, char *val, int n)
     return true;
 }
 
-// Give an existing row new content without building it again. The structure has to be the same one trx_row_at() made (a sub line
-// or not, a value or not) - otherwise false and the caller builds the row. Only what differs is written, so LVGL invalidates the
-// labels whose text moved and nothing else: a window that scrolls by one row changes the text of the rows, not their objects.
+// Give an existing row new content without building it again. A row object made by trx_row_at() is changed in place between a heading and a
+// setting, and a value is added or removed; false (the caller builds the pane again) only when a ring is to be added or taken away, the row's height is
+// not a setting's, or the object is not a trx_row_at() row. Only what differs is written, so LVGL invalidates the labels whose text moved and
+// nothing else: a window that scrolls by one row changes the text of the rows, not their objects.
 bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
 {
     TrxRow r = r_in;
     char vbuf[160];
     const TrxTheme &t = trx_theme();
-    if (r.heading) {                                            // the pane's shape holds the kinds; a heading in the same place may be another group's (a window that moved by pages)
-        if (!row || lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1)) {
-            return false;
-        }
-        lv_obj_t *hl = lv_obj_get_child(row, ROW_MARKS);
-        const char *txt = shout(r.label);
-        if (strcmp(lv_label_get_text(hl), txt)) {
-            lv_label_set_text(hl, txt);
-            set_label_w(hl, txt, t.caption, lv_obj_get_width(row) - 2 * t.space_md);
-        }
-        return true;
-    }
-    uintptr_t ud = row ? (uintptr_t)lv_obj_get_user_data(row) : 0;
-    bool has_val = (ud & ROW_VAL) != 0;
-    bool has_mark = (ud & ROW_MARK) != 0;
-    if (!row || has_mark != r.mark || lv_obj_get_height(row) != trx_row_h() ||
-        lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1 + (has_mark ? 1 : 0) + (has_val ? 1 : 0))) {
+    if (!row) {
         return false;
+    }
+    uintptr_t ud = (uintptr_t)lv_obj_get_user_data(row);
+    const bool was_head = (ud & ROW_HEAD) != 0;
+    const uint32_t nch = lv_obj_get_child_count(row);
+    if (nch != (uint32_t)(ROW_MARKS + 1 + (was_head ? 0 : ((ud & ROW_MARK) ? 1 : 0) + ((ud & ROW_VAL) ? 1 : 0)))) {
+        return false;                                           // not a row of trx_row_at() (or one that was changed behind its back)
     }
     if (!w) {
         w = g_content_w - 2 * lv_obj_get_x(row);
+    }
+    lv_obj_t *lab = lv_obj_get_child(row, ROW_MARKS);
+    // A window that moves by one row moves a group's heading into or out of it: the row object that held a group's name holds a setting now, or the other way
+    // round. The object is changed to what trx_row_at() makes of the other kind (the label's font, colour and place, the value and the mark that a heading
+    // has not) instead of the pane being built again; the same properties, so the same picture.
+    if (was_head != r.heading) {
+        if (lv_obj_get_height(row) != trx_row_h() || (!r.heading && r.mark)) {   // a heading has no ring: a setting with one is built, the row is not changed halfway
+            return false;
+        }
+        if (r.heading) {
+            while (lv_obj_get_child_count(row) > (uint32_t)(ROW_MARKS + 1)) {
+                lv_obj_delete(lv_obj_get_child(row, (int32_t)lv_obj_get_child_count(row) - 1));
+            }
+            if (ud & ROW_SEL) {
+                trx_row_select(row, false);
+            }
+            lv_obj_set_style_text_font(lab, t.caption, 0);
+            lv_obj_set_style_text_color(lab, lv_color_hex(t.muted), 0);
+            lv_obj_set_y(lab, 3);
+            ud = ROW_DIM | ROW_HEAD;
+        } else {
+            lv_obj_set_style_text_font(lab, t.body, 0);
+            lv_obj_set_style_text_color(lab, lv_color_hex(r.dim ? t.muted : t.ink), 0);
+            lv_obj_set_y(lab, ROW_TOP);
+            ud = r.dim ? (uintptr_t)ROW_DIM : 0;
+        }
+        lv_obj_set_user_data(row, (void *)ud);
+    }
+    if (r.heading) {                                            // the row is a heading now (changed above if it was a setting); it may be another group's (a window that moved by pages)
+        const char *txt = shout(r.label);
+        if (strcmp(lv_label_get_text(lab), txt)) {
+            lv_label_set_text(lab, txt);
+        }
+        set_label_w(lab, txt, t.caption, lv_obj_get_width(row) - 2 * t.space_md);
+        return true;
+    }
+    bool has_val = (ud & ROW_VAL) != 0;
+    bool has_mark = (ud & ROW_MARK) != 0;
+    if (has_mark != r.mark || lv_obj_get_height(row) != trx_row_h()) {
+        return false;                                           // a ring is made or taken away only by building the row
     }
     r.value = fit_value(r.label, r.value, w, vbuf, sizeof(vbuf));
     // a value that the row did not have is made, one that it no longer has is removed (a folder row has no size, a file row has one)
@@ -884,7 +916,6 @@ bool trx_row_retext(lv_obj_t *row, const TrxRow &r_in, int w)
     }
     int vw = r.value ? trx_text_w(r.value, t.caption) : 0;
     int lw = w - 2 * t.space_md - (vw ? vw + t.space_md : 0);
-    lv_obj_t *lab = lv_obj_get_child(row, ROW_MARKS);
     if (strcmp(lv_label_get_text(lab), r.label ? r.label : "")) {
         lv_label_set_text(lab, r.label ? r.label : "");
     }
@@ -1114,6 +1145,98 @@ lv_obj_t *trx_status_row(lv_obj_t *par, int x, int y, int w, const TrxStatusRow 
         *next_y = y + h + 1;
     }
     return row;
+}
+
+// T262 P9: a status row given new texts and colours without building it again, so that a value that changed in the menu repaints that row's labels and not the pane. False
+// (the caller builds the pane again) when the row is not one of trx_status_row() or has a meta word that the new content has not, or the other way round.
+bool trx_status_row_retext(lv_obj_t *row, const TrxStatusRow &r, int w)
+{
+    const TrxTheme &t = trx_theme();
+    if (!row) {
+        return false;
+    }
+    const char *meta = r.meta && *r.meta ? r.meta : 0;
+    if (lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 2 + (meta ? 1 : 0))) {
+        return false;
+    }
+    int tx = t.space_sm + 4 + t.space_md;
+    char mbuf[160], tbuf[160];
+    if (meta) {
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - tx) * 45 / 100;
+        meta = trx_fit_mid(meta, w - tx - t.space_sm - t.space_md - (lab < keep ? lab : keep), t.caption, mbuf, sizeof(mbuf));
+    }
+    int mw = meta ? trx_text_w(meta, t.caption) : 0;
+    int room = w - tx - t.space_sm - (mw ? mw + t.space_md : 0);
+    lv_obj_t *dot = lv_obj_get_child(row, ROW_MARKS), *title = lv_obj_get_child(row, ROW_MARKS + 1);
+    lv_obj_set_style_bg_color(dot, lv_color_hex(r.dim ? t.line : trx_tone_color(r.tone)), 0);
+    const char *ttl = r.title ? trx_fit_mid(r.title, room, t.body, tbuf, sizeof(tbuf)) : r.title;
+    if (strcmp(lv_label_get_text(title), ttl ? ttl : "")) {
+        lv_label_set_text(title, ttl ? ttl : "");
+    }
+    if (lv_obj_get_width(title) != room) {
+        lv_obj_set_width(title, room);
+    }
+    lv_obj_set_style_text_color(title, lv_color_hex(r.dim ? (r.selected ? t.muted : dimmer(t)) : t.ink), 0);
+    if (meta) {
+        lv_obj_t *ml = lv_obj_get_child(row, ROW_MARKS + 2);
+        if (strcmp(lv_label_get_text(ml), meta)) {
+            lv_label_set_text(ml, meta);
+        }
+        if (lv_obj_get_x(ml) != w - mw - t.space_sm) {
+            lv_obj_set_x(ml, w - mw - t.space_sm);
+        }
+        lv_obj_set_style_text_color(ml, lv_color_hex(r.dim ? t.muted : trx_tone_color(r.tone)), 0);
+    }
+    return true;
+}
+
+// The same for a setting row with no ring: its title, its value or its switch. False when the row has a ring or the new content has another kind of control.
+bool trx_setting_row_retext(lv_obj_t *row, const TrxSettingRow &r, int w)
+{
+    const TrxTheme &t = trx_theme();
+    if (!row || r.reset) {
+        return false;
+    }
+    const char *val = r.toggle ? 0 : r.value;
+    if (lv_obj_get_child_count(row) != (uint32_t)(ROW_MARKS + 1 + ((r.toggle || val) ? 1 : 0))) {
+        return false;
+    }
+    char vbuf[160];
+    if (val) {
+        int lab = trx_text_w(r.title ? r.title : "", t.body) + 4;
+        int keep = (w - 2 * t.space_md) * 45 / 100;
+        val = trx_fit_mid(val, w - 2 * t.space_md - t.space_lg - (lab < keep ? lab : keep), t.body, vbuf, sizeof(vbuf));
+    }
+    int cw = r.toggle ? 34 : (val ? trx_text_w(val, t.body) : 0);
+    int room = w - 2 * t.space_md - (cw ? cw + t.space_lg : 0);
+    lv_obj_t *title = lv_obj_get_child(row, ROW_MARKS);
+    if (strcmp(lv_label_get_text(title), r.title ? r.title : "")) {
+        lv_label_set_text(title, r.title ? r.title : "");
+    }
+    if (lv_obj_get_width(title) != room) {
+        lv_obj_set_width(title, room);
+    }
+    lv_obj_set_style_text_color(title, lv_color_hex(r.dim ? t.muted : t.ink), 0);
+    if (r.toggle) {
+        lv_obj_t *tr = lv_obj_get_child(row, ROW_MARKS + 1);
+        uint32_t on_col = r.tone == TT_MUTED ? t.accent : trx_tone_color(r.tone);
+        lv_obj_set_style_bg_color(tr, lv_color_hex(r.on ? on_col : t.line), 0);
+        lv_obj_t *knob = lv_obj_get_child(tr, 0);
+        if (knob && lv_obj_get_x(knob) != (r.on ? 34 - 16 : 2)) {
+            lv_obj_set_x(knob, r.on ? 34 - 16 : 2);
+        }
+    } else if (val) {
+        lv_obj_t *vl = lv_obj_get_child(row, ROW_MARKS + 1);
+        if (strcmp(lv_label_get_text(vl), val)) {
+            lv_label_set_text(vl, val);
+        }
+        if (lv_obj_get_x(vl) != w - cw - t.space_md) {
+            lv_obj_set_x(vl, w - cw - t.space_md);
+        }
+        lv_obj_set_style_text_color(vl, lv_color_hex(r.dim ? t.muted : t.ink), 0);
+    }
+    return true;
 }
 
 lv_obj_t *trx_setting_row(lv_obj_t *par, int x, int y, int w, const TrxSettingRow &r, int *next_y)

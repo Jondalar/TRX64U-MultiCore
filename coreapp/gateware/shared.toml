@@ -1,0 +1,162 @@
+# TOML A of the shared application (T239.3 P2-3, D31, D34): the blocks its drivers use, at the addresses the shared app has today (iobase and u2p_io_base are those of
+# the host's TOML A, coreapp/gateware/host.toml, whose ldfrag the app links: tools/test_descrec.py checks that they agree). The driver table (drvtab.h, drvtab.c) is generated from it by
+# `tools/descrec.py drivers` at build time and linked; a driver names a register only through that table. An app linked for c64_basic takes TRX64-Ultimate's TOML A
+# in its place (P3-3). The module names are the gateware modules; one module that serves several drivers is one block per register range (D34).
+# The identity is the one block every record names; the shared app is built for no single bitstream, so it compares nothing at start (P1-4 is the check for the app of one core).
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "TRX2"
+block = "ident"
+
+[[block]]
+name = "ident"
+module = "trx_io"
+owner = "base"
+address = 0x101A0000
+size = 0x10
+  [[block.property]]
+  name = "id"
+  offset = 0x00
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x04
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x08
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "resid8"
+module = "trx_io"
+owner = "base"
+address = 0x101A0040
+size = 0xE
+map = "sid"
+
+[[block]]
+name = "cart_regs"
+module = "c64_io"
+owner = "base"
+address = 0x10040000
+size = 0x100
+map = "c64cart_regs"
+
+[[block]]
+name = "drive_a"
+module = "c1541"
+owner = "base"
+address = 0x10020000
+size = 0x1800
+map = "cbm1541"
+
+[[block]]
+name = "drive_wd"
+module = "c1541"
+owner = "base"
+address = 0x10021800
+size = 0x10
+map = "wd177x"
+
+[[block]]
+# The command interface: decoded by the host gateware, driven by no code of the base (D48, D49). A core that runs UCI (TRX64-Ultimate's trx64u) owns it.
+name = "cmd_if"
+module = "uci"
+owner = "core"
+address = 0x10044000
+size = 0x10
+map = "uci"
+
+[[block]]
+# The GCR coder: only the UCI server's DECODE_TRACK used it (D48, D49), so a core that runs UCI owns it.
+name = "gcr_coder"
+module = "gcr_coder"
+owner = "core"
+address = 0x10060500
+size = 0x10
+map = "gcr_coder"
+
+[[block]]
+name = "icap"
+module = "icap"
+owner = "base"
+address = 0x10060600
+size = 0x1C
+map = "icap"
+
+[[block]]
+name = "partition"
+module = "icap"
+owner = "base"
+address = 0x10060620
+size = 2
+map = "partition"
+
+[[block]]
+name = "audio_master"
+module = "audio_mixer"
+owner = "base"
+address = 0x10100550
+size = 2
+map = "audio_master"
+
+[[block]]
+name = "c64_debug"
+module = "c64_io"
+owner = "base"
+address = 0x10181800
+size = 0x10
+  [[block.property]]
+  name = "debug"
+  offset = 0x00
+  width = 8
+  dir = "rw"
+
+# The blocks a board probe asks for (board.cc, hw.cc HwBoardProbe): a probe runs only when the app's driver table has its block (DRV_HAS_<block>). iec_status is the IEC block's
+# version byte at IEC_BASE (the same bytes as the host's TOML A); c64cart is the cartridge page of trx_io (page 4, TRX_IO_BASE + 0x4000) and dma the 64 KiB DMA window of the C64
+# machine (host.toml has it at the same address): the cartridge probe (TRX_CAPS b4) and the REU probe (the REU is part of the C64 machine) ask for them. The ring probe (TRX_CAPS b0-b2) asks for
+# c64_debug, the block of the C64 machine's debug register above.
+[[block]]
+name = "iec_status"
+module = "ultimate_sys"
+owner = "base"
+address = 0x10028000
+size = 0x3
+  [[block.property]]
+  name = "version"
+  offset = 0x0
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo0"
+  offset = 0x1
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "fifo1"
+  offset = 0x2
+  width = 8
+  dir = "r"
+
+[[block]]
+name = "c64cart"
+module = "trx_io"
+owner = "base"
+address = 0x101A4000
+size = 0x70
+map = "c64cart"
+
+[[block]]
+name = "dma"
+module = "dma_win"
+owner = "base"
+address = 0x10050000
+size = 0x10000
+map = "dma"

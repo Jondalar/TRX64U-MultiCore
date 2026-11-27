@@ -13,6 +13,7 @@
 #include "volume.h"
 #include "ops_glue.h"
 #include "atari_media.h"
+extern const CoreDesc atari800_desc;          // cores.h lists the shared app's cores; the Atari 800 XL is its own app (cores/atari800/app/lib)
 
 struct Host : MenuHost {
     void info(int, char *out, int) { out[0] = 0; }
@@ -64,6 +65,8 @@ int main()
     r.fs.put("/usb0/games/notes.txt", bytes(10, 3));
     r.fs.put("/usb0/games/p.xex", bytes(10, 4));
     r.fs.put("/usb0/games/z.bin", bytes(10, 5));
+    r.fs.put("/usb0/games/q.dat", bytes(10, 6));
+    r.fs.size_unknown.insert("/usb0/games/q.dat");                 // T262 D4 finding 14: a file whose size the file system does not know
     r.m->open();
 
     // ---- D3: the media level has the media and nothing else; no Favorites in any sheet
@@ -75,6 +78,8 @@ int main()
     for (int i = 0; i < r.m->rows(); i++) CHECK(r.left(i)[0] != '[');       // no list of the Library at all until a home folder is set
     r.enter("usb0/"); r.enter("games/");
     CHECK_STR(r.m->title(), "/usb0/games");
+    CHECK_STR(r.value(r.find_row("a.atr")).c_str(), "1 KB");                // a size that is known: as before
+    CHECK_STR(r.value(r.find_row("q.dat")).c_str(), "-");                   // an unknown size is a dash, not "0 KB"
     r.go_to("a.atr");
     r.m->key(KEY_RETURN);                                          // the sheet of a file
     CHECK(r.m->chooser());
@@ -88,6 +93,43 @@ int main()
         CHECK(r.fs.text("/usb0/cores/atari800.cfg").find("Recent") == std::string::npos);
         CHECK(r.fs.text("/usb0/cores/atari800.cfg").find("Favorite") == std::string::npos);
         r.m->key(KEY_ESCAPE);
+    }
+
+    {   // T262 D4 finding 12: browse_at puts Browse on a folder with the cursor on a file (not on ".."); browse_sheet opens that file's action sheet as RETURN does
+        r.c.lib.want_dir[0] = 0;
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        r.c.lib.want_sheet = false;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(!r.m->chooser());
+        CHECK_STR(r.left(r.m->selected()).c_str(), "p.xex");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "z.bin");
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(r.m->chooser());
+        CHECK(r.find_row("Rename") >= 0);
+        r.m->key(KEY_ESCAPE);
+        CHECK(!r.m->chooser());
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "nothere.bin");        // a name that is not in the folder: no sheet, the cursor stays at the top
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());
+        CHECK(!r.m->chooser());
+        CHECK(!r.c.lib.want_sheet && !r.c.lib.want_name[0]);
+        // finding 8: a browse_at that went nowhere (no such screen) or that a later goto_screen replaced leaves nothing for the next Browse entry
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        r.c.lib.want_sheet = true;
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F9/nowhere");
+        CHECK(!r.m->take_screen());
+        CHECK(!r.c.lib.want_dir[0] && !r.c.lib.want_name[0] && !r.c.lib.want_sheet);
+        snprintf(r.c.lib.want_dir, sizeof(r.c.lib.want_dir), "/usb0/games");
+        snprintf(r.c.lib.want_name, sizeof(r.c.lib.want_name), "P.XEX");
+        snprintf(r.c.want_screen, sizeof(r.c.want_screen), "F3/browse");
+        CHECK(r.m->take_screen());                                                  // browse_at, taken by the browser
+        CHECK(!r.c.lib.want_dir[0] && !r.c.lib.want_name[0]);
     }
 
     // ---- D6: the file operations in a core that carries none of its own

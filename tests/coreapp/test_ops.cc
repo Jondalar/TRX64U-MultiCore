@@ -330,6 +330,11 @@ static void slow_start()
     OpResult res;
     CHECK_EQ(ex.call("test.ident", 0, 0, &res), OPE_OK);
     CHECK(g_ident != std::this_thread::get_id());           // ran on the executor's thread, not on the caller's
+    // a caller that holds the core lock (the start hook, a poll) gets the operation run on its own task: queued, it would wait for the lock it holds
+    lock.lock();
+    CHECK_EQ(ex.call("test.ident", 0, 0, &res), OPE_OK);
+    CHECK(g_ident == std::this_thread::get_id());
+    lock.unlock();
     ex.stop();
 }
 

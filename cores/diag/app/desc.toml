@@ -1,0 +1,97 @@
+# The Port Diagnostics core's data description (T239.3 D17): the tables of its descriptor, compiled by tools/descrec.py into the description record of the .cor (record 6,
+# layout in coreapp/src/descrec.h). The core has no machine: no picture of its own, no ROM. What the record cannot hold is code and stays in the core's C++ (cores/diag/app/lib): init,
+# release, the operations of register_ops (the test runner, the panels) and the state values of the live page. Register numbers are portdiag_regs.h, by the driver table of gateware.toml.
+
+[core]
+id = "DIAG"
+name = "Port Diagnostics"
+title = "Port Diagnostics"
+short_title = "DIAG"
+folder = "diag"
+store = "Port Diagnostics Settings"
+min_contract = 1
+reset_ms = 20
+live_ms = 250                          # the live page's rows are read again this often
+menu_first = true
+core_id = "diag"
+caps = ["pad"]                         # only lets the XInput driver claim a pad for the xpad test; the core has no pad service
+
+# no picture of its own: an empty [video] is all zero (the application's screens are all there is); nothing to stop, so the freeze waits for no bit, but its timeout is the descriptor's 200 ms
+[video]
+
+[freeze]
+reg_status = 0
+mask = 0
+timeout_ms = 200
+
+# the register state the bug report prints
+
+[[report_reg]]
+name = "caps"
+reg = 0x06
+bytes = 1
+
+[[report_reg]]
+name = "status"
+reg = 0x11
+bytes = 1
+
+[[report_reg]]
+name = "pc"
+reg = 0x16
+bytes = 1
+
+[[report_reg]]
+name = "fifo level"
+reg = 0x34
+bytes = 2
+
+[[report_reg]]
+name = "ticks per us x256"
+reg = 0x0C
+bytes = 4
+
+[[report_reg]]
+name = "live pins 48-63 (joystick, PADDLE_CMP0)"
+reg = 0x46
+bytes = 2
+
+[[report_reg]]
+name = "live pins 64-71 (PADDLE_CMP1-3, DIS, ADJ)"
+reg = 0x48
+bytes = 1
+
+# ---- tasks: a test or a panel is a .toml of the core's folder on the card (cores/diag/sd: tests/, panels/, presets/), picked by the task or in the file browser
+[[task]]
+label = "Pick a test and run it"
+op = "pd.pick"
+
+[[task]]
+label = "Open a panel"
+op = "pd.panel"
+
+# ---- the live page: the state values are read from the registers at every redraw
+[[media]]
+name = "Port 1"
+state = "pd.port1"
+
+[[media]]
+name = "Port 2"
+state = "pd.port2"
+
+[[media]]
+name = "Comparators"
+state = "pd.cmp"
+
+[[media]]
+name = "Last test"
+state = "pd.last"
+
+# a .toml in the browser is a test or a panel (its `kind` line says which); `key` is the letter that runs the item in the action sheet
+[[filetype]]
+ext = ".toml"
+  [[filetype.action]]
+  label = "Run test or open panel"
+  op = "pd.run"
+  bind = [ { arg = "path", file = true } ]
+  key = "R"

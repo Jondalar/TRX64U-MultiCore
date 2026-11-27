@@ -4,8 +4,10 @@
 //   S1  the data connection goes to the control peer, not to the address in the 227 reply (server behind NAT)
 //   S2  a closed/dead control connection: no QUIT on it, no wait, the next operation reconnects
 //   S3  a transfer broken off, or whose final 226 comes late: replies stay in step, listing and file intact
+//   S4  the library's table (ftp_exports.cc, T239.3 P3-1) over the same client: connect, listing (folders first), fetch, store, a slot whose settings changed
 #include "check.h"
 #include "ftp_client.h"
+#include "ftp_api.h"
 #include <deque>
 #include <string>
 #include <vector>
@@ -16,6 +18,8 @@
 #include <netdb.h>
 
 static uint32_t g_now;                                  // virtual ms
+
+void netfs_set_ftp(const FtpApi *) { }                  // ftp_bind (part of the library file) gives its table to netfs, which this test does not link
 
 struct Item { uint32_t at; std::string bytes; bool eof; };
 struct Conn {
@@ -276,6 +280,30 @@ int main()
         File f; int got = 0;
         CHECK_EQ(cl.retr("x.prg", &f, &got), 0);
         CHECK(f.data == g_srv.file);
+    }
+    // ---- S4: what netfs asks of the library, through its table
+    {
+        reset("192,168,1,20,4,1");
+        const FtpApi *api = ftp_table();
+        char err[96] = "";
+        CHECK(api->size >= sizeof(FtpApi));
+        CHECK_EQ(api->connect(0, "nas.local", 21, "u", "p", err, sizeof(err)), 0);
+        FsEntry e[8];
+        CHECK_EQ(api->list(0, "/", e, 8, err, sizeof(err)), 2);
+        CHECK(e[0].dir && !strcmp(e[0].name, "sub"));                       // folders first
+        CHECK(!e[1].dir && !strcmp(e[1].name, "a.prg") && e[1].size == 100);
+        uint8_t *d = 0;
+        uint32_t len = 0;
+        CHECK(api->fetch(0, "x.prg", &d, &len, FTP_MAX_FILE, err, sizeof(err)));
+        CHECK_EQ(len, 6000);
+        CHECK(d && !memcmp(d, g_srv.file.data(), 6000));
+        free(d);
+        uint8_t up[300];
+        for (int i = 0; i < 300; i++) up[i] = (uint8_t)i;
+        CHECK(api->store(0, "up.prg", up, sizeof(up), err, sizeof(err)));
+        CHECK_EQ(api->connect(0, "nas.local", 21, "u", "p", err, sizeof(err)), 0);       // the connection is kept
+        CHECK_EQ(api->connect(0, "nas.local", 21, "other", "p", err, sizeof(err)), 1);   // other settings: a new connection, the caller's listing is stale
+        api->forget(0);
     }
     DONE("test_ftp");
 }

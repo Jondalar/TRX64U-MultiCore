@@ -1,4 +1,5 @@
 #include "contrib.h"
+#include "baseset.h"
 #include "bindcheck.h"
 #include "ops.h"
 #include <stdarg.h>
@@ -12,10 +13,10 @@ static bool text(const char *s) { return s && s[0]; }
 static const SkelTab t_home[] = { { "home", "Home", 0, TW_INFO, 0 } };
 static const SkelTab t_lib[] = { { "browse", "Browse", 0, TW_BROWSER, 0 } };
 // T205 D1, T212 D1: F5 is the core's machine settings: its own settings first (that tab is named after the core), then Video, Audio, Input (the hotkeys moved to F7); there is no F6. The tab ids
-// are the ones menutree.cc's group table names. What the old Summary tab showed (the media slots, the configs) is on Home.
+// are the ones the base UI TOML's routes name (coreapp/base_ui.toml). What the old Summary tab showed (the media slots, the configs) is on Home.
 static const SkelTab t_machine[] = { { "settings", 0, 0, TW_SETTINGS, 0 }, { "video", "Video", 0, TW_SETTINGS, "video", 0 },
                                      { "audio", "Audio", 0, TW_SETTINGS, "audio", 0 }, { "input", "Input", 0, TW_SETTINGS, "input", 0 } };
-// T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (menutree.cc g_routes) and what a library registers
+// T212 D1/D6: F7 (APP) is the generic app's settings; the groups "app" claim no descriptor setting, the routed rows (the base UI TOML, menutree.cc) and what a library registers
 // land here. The drive and reset tasks that were its Quick list are on Home.
 static const SkelTab t_app[] = { { "settings", "Settings", 0, TW_SETTINGS, "app" } };
 static const SkelTab t_system[] = { { "expert", "System", 0, TW_SYSTEM, 0 } };       // T187 D8: named System; the id stays, anchors name it
@@ -550,7 +551,7 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             refuse(mm, "%s: node \"%s\" names a widget; this base serves the browser and the settings list through the route, and no other widget", c.name, id);
             continue;
         }
-        if (n.kind != LN_OP && n.kind != LN_STATE && n.kind != LN_GROUP) {
+        if (n.kind != LN_OP && n.kind != LN_STATE && n.kind != LN_GROUP && n.kind != LN_LIST) {
             refuse(mm, "%s: node \"%s\" has a kind this base does not know", c.name, id);
             continue;
         }
@@ -561,6 +562,10 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
         }
         if (n.kind == LN_STATE && !text(n.state) && !ui_attr(n.attr, "sub") && !ui_attr(n.attr, "chip")) {
             refuse(mm, "%s: node \"%s\" is a state line without a state", c.name, id);
+            continue;
+        }
+        if (n.kind == LN_LIST && (!text(n.state) || !text(n.op))) {
+            refuse(mm, "%s: node \"%s\" is a list without a state that holds its rows or without an operation for a row", c.name, id);
             continue;
         }
         char area[8], tab[32];
@@ -588,6 +593,44 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             refuse(mm, "%s: node \"%s\" anchors %s/%s, which the route does not have", c.name, id, area, tab);
             continue;
         }
+        const bool source = n.kind == LN_LIST && ui_attr(n.attr, "search") && st->widget == TW_BROWSER && !strcmp(tab, "search");     // T262 P5: a list that stands for a source of the F3 search
+        if (source) {
+            char nm[40], fo[40], fl[96];
+            if (!ui_attr(n.attr, "search", nm, sizeof(nm)) || !nm[0] || !ui_attr(n.attr, "find", fo, sizeof(fo)) || !fo[0]) {
+                refuse(mm, "%s: node \"%s\" is a search source without a name (search=) or without the operation that searches (find=)", c.name, id);
+                continue;
+            }
+            int nf = 0;
+            if (ui_attr(n.attr, "fields", fl, sizeof(fl)) && fl[0]) {
+                nf = 1;
+                for (const char *q = fl; *q; q++) {
+                    nf += *q == ',';
+                }
+            }
+            if (nf > CONTRIB_SEARCH_FIELDS) {
+                refuse(mm, "%s: node \"%s\" names %d search fields; %d at most", c.name, id, nf, CONTRIB_SEARCH_FIELDS);
+                continue;
+            }
+            if (reg && (!reg->find_op(fo) || !reg->find_op(n.op) || !reg->find_state(n.state))) {
+                refuse(mm, "%s: node \"%s\" names an operation or a state of the search that nobody registered", c.name, id);
+                continue;
+            }
+            if (mm->nsrcs >= CONTRIB_SEARCH_MAX) {
+                refuse(mm, "%s: node \"%s\" has no room (%d search sources at most)", c.name, id, CONTRIB_SEARCH_MAX);
+                continue;
+            }
+            MergedNode &sn = mm->srcs[mm->nsrcs++];
+            memset(&sn, 0, sizeof(sn));
+            sn.n.kind = n.kind;
+            sn.n.op = n.op;
+            sn.n.state = n.state;
+            sn.n.when_state = n.when_state;
+            sn.n.attr = n.attr;
+            sn.n.owner = c.name;
+            sn.label = n.label;
+            sn.id = id;
+            continue;
+        }
         if (!tab_takes_nodes(*st)) {
             refuse(mm, "%s: node \"%s\" anchors %s/%s, a tab that shows the %s and takes no nodes", c.name, id, area, tab,
                    st->widget == TW_BROWSER ? "file browser" : "information lines");
@@ -599,7 +642,9 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
         }
         if (reg) {
             if (n.kind == LN_OP && text(n.op)) {
-                const char *why = bind_check(*reg, "nodes", n.label, n.op, n.bind, n.nbind, false, false, ui_attr(n.attr, "ask"));
+                char pk[8];
+                const bool text_ok = ui_attr(n.attr, "ask") || (ui_attr(n.attr, "pick", pk, sizeof(pk)) && pk[0] == '@');     // the typed text, or the chosen value of a pick (T262 P2)
+                const char *why = bind_check(*reg, "nodes", n.label, n.op, n.bind, n.nbind, false, false, text_ok);
                 if (why) {
                     refuse(mm, "%s: %s", c.name, why);
                     continue;
@@ -608,6 +653,13 @@ static void merge_nodes(const CoreDesc *d, const Contributor &c, const Skeleton 
             if (n.kind == LN_STATE && text(n.state) && !reg->find_state(n.state)) {
                 refuse(mm, "%s: node \"%s\" shows state \"%s\", which nobody registered", c.name, id, n.state);
                 continue;
+            }
+            if (n.kind == LN_LIST) {                                       // T262 P1: the state holds the rows, the operation takes a row, `more` (if any) asks for more
+                char mo[40];
+                if (!reg->find_state(n.state) || !reg->find_op(n.op) || (ui_attr(n.attr, "more", mo, sizeof(mo)) && !reg->find_op(mo))) {
+                    refuse(mm, "%s: node \"%s\" names a state or an operation of its list that nobody registered", c.name, id);
+                    continue;
+                }
             }
         }
         if (mm->nnodes >= MENU_NODES_MAX) {
@@ -720,7 +772,7 @@ static void merge_tabs(const Contributor &c, MenuMerge *mm)
         d.n = t.n;                                                // 0: numbered by its place among the tabs shown (empty ones are dropped)
         d.widget = t.widget;
         d.groups = text(t.groups) ? t.groups : 0;
-        d.layout = 0;
+        d.layout = LIB_RECORD_COVERS(r->struct_size, tab_layouts) && r->tab_layouts && text(r->tab_layouts[i]) ? r->tab_layouts[i] : 0;
         a->ntabs++;
     }
 }
@@ -749,7 +801,22 @@ static void merge_poll(const Contributor &c, const OpRegistry *reg, MenuMerge *m
     mm->polls[mm->npolls].owner = c.name;
     mm->polls[mm->npolls].op = r->poll.op;
     mm->polls[mm->npolls].period_ms = r->poll.period_ms;
+    mm->polls[mm->npolls].when_frozen = r->poll.when_frozen;
     mm->npolls++;
+}
+
+int contrib_add_keys(MenuMerge *mm, const char *owner, const CoreKey *rows, int n)
+{
+    int added = 0;
+    for (int i = 0; i < n; i++) {
+        if (mm->nlibkeys >= CONTRIB_KEYS_MAX) {
+            refuse(mm, "%s: key row %d has no room (%d library key rows at most)", owner, i + 1, CONTRIB_KEYS_MAX);
+            break;
+        }
+        mm->libkeys[mm->nlibkeys++] = &rows[i];
+        added++;
+    }
+    return added;
 }
 
 // ---- the merge ----------------------------------------------------------------------------------------------------------------
@@ -764,9 +831,15 @@ int contrib_merge(const CoreDesc *d, const Skeleton *skel, const Overrides *ov, 
     if (out->nsettings > SETTINGS_MAX) {
         out->nsettings = SETTINGS_MAX;
     }
+    int nkept = 0;
     for (int i = 0; i < out->nsettings; i++) {
-        mm->settings[i] = d->settings[i];
+        // T228 R7: the description hides a row of the application's own (baseset.h) by its key, as it hides a contributed setting
+        if (ov && ov->hide && baseset_is_generic(d->settings[i]) && in_list(ov->hide, ov->nhide, d->settings[i].key)) {
+            continue;
+        }
+        mm->settings[nkept++] = d->settings[i];
     }
+    out->nsettings = nkept;
     out->settings = mm->settings;
     int ntypes = 0;
     for (int i = 0; i < d->nfiletypes && i < CONTRIB_FILETYPES_MAX; i++) {

@@ -1,0 +1,346 @@
+# TOML A of c64_basic as rtl_check reads it (fixture, T239.3 P1-3). The blocks are written from what the RTL decodes
+# (designs/c64_basic/ultimate_sys.vhd, trx_io.v) and nothing else: a dir is what the code does at the byte, not what a driver header says.
+# P1-7 writes the real one. The blocks resid8, c64cart, cart_regs and dma are the shipped maps (--maps app/sdkpkg/maps); the bytes of the dma block
+# are decoded in dma_win.v behind a toggle handshake (stage 2 of the check; its map is the shipped map "dma", a run of 65536 byte registers). Not here, because the check does not follow them yet
+# (T239.3 P1-3, not_done): the C64-clock pages of trx_io (page 1, 2, 3, 5, 7 and page 0 from 0x100: trx_sys.v), uci (io_bus_bridge2),
+# the drive (drive_unit); the sampler window is clean room.
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[[block]]
+name = "trx_id"
+module = "trx_io"
+owner = "base"
+address = 0x101A0000
+size = 0x10
+
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "caps3"
+  offset = 0x6
+  width = 8
+  dir = "r"
+
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "trx_irq"
+module = "trx_io"
+owner = "base"
+address = 0x101A0010
+size = 0x8
+
+  [[block.property]]
+  name = "irq_en"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+
+  [[block.property]]
+  name = "irq_cause"
+  offset = 0x4
+  width = 8
+  dir = "rw"
+
+[[block]]
+name = "trx_ddr_cal"
+module = "trx_io"
+owner = "base"
+address = 0x101A0020
+size = 0x8
+
+  [[block.property]]
+  name = "ddr_cal0"
+  offset = 0x0
+  width = 32
+  dir = "r"
+
+  [[block.property]]
+  name = "ddr_cal1"
+  offset = 0x4
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "resid8"
+module = "trx_io"
+owner = "base"
+address = 0x101A0040
+size = 0xE
+map = "sid"
+
+[[block]]
+name = "c64cart"
+module = "trx_io"
+owner = "base"
+address = 0x101A4000
+size = 0x6B
+map = "c64cart"
+
+[[block]]
+name = "cart_regs"
+module = "cart_regs"
+owner = "base"
+address = 0x10040000
+size = 0x10
+map = "c64cart_regs"
+
+[[block]]
+name = "audio_mixer"
+module = "audio_mixer"
+owner = "base"
+address = 0x10100500
+size = 0xC
+
+  [[block.property]]
+  name = "main_r_sid1"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "main_l_sid1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid2_r"
+  offset = 0x2
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid2_l"
+  offset = 0x3
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock1_r"
+  offset = 0x4
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock1_l"
+  offset = 0x5
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock2_r"
+  offset = 0x6
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sock2_l"
+  offset = 0x7
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "smp_r"
+  offset = 0x8
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "smp_l"
+  offset = 0x9
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid3_r"
+  offset = 0xA
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "sid3_l"
+  offset = 0xB
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "speaker_mixer_a"
+module = "speaker_mixer"
+owner = "base"
+address = 0x10100540
+size = 0x2
+
+  [[block.property]]
+  name = "gain0"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "gain1"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "speaker_mixer_b"
+module = "speaker_mixer"
+owner = "base"
+address = 0x10100544
+size = 0x2
+
+  [[block.property]]
+  name = "gain2"
+  offset = 0x0
+  width = 8
+  dir = "w"
+
+  [[block.property]]
+  name = "gain3"
+  offset = 0x1
+  width = 8
+  dir = "w"
+
+[[block]]
+name = "dma"
+module = "dma"
+owner = "base"
+address = 0x10050000
+size = 0x10000
+map = "dma"
+
+# The command interface (the shipped map uci): behind Gideon's io_bus_bridge2 and command_protocol (uci_unit.vhd). The two registers uci_slot.cc drives.
+[[block]]
+name = "uci"
+module = "uci"
+owner = "base"
+address = 0x10044000
+size = 0x2
+map = "uci"
+
+# The 1541 drive (c1541_drive.vhd behind its io_bus_splitter, window 0x10020000): the registers of the shipped map cbm1541 that this design's RTL has. Not the map's
+# side (drive_registers.vhd reads the port `side`, which c1541_drive leaves at its default 0), drivetype (g_multi_mode is false here) and the WD177x registers at
+# +0x1800 (the splitter has three ports: regs, dirty, param); a map block would name them and fail.
+[[block]]
+name = "drive_a"
+module = "c1541"
+owner = "base"
+address = 0x10020000
+size = 0x1800
+  [[block.property]]
+  name = "power"
+  offset = 0x0
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "reset"
+  offset = 0x1
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "hw_addr"
+  offset = 0x2
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "sensor"
+  offset = 0x3
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "inserted"
+  offset = 0x4
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "rammap"
+  offset = 0x5
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "track"
+  offset = 0x8
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "status"
+  offset = 0x9
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "diskchange"
+  offset = 0xC
+  width = 8
+  dir = "w"
+  [[block.property]]
+  name = "dirty"
+  offset = 0x800
+  width = 8
+  dir = "rw"
+  count = 128
+  [[block.property]]
+  name = "param"
+  offset = 0x1000
+  width = 32
+  dir = "w"
+  count = 512
+
+# V-1e: from TRX64-Ultimate's c64_basic.toml (U18 P1-7): the GCR coder (gcr_codec.vhd: a for-generate over slices of vectors declared ascending), and two blocks with owner core that ultimate_sys decodes itself (--core-in-design)
+[[block]]
+name = "gcr_coder"
+module = "gcr_codec"
+owner = "base"
+address = 0x10060500
+size = 0x10
+map = "gcr_coder"
+
+[[block]]
+name = "speaker_enable"
+module = "u2p_io"
+owner = "core"
+address = 0x1010000C
+size = 0x1
+  [[block.property]]
+  name = "ctrl"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+    [[block.property.field]]
+    name = "on"
+    shift = 0
+    bits = 1
+
+[[block]]
+name = "c64_phase"
+module = "ultimate_sys"
+owner = "core"
+address = 0x10180005
+size = 0x1
+  [[block.property]]
+  name = "incr"
+  offset = 0x0
+  width = 8
+  dir = "rw"

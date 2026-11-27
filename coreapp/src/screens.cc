@@ -3,7 +3,7 @@
 #include "ui.h"
 #include "contrib.h"
 #include "trx_lv_port.h"
-#include "monitor.h"
+#include "menuflows.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +21,8 @@ typedef MenuCtl::Item Item;
 static Item g_it[MAXI];
 static int g_n;
 static lv_obj_t *g_obj[MAXI];                     // the focus object of item i, null when it has none
+static lv_obj_t *g_robj[MAXI];                    // T262 P9: the row object rows_of() made for item i (a status row or a setting row), null when the item has none in the window
+static uint32_t g_tsig;                           // the texts of the rows the last build or retext wrote
 static bool g_valid;
 static uint32_t g_sig;
 static int g_area = -1, g_tab = -1;
@@ -29,6 +31,7 @@ static lv_obj_t *g_hint;                          // the line at the pane's foot
 static char g_hint_text[OP_MSG_MAX];
 static bool g_hint_bad;
 static uint32_t g_cheap;
+static uint32_t g_inplace;                        // T262 P9: renders that wrote the rows' words in place instead of building the pane
 static int g_mfirst;                              // the first unit of the main list in the window (a tab with more rows than the panel holds)
 static int g_munits, g_mdrawn_to;                 // the units the window was made from and the one after the last drawn, for the position label
 
@@ -42,16 +45,17 @@ static int g_lib_first;
 static int lib_rows(bool sheet);
 static bool g_live;
 static bool g_viewer;
-static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 the monitor
+static int g_full;                                // a full screen without the menu's frame is up: 1 Timewarp, 2 a text grid
 
 uint32_t screens_cheap_moves(void) { return g_cheap; }
+uint32_t screens_inplace_writes(void) { return g_inplace; }
 
 static void live_forget(void);
 void screens_forget(void)
 {
     live_forget();
     if (g_live) {
-        trx_lv_set_key(false, 0);
+        ui_live_key(false);
         g_live = false;
     }
     g_valid = false;
@@ -59,6 +63,7 @@ void screens_forget(void)
     g_selpan = 0;
     g_wn = 0;
     memset(g_obj, 0, sizeof(g_obj));
+    memset(g_robj, 0, sizeof(g_robj));
 }
 
 bool screens_wanted(MenuCtl &m) { return m.screen(); }
@@ -245,6 +250,31 @@ int screens_headings(char out[][40], int max)
     return k;
 }
 
+// T262 D4: a window never leaves empty space below the last row while rows stand above it (rows hid, or the selection is on none of them): the first unit moves up until the
+// units from it to the end fill the room, and is 0 when all of them fit.
+static int fill_first(int n, int first, int avail)
+{
+    if (first >= n || first < 0) {
+        first = 0;
+    }
+    int total = 0;
+    for (int k = 0; k < n; k++) {
+        total += g_u[k].h;
+    }
+    if (total <= avail) {
+        return 0;
+    }
+    int below = 0;
+    for (int k = first; k < n; k++) {
+        below += g_u[k].h;
+    }
+    while (first > 0 && below + g_u[first - 1].h <= avail) {
+        first--;
+        below += g_u[first].h;
+    }
+    return first;
+}
+
 // The first unit of the window that holds the selected item and as many units around it as fit in `avail` pixels; `first` is where the last one began.
 static int window_first(int n, int sel, int first, int avail)
 {
@@ -255,7 +285,7 @@ static int window_first(int n, int sel, int first, int avail)
         }
     }
     if (su < 0) {
-        return first < n ? first : 0;
+        return fill_first(n, first, avail);
     }
     {                                                                  // a window that does not start on a heading carries the heading of its group (sticky): one heading row of the room
         int tot = 0, hd = 0;
@@ -290,23 +320,7 @@ static int window_first(int n, int sel, int first, int avail)
     if (first > 0 && g_u[first - 1].heading && first == su) {          // the heading above the first row stays with it
         first--;
     }
-    int total = 0;
-    for (int k = 0; k < n; k++) {
-        total += g_u[k].h;
-    }
-    if (total <= avail) {
-        first = 0;
-    } else {                                                           // no empty space below the last row when the window can be filled
-        int below = 0;
-        for (int k = first; k < n; k++) {
-            below += g_u[k].h;
-        }
-        while (first > 0 && below + g_u[first - 1].h <= avail) {
-            first--;
-            below += g_u[first].h;
-        }
-    }
-    return first;
+    return fill_first(n, first, avail);
 }
 
 static int main_avail(bool bar, bool status)
@@ -355,6 +369,7 @@ static int rows_of(lv_obj_t *card, int x, int y, int w, const char *slot, int se
             o = trx_status_row(card, x, y, w, r, &y);
         }
         g_obj[i] = focus ? o : 0;
+        g_robj[i] = o;
     }
     g_munits = n;
     g_mdrawn_to = last_drawn;
@@ -371,6 +386,75 @@ static int items_in(const char *slot)
 }
 
 // ---- the signature: everything on the screen except which item has the focus ---------------------------------------------------------------
+// T262 P9: a key that runs an operation changes a value on the screen (the category of a search, a count). The pane built again for that is the whole content area, and the
+// board draws about 2.2 ms for every 1,000 pixels of it: a quarter of a second in which the content stands blank (the key after it waits too). A row that rows_of() draws is
+// therefore written in place - its words, its tone, its switch - and only a change of the pane's shape (a row that comes or goes, gets or loses its value, another kind) builds it again.
+static bool retext_item(const Item &it)
+{
+    return !it.hidden && it.kind != MenuCtl::IK_HEADING && (in_slot(it, "main") || in_slot(it, "media") || in_slot(it, "machine"));
+}
+
+static const char *row_meta(const Item &it)
+{
+    const char *m = it.kind == MenuCtl::IK_MEDIA ? (it.value[0] ? it.value : 0) : (it.chip[0] ? it.chip : (it.value[0] ? it.value : 0));
+    return m ? m : "";
+}
+
+static bool row_has_meta(const Item &it)
+{
+    return it.kind == MenuCtl::IK_SETTING ? (!it.toggle && it.value[0]) : row_meta(it)[0] != 0;
+}
+
+// The layouts whose rows rows_of() draws and nothing else of the pane depends on (an application's screens, the grid and the library have their own draws).
+static bool inplace_layout(MenuCtl &m)
+{
+    return !m.layout_is("library") && !m.layout_is("app") && !m.layout_is("grid") && !m.layout_is("terminal") && !m.app_mode();
+}
+
+static uint32_t text_sig(void)
+{
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < g_n; i++) {
+        const Item &it = g_it[i];
+        if (!retext_item(it)) {
+            continue;
+        }
+        h = hs(h, it.title);
+        h = hs(h, it.sub);
+        h = hs(h, it.chip);
+        h = hs(h, it.value);
+        h = hi(h, (it.tone + 1) | it.dim << 8 | it.on << 9);
+    }
+    return h;
+}
+
+// The rows of the window, written again from the items: only what differs is touched. False: a row would have to be built again.
+static bool retext_rows(void)
+{
+    for (int i = 0; i < g_n; i++) {
+        lv_obj_t *o = g_robj[i];
+        const Item &it = g_it[i];
+        if (!o || !retext_item(it)) {
+            continue;
+        }
+        const bool focus = it.kind != MenuCtl::IK_INFO && it.kind != MenuCtl::IK_VALUE;
+        const int w = lv_obj_get_width(o);
+        bool ok;
+        if (it.kind == MenuCtl::IK_SETTING) {
+            TrxSettingRow r = { it.title, it.toggle ? 0 : it.value, it.toggle, it.on, focus && i == g_sel, it.dim, it.reset, TT_MUTED };
+            ok = trx_setting_row_retext(o, r, w);
+        } else {
+            const char *meta = row_meta(it);
+            TrxStatusRow r = { it.title, meta[0] ? meta : 0, tone_of(it), focus && i == g_sel, it.dim };
+            ok = trx_status_row_retext(o, r, w);
+        }
+        if (!ok) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static uint32_t signature(MenuCtl &m)
 {
     uint32_t h = 2166136261u;
@@ -383,15 +467,20 @@ static uint32_t signature(MenuCtl &m)
     char s[120];
     m.session_line(s, sizeof(s));
     h = hs(h, s);
+    const bool inplace = inplace_layout(m);
     for (int i = 0; i < g_n; i++) {
         const Item &it = g_it[i];
         h = hs(h, it.slot);
         h = hs(h, it.group);
+        h = hi(h, it.hidden);
+        if (inplace && retext_item(it)) {                                // T262 P9: the words, colours and switch of such a row are written in place (text_sig); its shape is part of the pane
+            h = hi(h, it.kind | it.primary << 8 | it.link << 9 | it.enabled << 10 | it.toggle << 12 | it.reset << 14 | (row_has_meta(it) ? 1 : 0) << 15);
+            continue;
+        }
         h = hs(h, it.title);
         h = hs(h, it.sub);
         h = hs(h, it.chip);
         h = hs(h, it.value);
-        h = hi(h, it.hidden);
         h = hi(h, it.kind | (it.tone + 1) << 4 | it.primary << 8 | it.link << 9 | it.enabled << 10 | it.dim << 11 | it.toggle << 12 | it.on << 13 | it.reset << 14);
     }
     char p[80];
@@ -405,6 +494,14 @@ static uint32_t signature(MenuCtl &m)
         for (int i = 0; i < m.nroots(); i++) {
             h = hs(h, m.root(i));
             h = hi(h, m.chip_flags(i));
+        }
+        if (m.in_search_tab()) {                                          // T262 D4: the field's words: the form's text, the query of the list, the source the form searches
+            char nm[40];
+            m.search_source_name(nm, sizeof(nm));
+            h = hs(h, nm);
+            h = hs(h, m.search_form_text());
+            h = hs(h, m.search_query());
+            h = hi(h, m.search_active() | m.search_source_count() << 1);
         }
         h = hi(h, g_lib_first);
         for (int i = g_lib_first; i < m.rows() && i < g_lib_first + 2 * lib_rows(false) + 2; i++) {      // the rows the window can show (a list longer than 512 rows must redraw for a mark on row 600 too)
@@ -700,13 +797,13 @@ static void draw_selpan(MenuCtl &m, int sel)
     const TrxTheme &t = trx_theme();
     lv_obj_clean(g_selpan);
     int w = g_selpan_w, h = g_selpan_h;
-    if (m.media_level()) {
+    if (m.media_level() && !m.in_search_tab()) {                   // T262 D4: the Search tab's list is no list of media, whatever folder the Browse tab stands on
         draw_medium_panel(m, sel);
         return;
     }
     trx_kicker(g_selpan, t.space_md, t.space_sm, "SELECTED");
     if (m.rows() == 0) {
-        trx_txt(g_selpan, t.space_md, 30, "Nothing here", t.display, t.muted, w - 2 * t.space_md);
+        trx_txt(g_selpan, t.space_md, 30, m.in_search_tab() ? (m.search_active() ? "Nothing found" : "No search yet") : "Nothing here", t.display, t.muted, w - 2 * t.space_md);
         return;
     }
     MenuCtl::BrowseRow r;
@@ -768,15 +865,22 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
         // one line in the field, beside the counter (a label with a width wraps): what does not fit is cut, the end of a typed text stays in sight; the idle
         // hint gives way first, the status line under the list says how to type
         const int room = lw - 2 * t.space_md - t.space_sm - (items[0] ? trx_text_w(items, t.caption) + t.space_md : 0);
-        const char *q = m.search_active() ? m.search_query() : "press RETURN to type";
-        snprintf(p, sizeof(p), "Name contains:  %s", q);
-        if (trx_text_w(p, t.caption) > room && !m.search_active()) {
-            snprintf(p, sizeof(p), "Name contains:");
+        const char *q = m.search_active() ? m.search_query() : m.search_form_text()[0] ? m.search_form_text() : "press RETURN to type";      // T262 D4: the form's text stands here too
+        const bool typed = m.search_active() || m.search_form_text()[0];
+        char src[48] = "";                                         // T262 P5: a library is a source of this search: the field says which one the form searches
+        if (m.search_source_count() > 0) {
+            char nm[40];
+            m.search_source_name(nm, sizeof(nm));
+            snprintf(src, sizeof(src), "%s  -  ", nm);
         }
-        while (m.search_active() && trx_text_w(p, t.caption) > room && *q) {
-            snprintf(p, sizeof(p), "Name contains:  ...%s", ++q);
+        snprintf(p, sizeof(p), "%sName contains:  %s", src, q);
+        if (trx_text_w(p, t.caption) > room && !typed) {
+            snprintf(p, sizeof(p), "%sName contains:", src);
         }
-        trx_txt(card, t.space_md, 5, p, t.caption, m.search_active() ? t.ink : t.muted);
+        while (typed && trx_text_w(p, t.caption) > room && *q) {
+            snprintf(p, sizeof(p), "%sName contains:  ...%s", src, ++q);
+        }
+        trx_txt(card, t.space_md, 5, p, t.caption, typed ? t.ink : t.muted);
     } else {
         upper(p, sizeof(p), m.browse_path());
         trx_txt(card, t.space_md, t.space_sm, p, t.caption, t.muted, lw - 160);
@@ -826,18 +930,18 @@ static void build_library(lv_obj_t *c, MenuCtl &m, int sel)
     draw_selpan(m, sel);
 }
 
-// ---- the monitor: trxmon's screen, 80 x 40 cells on the whole layer, no frame, no rail, no footer -----------------------------------------------------------------
+// ---- the terminal layout: a text grid of a library (textgrid.h), 80 x 40 cells on the whole layer, no frame, no rail, no footer -----------------------------------------------------------------
 // The cell is 12 x 13 pixels (the 8 x 8 pixel font with 4 px between the letters), the colours the C64 palette gives the user interface's schemes (userinterface.cc).
 static uint32_t mon_color(int attr)
 {
     switch (attr) {
-    case 1: return 0xFFFFFF;                 // UA_STATUS
-    case 2: return 0xFFFFFF;                 // UA_REGS
-    case 3: return 0x959595;                 // UA_ECHO
-    case 4: return 0xCB7E75;                 // UA_ERR
-    case 5: return 0xFFFFFF;                 // UA_PROMPT
-    case 7: return 0x6C6C6C;                 // UA_SEP
-    case 8: return 0x959595;                 // UA_HINT
+    case 1: return 0xFFFFFF;                 // TG_STATUS
+    case 2: return 0xFFFFFF;                 // TG_REGS
+    case 3: return 0x959595;                 // TG_ECHO
+    case 4: return 0xCB7E75;                 // TG_ERR
+    case 5: return 0xFFFFFF;                 // TG_PROMPT
+    case 7: return 0x6C6C6C;                 // TG_SEP
+    case 8: return 0x959595;                 // TG_HINT
     default: return 0xFFFFFF;
     }
 }
@@ -848,8 +952,9 @@ static char g_mtxt[MON_ROWS_MAX][96];
 static int g_mattr[MON_ROWS_MAX];
 static lv_obj_t *g_mcur;
 
-// The 40 rows are made once; a key writes the rows that changed (the label's text and colour) and moves the cursor cell.
-static void build_terminal(lv_obj_t *scr, bool fresh)
+// The rows are made once; a key writes the rows that changed (the label's text and colour) and moves the cursor cell. `g` is the grid the node's `grid` parameter names (textgrid.h),
+// built by render() before this call; null: no grid, an empty screen without a cursor.
+static void build_terminal(lv_obj_t *scr, bool fresh, const TextGrid *g)
 {
     if (fresh) {
         trx_shell_forget();
@@ -863,12 +968,18 @@ static void build_terminal(lv_obj_t *scr, bool fresh)
             g_mattr[r] = -1;
         }
     }
-    int cx, cy;
-    mon_cursor(&cx, &cy);
-    lv_obj_set_pos(g_mcur, cx * 12, 10 + cy * 13);
-    for (int r = 0; r < mon_rows() && r < MON_ROWS_MAX; r++) {
-        const char *l = mon_line(r);
-        int at = mon_attr(r);
+    int cx = -1, cy = -1;
+    if (g) {
+        g->cursor(&cx, &cy);
+    }
+    lv_obj_set_flag(g_mcur, LV_OBJ_FLAG_HIDDEN, cx < 0 || cy < 0);
+    if (cx >= 0 && cy >= 0) {
+        lv_obj_set_pos(g_mcur, cx * 12, 10 + cy * 13);
+    }
+    int rows = g ? g->rows() : 0;
+    for (int r = 0; r < MON_ROWS_MAX; r++) {
+        const char *l = r < rows && r < TG_ROWS_MAX ? g->line(r) : "";
+        int at = r < rows ? g->attr(r) : TG_NORMAL;
         if (!g_mrow[r]) {
             if (!l[0]) {
                 continue;
@@ -909,64 +1020,16 @@ static void build_viewer(lv_obj_t *c, MenuCtl &m)
     trx_txt(c, X0, trx_content_h() - 22, line, t.caption, t.muted);
 }
 
-// ---- Timewarp: the pixel layer of TRX64-Ultimate's trx_video.cc tw_draw_bar, the same look: no menu, the C64 picture through the hole, one bar over the lower border ----------
-// Layer coordinates of the bar (trx_video.cc TW_*): 768 x 48 at 16, 476 of the 800 x 540 picture window, which sits in the middle of the 960 wide layer. On a canvas
-// narrower than 960 (T164 D10a) the layer is the mode's frame: the bar is as wide as the frame less 32 (at most 768), centred, 64 above the bottom edge.
-static int tw_w(void) { return trx_canvas_w() - 32 < 768 ? trx_canvas_w() - 32 : 768; }
-#define TW_X0 ((trx_canvas_w() - tw_w()) / 2)
-#define TW_Y0 (trx_canvas_h() - 64)
-static const uint8_t tw_glyphs[5][8] = {                   // pause, back, forward, oldest, newest (8 x 8, bit 7 left)
-    { 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x00 }, { 0x11, 0x33, 0x77, 0xFF, 0x77, 0x33, 0x11, 0x00 },
-    { 0x88, 0xCC, 0xEE, 0xFF, 0xEE, 0xCC, 0x88, 0x00 }, { 0x83, 0x87, 0x8F, 0x9F, 0x8F, 0x87, 0x83, 0x00 },
-    { 0xC1, 0xE1, 0xF1, 0xF9, 0xF1, 0xE1, 0xC1, 0x00 },
-};
-static void build_timeline(lv_obj_t *scr, MenuCtl &m)
+// ---- the pixel layer's own page ("timeline" layout): no menu, no bar. The base draws nothing on it (T256 D12): a library paints its own UI as elements. Over the still the page is transparent
+// (D4), else it is the live key, so the machine's picture shows through the hole.
+static bool g_tl_under;                                   // ui_still_under() when the Timewarp page was built: the page is rebuilt when it changes
+static void build_timeline(lv_obj_t *scr)
 {
-    char spec[80], pos[24], info[64], glyph[8], track[24], hint[48];
-    m.layout_param("pos", spec, sizeof(spec)); m.spec_text(spec, pos, sizeof(pos));
-    m.layout_param("info", spec, sizeof(spec)); m.spec_text(spec, info, sizeof(info));
-    m.layout_param("glyph", spec, sizeof(spec)); m.spec_text(spec, glyph, sizeof(glyph));
-    m.layout_param("track", spec, sizeof(spec)); m.spec_text(spec, track, sizeof(track));
-    m.layout_param("hint", spec, sizeof(spec)); m.spec_text(spec, hint, sizeof(hint));
+    g_tl_under = ui_still_under();
     trx_shell_forget();
     lv_obj_clean(scr);
     lv_obj_set_style_bg_color(scr, lv_color_hex(TRX_LIVE_KEY_RGB), 0);
-    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-    int tww = tw_w();
-    trx_box(scr, TW_X0, TW_Y0, tww, 48, 0x101018);
-    int g = atoi(glyph);
-    if (g < 0 || g > 4) {
-        g = 0;
-    }
-    for (int j = 0; j < 8; j++) {                                  // the glyph, 2 x 2 per bit, runs of set bits as one box
-        for (int i = 0; i < 8;) {
-            if (!(tw_glyphs[g][j] & (0x80 >> i))) {
-                i++;
-                continue;
-            }
-            int e = i;
-            while (e < 8 && (tw_glyphs[g][j] & (0x80 >> e))) {
-                e++;
-            }
-            trx_box(scr, TW_X0 + 12 + i * 2, TW_Y0 + 8 + j * 2, (e - i) * 2, 2, 0x6C5EB5);
-            i = e;
-        }
-    }
-    trx_txt(scr, TW_X0 + 36, TW_Y0 + 8, pos, &lv_font_unscii_16, 0xFFFFFF);
-    bool warn = strstr(info, "no frame") || strstr(info, "holds no");
-    trx_txt(scr, TW_X0 + 172, TW_Y0 + 12, info, &lv_font_unscii_8, warn ? 0x9A6759 : 0x959595, trx_compact() ? tww - 172 - 12 - (int)strlen(hint) * 8 - 8 : 0);
-    int hw = (int)strlen(hint) * 8;
-    trx_txt(scr, TW_X0 + tww - 12 - hw, TW_Y0 + 12, hint, &lv_font_unscii_8, 0x959595);
-    int tp = 0, tl = 0;
-    sscanf(track, "%d/%d", &tp, &tl);
-    if (tl > 0) {
-        int len = tl > 1 ? tl - 1 : 1;
-        tp = tp < 0 ? 0 : (tp > len ? len : tp);
-        int cx = 12 + (tp * (tww - 24 - 4)) / len;
-        trx_box(scr, TW_X0 + 12, TW_Y0 + 32, cx - 12, 4, 0x6C6C6C);
-        trx_box(scr, TW_X0 + cx, TW_Y0 + 32, 12 + tww - 24 - cx, 4, 0x444444);
-        trx_box(scr, TW_X0 + cx, TW_Y0 + 29, 4, 10, 0xFFFFFF);
-    }
+    lv_obj_set_style_bg_opa(scr, g_tl_under ? LV_OPA_TRANSP : LV_OPA_COVER, 0);   // T256 D4: over the still the page lets it through itself, the key is not on
 }
 
 static void build_sheet(lv_obj_t *c, MenuCtl &m, int sel)
@@ -1336,7 +1399,7 @@ static void build_app(lv_obj_t *c, MenuCtl &m, int sel)
     }
 }
 
-// Lines of text in the pixel font in a card: a memory dump, the monitor. `key` names the tab's state value that holds them, one line to a row.
+// Lines of text in the pixel font in a card: a memory dump or any text. `key` names the tab's state value that holds them, one line to a row.
 static void grid_card(lv_obj_t *c, MenuCtl &m, int x, int y, int w, int nrows, const char *key, bool input_line)
 {
     const TrxTheme &t = trx_theme();
@@ -1476,39 +1539,39 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     }
     g_viewer = false;
     if (m.layout_is("timeline")) {                                // the pixel layer's own screen: no frame, no rail, no footer
-        char sp[80], pos[24], info[64], glyph[8], track[24];
-        m.layout_param("pos", sp, sizeof(sp)); m.spec_text(sp, pos, sizeof(pos));
-        m.layout_param("info", sp, sizeof(sp)); m.spec_text(sp, info, sizeof(info));
-        m.layout_param("glyph", sp, sizeof(sp)); m.spec_text(sp, glyph, sizeof(glyph));
-        m.layout_param("track", sp, sizeof(sp)); m.spec_text(sp, track, sizeof(track));
-        uint32_t h = hs(hs(hs(hs(2166136261u, pos), info), glyph), track);
-        if (!(g_valid && g_live && g_full == 1 && h == g_sig)) {
+        if (!(g_valid && g_live && g_full == 1 && g_tl_under == ui_still_under())) {
+            g_live = false;                                       // a rebuild keeps the key on: screens_forget would switch it off, the core would hear off, then on (menu_video)
             ui_menu_forget_rows();
-            build_timeline(scr, m);
+            build_timeline(scr);
             g_valid = true;
-            g_sig = h;
+            g_sig = 0;
             g_full = 1;
             g_live = true;
-            trx_lv_set_key(true, TRX_LIVE_KEY_565);
+            ui_live_key(true);
         }
         return true;
     }
-    if (m.layout_is("terminal") && !m.app_mode()) {               // trxmon's screen on the whole layer
-        mon_render();
-        uint32_t h = mon_sig();
+    if (m.layout_is("terminal") && !m.app_mode()) {               // a library's text screen (textgrid.h) on the whole layer
+        char gn[40];
+        const TextGrid *grid = m.layout_param("grid", gn, sizeof(gn)) ? menu_grid(gn) : 0;
+        uint32_t h = 0;
+        if (grid) {
+            grid->render();
+            h = grid->sig();
+        }
         if (!(g_valid && g_full == 2 && h == g_sig)) {
             bool fresh = !(g_valid && g_full == 2);
             if (fresh) {
                 ui_menu_forget_rows();
             }
-            build_terminal(scr, fresh);
+            build_terminal(scr, fresh, grid);
             g_valid = true;
             g_sig = h;
             g_full = 2;
         }
         if (g_live) {
             g_live = false;
-            trx_lv_set_key(false, 0);
+            ui_live_key(false);
         }
         return true;
     }
@@ -1569,7 +1632,19 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         return true;
     }
     uint32_t sig = signature(m);
-    if (g_valid && g_area == m.area() && g_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && sig == g_sig) {
+    const uint32_t tsig = text_sig();
+    bool same = g_valid && g_area == m.area() && g_tab == m.tab() && trx_shell_same(scr, info, route, m.area(), ui_shell_tab(m)) && sig == g_sig;
+    if (same && tsig != g_tsig && inplace_layout(m)) {                 // T262 P9: only the words of the rows moved: they are written in place
+        if (retext_rows()) {
+            g_tsig = tsig;
+            g_inplace++;
+        } else {
+            same = false;
+        }
+    } else if (same && tsig != g_tsig) {
+        same = false;
+    }
+    if (same) {
         apply_selection(m, sel, sheet);
         hint_update(m);
         if (m.app_mode()) {
@@ -1578,6 +1653,7 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
         return true;
     }
     ui_menu_forget_rows();                                        // the old rows and mine are gone with the pane
+    memset(g_robj, 0, sizeof(g_robj));
     lv_obj_t *c = trx_shell(scr, info, route, m.area(), ui_shell_tab(m));
     char name[24];
     ui_name(m.layout(), name, sizeof(name));
@@ -1607,12 +1683,13 @@ bool screens_render(lv_obj_t *scr, TrxShellInfo &info, const TrxRoute &route, Me
     }
     g_valid = true;
     g_sig = sig;
+    g_tsig = tsig;
     g_area = m.area();
     g_tab = m.tab();
     g_sel = sel;
     if (g_live) {
         g_live = false;
-        trx_lv_set_key(false, 0);
+        ui_live_key(false);
     }
     return true;
 }

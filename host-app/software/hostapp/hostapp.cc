@@ -18,6 +18,7 @@
 #include "i2c_drv.h"
 #include "menukeys.h"
 #include "hostcfg.h"
+#include "guard.h"
 
 #include "videomode.h"
 #include "hostvideo.h"
@@ -65,6 +66,7 @@ static void ui_task(void *)
 
 extern "C" void ultimate_main(void *a)
 {
+    guard_capture();                    // T265: how this application was started (the boot ROM's guard block, the recovery program's block); read once, first thing
     printf("\n*** TRX64 Ultimate host boot app %s (%s) ***\n", APP_VERSION_STRING, APP_BUILD_DATE);
     printf("*** FPGA Capabilities: %8x ***\n\n", getFpgaCapabilities());
     STARTLOG("phase main: the scheduler runs, the app starts");

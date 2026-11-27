@@ -2,16 +2,16 @@
 # Build the Amiga 500 as a LARGE core (T164): the flat full bitstream, and with --app-bin the .cfw.
 #
 #   cores/amiga/mono/build.sh [--build-dir <name under host/>] [--stop synth|place|route]
-#   cores/amiga/mono/build.sh --pack --bit host/build_mono_amiga/amiga_mono.bit --app-bin <coreapp.bin> [--out <dir>]
+#   cores/amiga/mono/build.sh --pack --bit host/build_mono_amiga/amiga_mono.bit --app-bin <amiga.app> [--out <dir>]
 #
 # Build: run it inside vivado-env:2024.1 (vivado on the PATH) at the repository root, e.g. on the builder
 #   docker run --rm --name amiga-mono -v $PWD:/src -w /src vivado-env:2024.1 nice -n 15 timeout 3h cores/amiga/mono/build.sh
 # Vivado's working directory is host/ (cores/amiga/mono/build_mono.tcl keeps only the output there and reads the host's files from its own copy, cores/amiga/mono/host/; nothing under host/ is
 # edited). Output in host/<build-dir> (default build_mono_amiga): amiga_mono.bit, timing.rpt, utilization*.rpt, route_status.rpt,
 # vivado.log. Exit 1 when there is no bitstream or the setup slack is negative.
-# Pack: tools/pack_cfw_mc.sh makes amiga.cfw out of the bit and the generic application (coreapp.bin of tools/build_coreapp.sh);
+# Pack: tools/pack_cfw_mc.sh makes amiga.cfw out of the bit and an application image: the Amiga 500's own app (cores/amiga/app, the step build of ci/lane.sh core:amiga), since T239.5 D15 not the shared coreapp.bin, which has no Amiga 500 record any more;
 # it needs the `container` CLI and the u64-build-env image (or --native inside it), not Vivado.
-#   cores/amiga/mono/build.sh --pack-cor --bit host/build_mono_amiga/amiga_mono.bit --app-bin <coreapp.bin> [--out <dir>]   the large .cor (tools/pack_large_cor.sh, python3 only)
+#   cores/amiga/mono/build.sh --pack-cor --bit host/build_mono_amiga/amiga_mono.bit --app-bin <amiga.app> [--out <dir>]   the large .cor (tools/pack_large_cor.sh, python3 only)
 # The descriptor is cores/amiga/mono/core.toml (the only one; the pipeline reads it there); TRX_CORE_DESC names it for the tools run from here.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

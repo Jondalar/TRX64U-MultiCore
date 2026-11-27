@@ -1,0 +1,90 @@
+# The WD177x of the C64U gateware's drive (app/lib/cbm1541: d1541_wd.h WDR_*, d1541_wd.cc): the floppy controller of the 1581 mode, the registers 0x1800-0x180F of the drive window. A block of its own
+# next to drive_a, because a drive whose RTL has no WD177x (the VIC-20's) does not have it, and the WD part of the library links only where the TOML A has this block (D34, D31). Offsets are bytes from the block's address.
+# The directions are what wd177x.vhd does: a register that also reads back is rw (status at +4 and +5, dma_mode, dma_len, step_time); dma_addr is written as a 32 bit word (the driver's drv_wr32 at the address of dma_addr), wd177x.vhd keeps its low three bytes (+8 +9 +0xA, a 24 bit address: dma_addr and dma_addr_hi), the byte at +0xB is not decoded.
+map = "wd177x"
+
+[[property]]
+name = "command"
+offset = 0x0
+width = 8
+dir = "rw"
+
+[[property]]
+name = "track"
+offset = 0x1
+width = 8
+dir = "rw"
+
+[[property]]
+name = "sector"
+offset = 0x2
+width = 8
+dir = "r"
+
+[[property]]
+name = "datareg"
+offset = 0x3
+width = 8
+dir = "r"
+
+[[property]]
+name = "status_clear"
+offset = 0x4
+width = 8
+dir = "rw"
+
+[[property]]
+name = "status_set"
+offset = 0x5
+width = 8
+dir = "rw"
+
+[[property]]
+name = "irq_ack"
+offset = 0x6
+width = 8
+dir = "rw"
+  [[property.field]]
+  name = "command_waits"
+  shift = 7
+  bits = 1
+  [[property.field]]
+  name = "dma_done"
+  shift = 0
+  bits = 1
+
+[[property]]
+name = "dma_mode"
+offset = 0x7
+width = 8
+dir = "rw"
+
+[[property]]
+name = "dma_addr"
+offset = 0x8
+width = 16
+dir = "w"
+
+[[property]]
+name = "dma_addr_hi"
+offset = 0xA
+width = 8
+dir = "w"
+
+[[property]]
+name = "dma_len"
+offset = 0xC
+width = 16
+dir = "rw"
+
+[[property]]
+name = "stepper"
+offset = 0xE
+width = 8
+dir = "rw"
+
+[[property]]
+name = "step_time"
+offset = 0xF
+width = 8
+dir = "rw"

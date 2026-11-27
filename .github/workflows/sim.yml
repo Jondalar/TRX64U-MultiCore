@@ -1,6 +1,6 @@
 name: Sim
 
-# T239.1 S6, D12: a child of the pipeline (ci/children.txt). Concern: the simulation benches of one owner (host, core:<id>, large:<id>; ci/sims.lane) that the plan names, in the plan's tier; `all` = every bench of the
+# T239.1 S6, D12: a job of the matrix (ci/children.txt). Concern: the simulation benches of one owner (host, core:<id>, large:<id>; ci/sims.lane) that the plan names, in the plan's tier; `all` = every bench of the
 # tier. The caller makes one leg per owner (a hosted job stops after 6 h). A bench TIMEOUT is red with "TIMEOUT after N s".
 # It checks out the run's commit (the head of a pull request, else github.sha), takes the plan and the hand-over of the jobs before it from their artifacts
 # and runs ci/child.sh, which is red at once with its reason. The image is named by digest; the digest is filled from the ci-images run (step 16).
@@ -29,6 +29,9 @@ on:
 
 jobs:
   sim:
+    permissions:     # T239.5 D25: the stop step cancels the run
+      contents: read
+      actions: write
     name: Sim
     runs-on: ubuntu-latest
     container:
@@ -83,3 +86,13 @@ jobs:
         env:
           SIMS_TIER: ${{ inputs.tier }}
         run: ci/child.sh sim "${{ inputs.target }}"
+      - name: The first red job ends the run (T239.5 D25)
+        if: ${{ failure() && github.workflow == 'Pipeline' }}     # the nightly and sims-long runs go on to the end
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+          RED_JOB: ${{ github.job }} ${{ join(matrix.*, ' ') }}
+        run: >-
+          echo "### ❌ red: $RED_JOB - it cancelled the rest of the run (T239.5 D25)" >> "$GITHUB_STEP_SUMMARY";
+          python3 -c "import os, urllib.request as u; r = u.Request(os.environ['RUN_URL'], method='POST', headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'});
+          print('cancel the run:', u.urlopen(r).status)" || echo "cancel the run: refused (a fork's token cannot)"

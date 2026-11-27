@@ -26,7 +26,7 @@
 | Note: `refused: built for another host contract` | The `.cor` is for another host | Use the `.cor` files of the release that you installed |
 | Note: `refused: routed against host <key>, this host is <key>` | The `.cor` is built against another host image | Use the `.cor` files of the release that you installed |
 | Core stays held, the screen names a missing file | A required ROM is not there | Put the file in `roms/` in the folder of the core (12.2). The core starts by itself |
-| F3 **Z**: `Unzip is not installed.` | `unzip.u2a` and `miniz.u2a` are not in `cores/apps` on the SD card | Copy both files from the release into `cores/apps` on the SD card |
+| F3 **Z**: `Unzip is not installed.` | `unzip.u2a` is not in `cores/apps` on the SD card | Copy the file from the release into `cores/apps` on the SD card |
 | Core says a file has the wrong size | Wrong ROM | Use the file with the size that the screen shows |
 | Amiga: `Kickstart not found` | No `.rom` in the `roms/` folder of the core | Put a 256 KB or 512 KB `.rom` in `cores/amiga/roms/` |
 | Apple IIe: a disk image does not mount | `diskii.rom` is missing | Put `diskii.rom` in `cores/apple2/roms/` and reload the ROMs |
