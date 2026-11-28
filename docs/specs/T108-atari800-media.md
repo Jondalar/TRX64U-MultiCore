@@ -119,6 +119,10 @@ and is **not** checked in — only generated disks are.
   OPTION low`, so the console keys already reach GTIA through the keyboard the application drives. The
   application holds that key across the cold start and the OS sees what it would see from a finger. No
   register bit needed.
+- **D7 The setting is an F5 row "BASIC", Off by default** (Alex, 2026-11-28, after the Boulder Dash finding of 5.7, translated: "Can this not become
+  an option in the menu under F5, how it should behave?" - shown the default Off, games run at once, BASIC is the exception: "ok"). A core setting of the
+  machine (F5, `when = reset`, like "RAM size"); with Off the application holds F5 (OPTION) itself across every cold start, the menu's "Mount D1: and cold
+  start" included, and lets it go after about 0.5 s; a warm reset needs nothing (the OS keeps BASICF). Core library and TOML only (D24).
 - **D4 The answer time is a number in the report.** The bench prints the worst answer time per run, as
   the Amiga's audio bench prints its worst pitch deviation. A regression in the application's loop then
   shows up as a number before anyone hears about it from the board.
@@ -304,3 +308,20 @@ The discriminator is one JTAG snapshot with the application dead: `tools/trxdbg.
 the run with BASIC off goes with S3, which stays open) - Alex 2026-11-15: "Under A there is nothing I would not class as DONE! That has been in the builds
 for days/weeks, we had bugs and re-tests in part"; Alex 2026-11-18, shown these steps as open: "that is old stuff that has been running for ages, we had
 this already 3-4 days ago" and "tick it off in the TODOs/specs, otherwise it shows up again with some agent" (translated).
+
+### 5.7 Boulder Dash from D1: is BASIC, not a fault (2026-11-28, board test of main-3624ec20; read from the disk and the OS, not built)
+
+Board (Alex): the same garbage as in 5.5; a cartridge (Centipede) runs. Read from Alex's `boulderdash.atr` (not in the repository) and the XL OS:
+- The disk's loader (sectors 1-3, at $0700) loads a XEX through the OS SIO call and never writes PORTB. Its first segment is the trainer at $9B00-$9E22,
+  its scroll text at $A400-$A683, the game at $3A01-$9A9F, $A280-$A2CF and $A300-$A32F; RUNAD $9B00.
+- On a cold start the OS switches BASIC on unless it sees OPTION, about 0.1 s after the reset. With BASIC on RAMTOP is $A0 and the OS screen's display
+  list sits at $9C20 - exactly where the trainer's segment lands, so the screen shows garbage while SIO holds CRITIC; afterwards the trainer's scroll line
+  reads the BASIC ROM at $A400 (right font, scrambled text). That is 5.5's picture; the F5 of 5.5 could not take effect, because the menu releases the
+  machine (`coreapp/src/boot.cc`) before it lets the keyboard go (`host/app_input.v:54`, `keys = (ovl_own ? 64'd0 : vis) | s2`).
+- 5.5's second suspicion (PORTB does not switch) is not supported by the code: PORTB reaches Mark Watson's address decoder unchanged.
+- The trainer menu reads only the OS key code: '-', '=' and RETURN; the C64 cursor keys arrive as CTRL+'-'/'=' and are ignored, the joystick is not read.
+- Not a regression: T264 P2 changed only `cores/atari800/trx/a8_regs.vhd` (same addresses); the SIO, ATR and media sources are unchanged since 11-12.
+- The fix is D7 (S3). Board check without it: mount, close the menu, hold F5 and press C= + CTRL + R (cold reset) or hold the rocker, keep F5 about 2 s.
+- Two GHDL benches (`cores/atari800/sim/machine/run.sh osbasic|osoption`, branch `a8-boulder`, not committed yet) boot the real OS in the core with and
+  without OPTION and check RAMTOP and the display list; their result is recorded here when they end.
+

@@ -40,7 +40,7 @@ Built and benched; what is left is a step on the board (Alex, 2026-10-28, transl
 | ID | M | Status | Task | Open | Details |
 |---|---|---|---|---|---|
 | T89 | 3 | ✅ | Apple IIe core from NanoApple2 as a core in the host/core split | Done (Alex 10-30); rest open to contributors | [T89](docs/todo/T89.md) |
-| T108 | 3 | 🔨 | The Atari 800 XL starts what you give it: a disk, an executable or a cartridge | S3 (BASIC off setting) not built; S5-S7 proofs not re-checked; S8 done 11-18 (Alex: shipped = done) | [T108](docs/specs/T108-atari800-media.md) |
+| T108 | 3 | 🔨 | The Atari 800 XL starts what you give it: a disk, an executable or a cartridge | S3: F5 "BASIC" Off by default (D7, 11-28), not built; Boulder Dash needs it (5.7); S5-S7 not re-checked | [T108](docs/specs/T108-atari800-media.md) |
 | T95 | 3 | 🔨 | NES core: NES_MiSTer (GPL v3), cycle accurate, 10 mapper modules | Unbuilt mappers (prices spec 5.10, Q2 for Alex); 720p done 11-18 (Alex: shipped = done) | [T95](docs/todo/T95.md) |
 | T107 | 1 | ✅ | Every application chooses its own video mode, the host re-asserts its own when a core returns | Done 11-15 (Alex: in builds for weeks) | [T107](docs/todo/T107.md) |
 | T104.1 | 2 | ✅ | Contribution model: libraries and apps register ops, state, menus; one service layer | Done 11-18 (Alex: shipped = done) | [T104.1](docs/specs/done/T104.1-contribution-model.md) |
