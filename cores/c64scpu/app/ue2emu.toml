@@ -24,3 +24,6 @@ core = "C64 with SuperCPU"
 id = "c64scpu"
 path = "/Usb0/cores/c64scpu.cor"
 video = "1080p"
+
+[round]
+ends = "rompage"             # the app waits on its ROM page: scpu_rom_fault (c64scpu.cc) refuses a reset vector below $8000, which the zero-filled stand-in has (step 12 ends there, tests/coreapp/emu/core_round.sh)

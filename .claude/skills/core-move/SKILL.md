@@ -91,6 +91,12 @@ the end.
 fits (`cor_pack --sizes`, the heap figures); 8 tests mock bitstream -> service; 9 service -> UI; 10 service -> API; 11 package (the `.cor` with its own
 app); 12 emulator tests (the `.cor` under the host app); 13 deliver. Steps 8-10 are the units the TOML B names per step.
 
+Step 12 needs the core's emulator profile `cores/<core>/app/ue2emu.toml` (without it: "the core <core> has no emulator profile"; the apple2 move missed it,
+run 46115347040). Write it from the register RTL, each value with its line: `id` (the ID word), the reset values of CTRL, the frame buffer base and stride
+and every register the app reads at start, `[handover]` (the manifest's name, the core.toml id, `/Usb0/cores/<core>.cor`), and `[round] ends = "rompage"`
+when a ROM check of the app refuses the zero-filled stand-ins. Check it before the push: `tests/coreapp/emu/core_round.sh <core> <cor> <elf> <out>` with
+the `.cor` and `.elf` of a run's `deliver-<core>` artifact (the Mac runs `ue2emu` from `~/Development/u64-emulator`).
+
 ## 6. What goes into the core's spec (§5)
 
 The commits by phase (library, TOML A, TOML B, tests, removal from the shared app); the emitted TOML A's numbers (blocks, registers, named, `# TODO`
