@@ -245,6 +245,12 @@ No negative controls in the benches (T174 D5.4, T239.3 D30: negative tests only 
   Names (the walk texts say A = R, B = G, C = B); a playground value leaves the row's label as it was; the GOOD answer of the avrgb and
   avsync choice questions is form only (said in the files); `NTSC-50.rix01` is NTSC at 50 Hz, `NTSC-60.rix02` NTSC at 60 Hz, as §1 reads.
 
+- **D18 (Alex, 2026-11-28): P5 (the analogue output, with T235 D4) is built in parallel with the board fixes of main-3624ec20.** Shown
+  that P5 is foundation work (a full build of every core) and that the rule of 2026-11-16 holds everything else while such a bundle is
+  open, Alex (translated): "A and B can run in parallel, can't they?" - "Yes, do it." So the board fixes (Neo Geo, the Atari's BASIC
+  setting and menu key, the C128 port of `c128-integ`) merge into `integration` while P5 is open; P5 is rebased onto `integration` before
+  its one full build. With it (translated): "more coding, less iterative testing. That is annoying."
+
 ### Open questions for Alex
 
 1. ~~Does the RGB mode (P2) become a setting of the cores?~~ Answered: D2.
