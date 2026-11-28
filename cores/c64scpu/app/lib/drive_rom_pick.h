@@ -1,4 +1,4 @@
-// Copy of coreapp/cores/drive_rom_pick.h at commit 4774c3cef (T239.3 D61: the original stays for the VIC-20; this copy is the SuperCPU core's own).
+// Copy of coreapp/cores/drive_rom_pick.h at commit 4774c3cef (T239.3 D61: this copy is the SuperCPU core's own; the original is the VIC-20's since T239 D17).
 // The choice between the stock and the JiffyDOS DOS ROM of one drive type, shared by the cores that offer JiffyDOS (the SuperCPU core: the 1541; the
 // C128 core: the 1541 and the 1581, T185 D2). A core keeps one DriveRomPick per drive type. Both ROMs the person supplied are held here: which one the
 // drive has depends on the JiffyDOS setting, and the setting can change at any time (a put of a ROM and a change of the setting both end in

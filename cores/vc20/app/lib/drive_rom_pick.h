@@ -1,5 +1,5 @@
-// The choice between the stock and the JiffyDOS DOS ROM of one drive type, for a core that offers JiffyDOS (since T239 D17 only the VIC-20 includes this
-// copy; the SuperCPU and the C128 hold their own, T185 D2). A core keeps one DriveRomPick per drive type. Both ROMs the person supplied are held here: which one the
+// The choice between the stock and the JiffyDOS DOS ROM of one drive type, for a core that offers JiffyDOS: the VIC-20's own copy (T239 D17: moved from coreapp/cores, its
+// last user; the SuperCPU and the C128 hold their own, T185 D2). A core keeps one DriveRomPick per drive type. Both ROMs the person supplied are held here: which one the
 // drive has depends on the JiffyDOS setting, and the setting can change at any time (a put of a ROM and a change of the setting both end in
 // drive_pick_apply). The bytes go to the drive library's operation `put_op` (drive.put_rom, drive.put_rom1581).
 #ifndef COREAPP_DRIVE_ROM_PICK_H
