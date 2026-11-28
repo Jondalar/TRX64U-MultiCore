@@ -966,7 +966,7 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             self.assertEqual(rec[C.T_DESC], self.desc())
             self.assertEqual(m["name"], "VIC-20")
 
-    def pack_one(self, core, app):
+    def pack_one(self, core, app, env=None):
         with tempfile.TemporaryDirectory() as d:
             bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
             for x in (bits, apps, out):
@@ -974,19 +974,26 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
             open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
             open(os.path.join(bits, core + "_partial.bit"), "wb").write(bit_file()[0])
             open(os.path.join(apps, core + ".app"), "wb").write(app)
-            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", core], capture_output=True, text=True)
+            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", core], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             return r.stdout, C.parse(open(os.path.join(out, core + ".cor"), "rb").read())
+
+    def no_app_tree(self, td, core):
+        """T239.3 D61: every core moves to an app of its own, so a core without one is a tree of its own (CI_DATA_ROOT, which core_toml.py reads the cores from): the descriptor core.toml of the core and no app/sdk.toml beside it"""
+        os.makedirs(os.path.join(td, "cores", core))
+        shutil.copy(os.path.join(self.ROOT, "cores", core, "core.toml"), os.path.join(td, "cores", core, "core.toml"))
+        return dict(os.environ, CI_DATA_ROOT=td)
 
     def test_pack_cores_mc_links_the_shared_toml_b(self):
         # P4-1: a core without an app of its own is packed against the shared app's TOML B; it has no [sizes], so a record 6 is compiled against the defaults, and the heap needs are reported
         import libtab
         self.assertNotIn("sizes", descrec.toml_loads(open(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")).read()))
         self.assertTrue(libtab.load(os.path.join(self.ROOT, "coreapp", "libs", "shared.toml")))
-        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
-        import core_toml
-        self.assertEqual(core_toml.sdk_table("apple2").get("desc", ""), "")
-        stdout, _ = self.pack_one("apple2", heap_app())
+        with tempfile.TemporaryDirectory() as td:
+            env = self.no_app_tree(td, "apple2")
+            r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "core_toml.py"), "sdk", "apple2", "desc"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.stdout.strip(), "")
+            stdout, _ = self.pack_one("apple2", heap_app(), env)
         self.assertIn("heap (", stdout)
         self.assertRegex(stdout, r"library c64cart keeps")
 
@@ -1000,22 +1007,19 @@ class PackersCarryTheDescriptionTest(unittest.TestCase):
         self.assertEqual(rec[C.T_DESC], self.desc())
 
     def test_pack_cores_mc_switch_off_carries_no_record(self):
-        # D25: the Apple IIe has cores/apple2/app/desc.toml and no app/sdk.toml with desc_record: no record 6, the app runs on its compiled-in descriptor (the Amiga 500, the case's core until T239.5 D15, has its own app now)
-        sys.path.insert(0, os.path.join(self.ROOT, "tools"))
-        import core_toml
-        self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "apple2", "app", "desc.toml")))
-        self.assertNotEqual(core_toml.sdk_table("apple2").get("desc_record"), True)
-        self.assertIs(core_toml.sdk_table("vc20").get("desc_record"), True)
-        with tempfile.TemporaryDirectory() as d:
-            bits, apps, out = (os.path.join(d, x) for x in ("bits", "apps", "out"))
-            for x in (bits, apps, out):
-                os.mkdir(x)
-            open(os.path.join(bits, "c64_basic.bit"), "wb").write(full_bit())
-            open(os.path.join(bits, "apple2_partial.bit"), "wb").write(bit_file()[0])
-            open(os.path.join(apps, "apple2.app"), "wb").write(APP)
-            r = subprocess.run([os.path.join(self.ROOT, "tools", "pack_cores_mc.sh"), "--bits", bits, "--app-dir", apps, "--out", out, "--core", "apple2"], capture_output=True, text=True)
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertNotIn(C.T_DESC, C.parse(open(os.path.join(out, "apple2.cor"), "rb").read())[1])
+        # D25: a core with cores/<id>/app/desc.toml and no app/sdk.toml with desc_record carries no record 6, the app runs on its compiled-in descriptor (the Amiga 500 until T239.5 D15 and the Apple IIe until T239.3 D61
+        # were the case's cores; both have their own app now, so the case is a tree of its own with the Apple IIe's core.toml and no app beside it)
+        with tempfile.TemporaryDirectory() as td:
+            env = self.no_app_tree(td, "apple2")
+            r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "core_toml.py"), "sdk", "apple2", "desc_record"], capture_output=True, text=True, env=env)
+            self.assertNotEqual(r.stdout.strip(), "True")
+            self.assertTrue(os.path.isfile(os.path.join(self.ROOT, "cores", "apple2", "app", "desc.toml")))
+            sys.path.insert(0, os.path.join(self.ROOT, "tools"))
+            import core_toml
+            self.assertIs(core_toml.sdk_table("vc20").get("desc_record"), True)
+            self.assertIs(core_toml.sdk_table("apple2").get("desc_record"), True)       # the real tree: the Apple IIe's own app has the switch on, its desc.toml is record 6
+            _, (m, rec) = self.pack_one("apple2", APP, env)
+            self.assertNotIn(C.T_DESC, rec)
 
     def test_pack_large_cor_carries_it_and_takes_a_menu_next_to_it_as_one_record(self):
         import descrec

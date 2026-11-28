@@ -8,6 +8,8 @@ name = "ddt_novic"
 desc_record = true
 # the symbol of the core's descriptor (the library ddt_novic below defines it); the core table of this app holds this core only
 desc = "ddt_novic_desc"
+# T239 D17: a render build of its own (tests/coreapp/render/run.sh RENDER_CORE=ddt_novic, step 9 of its lane): its cases of the render bench
+render = true
 # TOML A: the core's own (gateware.toml, checked against the RTL by tools/rtl_check.py) and the blocks of the host's TOML A (gateware/host.toml: the core is a partial one on the host bitstream)
 # that the shared drivers (hw.cc) name: the host's mode register (cart_regs), the five ICAP blocks of the loader (a partial core can return to the host) and audio_master (the host's master
 # volume and tone rows). The core has no drive and no IEC block: no block iec_status, drive_a, c64cart, c64_debug, dma or cmd_if is named, so board.cc runs no cartridge, ring, REU or command interface probe in this app.

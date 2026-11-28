@@ -1,5 +1,5 @@
 # Amiga CD32 pad in port 2, version 2: does any PADDLE_DIS / PADDLE_ADJ setting let the pad shift its buttons out?
-# Protocol (cores/amiga/rtl/src/minimig-aga/userio.v:153,202-207,164-169): pin 5 low = shift mode, a rising edge on pin 6 shifts, the
+# Protocol (the CD32 pad's shift register): pin 5 low = shift mode, a rising edge on pin 6 shifts, the
 # data is on pin 9. Read order of that model: read 0 (no clock yet) blue, read 1 red, then yellow, green, forward, reverse, play, read 7 = 1,
 # then 0. Pins 5 and 9 are pot lines; the only levers are DIS and ADJ, so every setting is tried, once with nothing held, once with red held.
 # The reads are PADDLE_CMP bits: cmp2 = pin 5, cmp3 = pin 9 of port 2 (cmp3 measured with a stick, cmp2 is a hypothesis).

@@ -12,6 +12,7 @@
   3b. the NES (T239.5 D15): cores/nes/app/gateware.toml against the files of cores/nes/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_nes.
   3c. the Commodore 264 (T239.5 D15): cores/c264/app/gateware.toml against the files of cores/c264/core_sources.tcl, the requests being the five cw_* ports of layer2_c264 and, for its own drive_a, its drv_io_* ports.
   3d. the ZX Spectrum Next (T239.5 D15): cores/zxnext/app/gateware.toml against the files of cores/zxnext/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_zxnext.
+  3e. the Apple IIe (T239.3 D61): cores/apple2/app/gateware.toml against the files of cores/apple2/core_sources.tcl, the request being the five cw_* ports of layer2_apple2.
   3e. the Neo Geo (T239.5 D15): cores/neogeo/app/gateware.toml against the files of cores/neogeo/app/rtl_check_sources.tcl, the request being the five cw_* ports of layer2_neogeo.
   3f. the Amiga 500 (T239.5 D15): cores/amiga/app/gateware.toml against the files of cores/amiga/core_sources.tcl, the request being the five cw_* ports of layer2_amiga (the A500's own amiga_regs.v).
   3. the VIC-20 partial (T239.3 V-2): cores/vc20/app/gateware.toml against the files of cores/vc20/core_sources.tcl, the request being the five ports of
@@ -280,11 +281,17 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "zxnext", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
 must(rc == 0 and "14 block(s), 42 properties agree" in out, "zxnext: 14 blocks, 42 properties of gateware.toml agree with the RTL of the core window (zxn_regs.v: the identity and the features byte, the IRQ pair, the DDR2 calibration, the machine, the cache counters, the frame buffers, the DDR2 bases, the clock, the keys, the SD image, the sector mailbox, the card's counters, the mouse; page 6 is the hand-over to the host's pixel layer)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/apple2/core_sources.tcl",
+              "--top", "layer2_apple2",
+              "--bus", "layer2_apple2:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--toml-a", os.path.join(ROOT, "cores", "apple2", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
+must(rc == 0 and "12 block(s), 54 properties agree" in out, "apple2: 12 blocks, 54 properties of gateware.toml (the ident byte 0x07 named since 4b3e8e4c0) agree with the RTL of the core window (a2_regs.vhd: the identity, the IRQ pair, the DDR2 calibration, the machine, the frame buffers, the aux RAM and the ROM aperture's selector, the two floppy drives with the disk registers, the palette, the key injection, the mouse, the track statistics, the slot 7 hard disk card)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/neogeo/app/rtl_check_sources.tcl",
               "--top", "layer2_neogeo",
               "--bus", "layer2_neogeo:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "neogeo", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "14 block(s), 56 properties agree" in out, "neogeo: 14 blocks, 56 properties of gateware.toml agree with the RTL of the core window (neo_regs.v: the identity, the IRQ pair, the DDR2 calibration, the machine, the hold counters, the frame buffers, the DDR2 bases, the mover, the clock, the pads, the ROM masks, the memory side's counters, the copy engine, the line cache counters; page 6 is the hand-over to the host's pixel layer)", out)
+must(rc == 1 and all(f in out for f in ['block neo_video, property seen_cols (dir r): byte +0xC (0x101A00CC) has no read', 'block neo_video, property seen_lines (dir r): byte +0xE (0x101A00CE) has no read']) and "2 finding(s)" in out, "neogeo: T264 named every byte the RTL decodes, the interpreter is frozen (T264 P3) and counts a byte that answers the constant 0 as no read: seen_cols and seen_lines: neo_top.v drives bits 9:0 over a port into a slice, which the frozen interpreter does not follow, and bits 15:10 by `assign seen_cols[15:10] = 6'd0`, the only driver it sees. Before T264: 14 blocks, 56 properties of gateware.toml agree with the RTL of the core window (neo_regs.v: the identity, the IRQ pair, the DDR2 calibration, the machine, the hold counters, the frame buffers, the DDR2 bases, the mover, the clock, the pads, the ROM masks, the memory side's counters, the copy engine, the line cache counters; page 6 is the hand-over to the host's pixel layer)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/amiga/core_sources.tcl",
               "--top", "layer2_amiga",
@@ -295,17 +302,17 @@ must(rc == 0 and "16 block(s), 48 properties agree" in out, "amiga: 16 blocks, 4
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/ddt_novic/core_sources.tcl", "--top", "layer2_ddt_novic",
               "--bus", "layer2_ddt_novic:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "ddt_novic", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "6 block(s), 19 properties agree" in out, "ddt_novic: 6 blocks, 19 properties of gateware.toml agree with the RTL of the core window (ddt_regs.v's ident, irq, ddr_cal, geometry, machine and video registers; page 6, the host's pixel layer, is not described)", out)
+must(rc == 1 and all(f in out for f in ['block geom, property lines (dir r): byte +0x1 (0x101A0036) has no read']) and "1 finding(s)" in out, "ddt_novic: T264 named every byte the RTL decodes, the interpreter is frozen (T264 P3) and counts a byte that answers the constant 0 as no read: geom.lines is 16 bit since T264, its high byte answers the constant 0 for 200 lines. Before T264: 6 blocks, 19 properties of gateware.toml agree with the RTL of the core window (ddt_regs.v's ident, irq, ddr_cal, geometry, machine and video registers; page 6, the host's pixel layer, is not described)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/zx/app/rtl_check_sources.tcl", "--top", "layer2_zx",
               "--bus", "layer2_zx:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "zx", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "10 block(s), 38 properties agree" in out, "zx: 10 blocks, 38 properties of gateware.toml agree with the RTL of the core window (zx_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, snapshot, tape and key-injection registers; page 6, the host's pixel layer, is not described)", out)
+must(rc == 1 and all(f in out for f in ['block geom, property frame_clks (dir r): byte +0x0 (0x101A0030) has no read', 'block geom, property rsvd34 (dir r): byte +0x4 (0x101A0034) has no read']) and "2 finding(s)" in out, "zx: T264 named every byte the RTL decodes, the interpreter is frozen (T264 P3) and counts a byte that answers the constant 0 as no read: frame_clks is 32 bit since T264 (byte 030 answers the constant 0 of 0x99900), rsvd34 is a constant 0 byte T264 names. Before T264: 10 blocks, 38 properties of gateware.toml agree with the RTL of the core window (zx_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, snapshot, tape and key-injection registers; page 6, the host's pixel layer, is not described)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/cpc/app/rtl_check_sources.tcl", "--top", "layer2_cpc",
               "--bus", "layer2_cpc:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "cpc", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "12 block(s), 41 properties agree" in out, "cpc: 12 blocks, 41 properties of gateware.toml agree with the RTL of the core window (cpc_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, tape, key-injection, disk and the two dirty maps; page 6, the host's pixel layer, is not described)")
+must(rc == 1 and all(f in out for f in ['block geom, property frame_clks (dir r): byte +0x0 (0x101A0030) has no read']) and "1 finding(s)" in out, "cpc: T264 named every byte the RTL decodes, the interpreter is frozen (T264 P3) and counts a byte that answers the constant 0 as no read: frame_clks is 32 bit since T264, byte 030 answers the constant 0 of 0x99900. Before T264: 12 blocks, 41 properties of gateware.toml agree with the RTL of the core window (cpc_regs.v's ident, irq, ddr_cal, geometry, machine, video, window page, tape, key-injection, disk and the two dirty maps; page 6, the host's pixel layer, is not described)")
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/pet/app/rtl_check_sources.tcl", "--top", "layer2_pet",
               "--bus", "layer2_pet:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
@@ -318,11 +325,17 @@ rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cor
               "--toml-a", os.path.join(ROOT, "cores", "c128", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--define", "VDC64", "--define", "ROM_CACHE", "--define", "RAM_DDR2", "--define", "SID2", "--define", "SOCK_AUDIO", "--define", "TAPE", "--define", "NO_NET", "--define", "NO_VIC_SCALER")
 must(rc == 0 and "17 block(s), 86 properties agree" in out, "c128: 17 blocks, 86 properties of gateware.toml agree with the RTL of the core window (the C64U window's ident, irq, ddr_cal, caps and tape pins, the host's pixel layer capture, the C128's page E: id, irq, machine, ROM line cache, video, cold start, character store, counters, activity) and of the drive window behind c64u_drive_l2 (mm_drive: the 1541 block and the WD177x block of the 1581)", out)
 
+rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/c64scpu/app/rtl_check_sources.tcl", "--top", "layer2_c64scpu",
+              "--bus", "layer2_c64scpu:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
+              "--bus", "layer2_c64scpu:write=drv_io_wr,read=drv_io_rd,address=drv_io_addr,data=drv_io_wdata,response=drv_io_rdata", "--window", "0x10020000:0x4000:full",
+              "--toml-a", os.path.join(ROOT, "cores", "c64scpu", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"), "--define", "SOCK_AUDIO")
+must(rc == 0 and "15 block(s), 67 properties agree" in out, "c64scpu: 15 blocks, 67 properties of gateware.toml agree with the RTL of the core window (ident, irq, ddr_cal, machine, status, ROM control and base, SuperCPU ROM window, character store, cold start, counters) and of the drive window behind its mm_drive (the 1541 block and the WD177x block of the 1581)", out)
+
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "../cores/diag/app/rtl_check_sources.tcl",
               "--top", "layer2_diag",
               "--bus", "layer2_diag:write=cw_we,read=cw_re,address=cw_addr,data=cw_wdata,response=cw_rdata", "--window", "0x101A0000:0x10000",
               "--toml-a", os.path.join(ROOT, "cores", "diag", "app", "gateware.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))
-must(rc == 0 and "14 block(s), 51 properties agree" in out, "diag: 14 blocks, 51 properties of gateware.toml agree with the RTL of the core window (diag_regs.v v2: ident, engine, live snapshot, A/V, DRVEN, pin bank, pin ROM, capture; TICKS_US is a module parameter the checker does not read)", out)
+must(rc == 1 and all(f in out for f in ['block ident, property ticks_us_x256 (dir r): byte +0xC (0x101A000C) has no read', 'block capcnt, property lines (dir r): byte +0xB (0x101A012F) has no read']) and "2 finding(s)" in out, "diag: T264 named every byte the RTL decodes, the interpreter is frozen (T264 P3) and counts a byte that answers the constant 0 as no read: ticks_us_x256 comes from the module parameter TICKS_US, which the interpreter does not read; capcnt.lines is 32 bit since T264, byte 12F answers the top's constant 0. Before T264: 14 blocks, 51 properties of gateware.toml agree with the RTL of the core window (diag_regs.v v2: ident, engine, live snapshot, A/V, DRVEN, pin bank, pin ROM, capture; TICKS_US is a module parameter the checker does not read)", out)
 
 rc, out = run("check", "--design", os.path.join(ROOT, "host"), "--list", "build.tcl", "--list", "gideon_vhdl.tcl",
               "--toml-a", os.path.join(ROOT, "coreapp", "gateware", "host.toml"), "--maps", os.path.join(ROOT, "app", "sdkpkg", "maps"))

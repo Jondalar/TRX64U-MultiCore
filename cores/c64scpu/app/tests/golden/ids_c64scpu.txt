@@ -1,0 +1,28 @@
+C64 with SuperCPU F1/home 0 task:Reset
+C64 with SuperCPU F1/home 1 task:Reload ROMs, reset
+C64 with SuperCPU F1/home 2 media:drive.drive_a.image
+C64 with SuperCPU F1/home 3 fixed:10:Save as config...
+C64 with SuperCPU F1/home 4 fixed:11:Load config...
+C64 with SuperCPU F5/settings 0 set:SuperCPU speed
+C64 with SuperCPU F5/settings 1 set:JiffyDOS
+C64 with SuperCPU F5/settings 2 set:Joystick ports
+C64 with SuperCPU F5/settings 3 set:System Mode
+C64 with SuperCPU F5/settings 4 set:Drive
+C64 with SuperCPU F5/settings 5 set:Drive Bus ID
+C64 with SuperCPU F5/settings 6 set:Extra RAM
+C64 with SuperCPU F5/settings 7 set:Disk swap delay
+C64 with SuperCPU F5/settings 8 set:LED Load Indicator
+C64 with SuperCPU F8/expert 0 fixed:13:Actions
+C64 with SuperCPU F8/expert 1 fixed:6:Restart core
+C64 with SuperCPU F8/expert 2 fixed:7:Return to host menu
+C64 with SuperCPU F8/expert 3 fixed:13:Network
+C64 with SuperCPU F8/expert 4 fixed:9:WiFi
+C64 with SuperCPU F8/expert 5 fixed:13:Support
+C64 with SuperCPU F8/expert 6 fixed:8:Bug report
+C64 with SuperCPU F8/expert 7 fixed:17:Keys and help
+C64 with SuperCPU F8/expert 8 fixed:13:Reset
+C64 with SuperCPU F8/expert 9 fixed:5:Reset to host defaults
+C64 with SuperCPU F8/expert 10 fixed:13:Status
+C64 with SuperCPU F8/expert 11 info:Build
+C64 with SuperCPU F8/expert 12 info:ROMs
+C64 with SuperCPU F8/expert 13 info:Libraries

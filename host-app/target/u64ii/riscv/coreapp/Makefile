@@ -185,15 +185,7 @@ SRCS_CC	 =  u64ii_init.cc \
 			picklist.cc \
 			lineedit.cc \
 			boot.cc \
-			apple2.cc \
-			apple2_disk.cc \
-			apple2_nib.cc \
-			apple2_woz.cc \
-			apple2_hdd.cc \
-			c64scpu.cc \
 			d1541_fs.cc \
-			snes.cc \
-			snes_rom.cc \
 			diag.cc \
 			bugreport.cc \
 			corereport.cc \

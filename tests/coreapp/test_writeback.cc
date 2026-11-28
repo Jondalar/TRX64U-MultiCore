@@ -91,6 +91,8 @@ struct FakePort : WbPort {
     uint8_t causes = 0, en = 0;
     uint8_t (*handler)(uint8_t) = 0;
     std::vector<std::string> log;
+    void (*on_en)(void *) = 0;                  // once, when the flash interrupt is enabled next: the operation that waited goes on (T154 D6)
+    void *on_en_arg = 0;
     uint32_t ticks_ms() { return io->t; }
     void enter() { }
     void leave() { }
@@ -99,6 +101,11 @@ struct FakePort : WbPort {
     {
         en = on ? (en | c) : (en & ~c);
         log.push_back(std::string(on ? "en " : "dis ") + std::to_string(c));
+        if (on && (c & C64_IRQ_FLASH) && on_en) {
+            void (*f)(void *) = on_en;
+            on_en = 0;
+            f(on_en_arg);
+        }
     }
     // The line is level: whatever is pending and enabled calls the handler.
     // IRQ_CAUSE is write-1-to-clear: what the handler wrote there is cleared here, and returned.
@@ -293,20 +300,77 @@ int main()
         delete r;
     }
 
-    // ---- the machine's flash waits (the interrupt is off) for as long as the image is read and the file is written
+    // ---- T154 D6 (Alex 2026-11-27): the machine's flash waits (the interrupt is off) only while the changed blocks are copied; the file is written with
+    // the flash going on, and it holds the image as it was at the copy. A program during the write goes into the next file.
     {
-        struct Probe { FakePort *p; int writes, held; };
+        struct Probe { Rig *r; int writes, held; bool done, ok, rel; };
         Rig *r = ef_rig(4);
-        Probe pr = { &r->port, 0, 0 };
+        Probe pr = { r, 0, 0, false, false, false };
         r->fs.write_ms = 32;
-        r->fs.tick = [](void *a, uint32_t) { Probe *q = (Probe *)a; q->writes++; if (!(q->p->en & C64_IRQ_FLASH)) q->held++; };
+        r->fs.tick = [](void *a, uint32_t) {
+            Probe *q = (Probe *)a;
+            q->writes++;
+            if (!(q->r->port.en & C64_IRQ_FLASH)) q->held++;
+            if (!q->done) { q->done = true; q->ok = q->r->prog_roml(2, 7, 0x00); }   // the game saves on while the file is written
+        };
         r->fs.tick_arg = &pr;
         CHECK(r->prog_roml(0, 1, 0x00));
+        size_t log0 = r->port.log.size();
+        r->quiet();
+        r->port.on_en = [](void *a) { Probe *q = (Probe *)a; q->rel = q->r->prog_roml(0, 2, 0x00); };   // the operation that waited for the copy, same block
+        r->port.on_en_arg = &pr;
+        wb_poll(&r->c);
+        CHECK(pr.writes > 0);
+        CHECK_EQ(pr.held, 0);                                           // no file write with the flash held
+        CHECK(pr.ok);                                                   // the program during the write was acknowledged at once
+        CHECK(pr.rel);
+        const std::string dis = "dis " + std::to_string(C64_IRQ_FLASH), en = "en " + std::to_string(C64_IRQ_FLASH);
+        CHECK(r->port.log.size() >= log0 + 2 && r->port.log[log0] == dis && r->port.log[log0 + 1] == en);   // held for the copy, then on again
+        std::vector<Pk> pk = packets(r->file(F));
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 1], 0x00);       // the change before the copy is in the file
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 2], 0x02);       // the one after the release is not, though its block was copied: the copy came first
+        CHECK_EQ(r->file(F)[need(pk, 2, 0x8000).data + 7], 0x27);       // the one during the write is not: the file is the state at the copy
+        CHECK(wb_pending());
+        r->fs.tick = 0;
+        r->quiet();
+        wb_poll(&r->c);
+        CHECK(!wb_pending());
+        pk = packets(r->file(F));
+        CHECK_EQ(r->file(F)[need(pk, 2, 0x8000).data + 7], 0x00);       // ... they are in the next one
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 2], 0x00);
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 1], 0x00);
+        CHECK_EQ(r->port.en & C64_IRQ_FLASH, C64_IRQ_FLASH);            // and the flash is on afterwards
+        delete r;
+    }
+
+    // ---- T154 D6 (review): a state restored into the image (image_write, D51: no marks) makes the file differ from the image beyond the map; the next
+    // write takes every block from the machine with the flash held over the whole write (a copy of the changed blocks and the old file would mix two states)
+    {
+        struct Probe { Rig *r; int writes, held; };
+        Rig *r = ef_rig(4);
+        Probe pr = { r, 0, 0 };
+        r->fs.write_ms = 32;
+        r->fs.tick = [](void *a, uint32_t) { Probe *q = (Probe *)a; q->writes++; if (!(q->r->port.en & C64_IRQ_FLASH)) q->held++; };
+        r->fs.tick_arg = &pr;
+        uint8_t older[16];
+        memset(older, 0x00, sizeof(older));
+        c64_cart_image_write(&r->c, ef_off(0, 3 * 0x2000), older, sizeof(older));   // bank 3 ROML as an older state had it
+        CHECK(!wb_pending());
+        CHECK(r->prog_roml(0, 1, 0x00));                                // then the game changes only bank 0
         r->quiet();
         wb_poll(&r->c);
         CHECK(pr.writes > 0);
-        CHECK_EQ(pr.held, pr.writes);
-        CHECK_EQ(r->port.en & C64_IRQ_FLASH, C64_IRQ_FLASH);            // and it is on again afterwards
+        CHECK_EQ(pr.held, pr.writes);                                   // the flash held over the whole write
+        std::vector<Pk> pk = packets(r->file(F));
+        CHECK_EQ(r->file(F)[need(pk, 3, 0x8000).data], 0x00);           // the restored bank is in the file: the file is the machine's state
+        CHECK_EQ(r->file(F)[need(pk, 0, 0x8000).data + 1], 0x00);
+        pr.writes = pr.held = 0;                                        // that write made file and image equal: the next one copies again
+        CHECK(r->prog_roml(1, 1, 0x00));
+        r->quiet();
+        wb_poll(&r->c);
+        CHECK(pr.writes > 0);
+        CHECK_EQ(pr.held, 0);
+        CHECK_EQ(r->file(F)[need(packets(r->file(F)), 3, 0x8000).data], 0x00);
         delete r;
     }
 

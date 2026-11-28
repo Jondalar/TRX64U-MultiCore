@@ -32,7 +32,7 @@ static bool pq_up;                                  // T187 F1: the picture ques
 static char msg_title_s[80], msg_text_s[720];
 static bool msg_bad;
 static const CoreDesc *g_desc;
-static const int g_look_t = 1, g_look_scheme = 1;                // the menu's transparency (position 1 = 25 %) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
+static const int g_look_t = 0, g_look_scheme = 1;                // the menu's transparency (position 0 = 0 %, opaque, T239.3 D56 2026-11-27) and colour scheme (position 1 = Ultimate Black): no setting changes them since T239.3 D56
 static volatile bool g_look_dirty = true;
 static void apply_alpha(void);
 static bool ov_on(void);
@@ -1167,7 +1167,8 @@ static void ui_home(lv_obj_t *c, MenuCtl &m, int x, int y)
 // ---- the question an application asks (T104.3 D4) --------------------------------------------------------------------------------------------------
 // T167: the question and the bar are cards in the overlay container (trx_overlay(): last child of the screen, where LVGL's search for the topmost
 // covering object finds them). Three objects, each changed on its own: the veil that dims the screen (made once per question, never drawn again by a
-// tick), the question's card (built again when the question changes: a key, a new row) and the bar's card (its labels and its fill change in place).
+// tick), the question's card (built again when the question changes; a choose or edit list keeps its rows and a key writes them in place, T260 fix)
+// and the bar's card (its labels and its fill change in place).
 // A tick of the bar therefore draws a few hundred pixels of the bar's own card and nothing of the screen behind it.
 static uint32_t g_dlg_rev;
 static bool g_dlg_up;
@@ -1175,6 +1176,14 @@ static uint32_t g_dlg_gen;                       // trx_overlay_gen() the object
 static lv_obj_t *g_veil, *g_qcard, *g_bcard, *g_bl1, *g_bl2, *g_bfill;
 static uint32_t g_qsig;
 static lv_obj_t *g_qtxt;                                  // the text label of the open question
+// T260 fix (Rick and Alex, 2026-11-27: about 2 s per key in the diag core's A/V panel): the rows of a choose or edit list are kept, so a key that moves the
+// selection, scrolls the window or changes a value retexts them (trx_row_retext) instead of building the card again over the veil.
+static lv_obj_t *g_qrow[DLG_ITEMS_MAX];
+static int g_qrown, g_qroww;
+static lv_obj_t *g_qpos;                                  // the "a-b of n" label of the kept list, 0 when the list fits
+static int g_qposr;                                       // the right edge of that label inside the card
+static uint32_t g_qinplace;                               // keys served by retexting the kept rows (the bench's count)
+uint32_t ui_dialog_inplace(void) { return g_qinplace; }
 
 static int g_bkind = -1;                         // the bar's place depends on whether a question is open: 1 alone at the foot, 0 below a question
 
@@ -1183,6 +1192,8 @@ static void dialog_objs_forget(void)
     g_veil = g_qcard = g_bcard = g_bl1 = g_bl2 = g_bfill = 0;
     g_qsig = 0;
     g_qtxt = 0;
+    g_qrown = 0;
+    g_qpos = 0;
     g_bkind = -1;
 }
 
@@ -1204,7 +1215,13 @@ static void dlg_hint(lv_obj_t *card, int w, int h, const char *s)
     trx_txt(card, t.space_md, h - 22, s, t.caption, t.muted, w - 2 * t.space_md);
 }
 
-// What the question's card shows (everything of the view except the bar).
+// A choose or edit list keeps its row objects: the window, the selection and the rows' texts are written in place (dialog_rows_retext).
+static bool list_kind(const DlgView &v)
+{
+    return (v.kind == DK_CHOOSE || v.kind == DK_EDIT) && v.rows > 0;
+}
+
+// What the question's card shows (everything of the view except the bar). For a list kind only its shape: the rows' content is retexted in place.
 static uint32_t question_sig(const DlgView &v)
 {
     uint32_t h = 2166136261u;
@@ -1226,10 +1243,16 @@ static uint32_t question_sig(const DlgView &v)
     }
     add(v.input, strlen(v.input) + 1);
     add(&v.caret, sizeof(v.caret));
+    add(&v.rows, sizeof(v.rows));
+    if (list_kind(v)) {
+        bool pos = v.nitems > v.rows;                    // the "a-b of n" label is there or not; its text changes in place
+        add(&pos, sizeof(pos));
+        add(&v.buttons, sizeof(v.buttons));
+        return h ? h : 1;
+    }
     add(&v.nitems, sizeof(v.nitems));
     add(&v.first, sizeof(v.first));
     add(&v.sel, sizeof(v.sel));
-    add(&v.rows, sizeof(v.rows));
     for (int i = 0; i < v.rows && i < DLG_ITEMS_MAX; i++) {
         add(v.row[i], strlen(v.row[i]) + 1);
         if (v.row_val[i]) {
@@ -1240,6 +1263,36 @@ static uint32_t question_sig(const DlgView &v)
     add(&v.buttons, sizeof(v.buttons));
     add(&v.remaining_s, sizeof(v.remaining_s));
     return h ? h : 1;
+}
+
+// The card of a list kind stays: its kept rows take the window's labels, values and selection, the "a-b of n" label its text. False: a row cannot be
+// changed in place (trx_row_retext) or the card holds no kept rows; the caller builds the card again.
+static bool dialog_rows_retext(const DlgView &v)
+{
+    if (!g_qcard || g_qrown != v.rows || g_qrown > DLG_ITEMS_MAX) {
+        return false;
+    }
+    for (int i = 0; i < g_qrown; i++) {
+        TrxRow r;
+        memset(&r, 0, sizeof(r));
+        r.label = v.row[i];
+        r.value = v.row_val[i];
+        r.selected = r.strong = (v.first + i == v.sel);
+        if (!trx_row_retext(g_qrow[i], r, g_qroww)) {
+            return false;
+        }
+    }
+    if (g_qpos) {
+        const TrxTheme &t = trx_theme();
+        char pos[32];
+        snprintf(pos, sizeof(pos), "%d-%d of %d", v.first + 1, v.first + v.rows, v.nitems);
+        if (strcmp(lv_label_get_text(g_qpos), pos)) {
+            lv_label_set_text(g_qpos, pos);
+            lv_obj_set_x(g_qpos, g_qposr - trx_text_w(pos, t.caption));
+        }
+    }
+    g_qinplace++;
+    return true;
 }
 
 static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
@@ -1282,18 +1335,25 @@ static lv_obj_t *question_card(lv_obj_t *top, const DlgView &v)
                 trx_txt(card, t.space_lg, cy, v.input, t.caption, t.accent, w - 2 * t.space_lg);
                 cy += 18;
             }
+            const bool keep = list_kind(v) && rows <= DLG_ITEMS_MAX;
             for (int i = 0; i < rows; i++) {
                 TrxRow r;
                 memset(&r, 0, sizeof(r));
                 r.label = v.row[i];
                 r.value = v.row_val[i];
                 r.selected = r.strong = (v.first + i == v.sel);
-                trx_row_at(card, t.space_lg, cy, w - 2 * t.space_lg, r, &cy);
+                lv_obj_t *ro = trx_row_at(card, t.space_lg, cy, w - 2 * t.space_lg, r, &cy);
+                if (keep) {
+                    g_qrow[i] = ro;
+                }
             }
+            g_qrown = keep ? rows : 0;
+            g_qroww = w - 2 * t.space_lg;
             if (v.nitems > rows) {
                 char pos[32];
                 snprintf(pos, sizeof(pos), "%d-%d of %d", v.first + 1, v.first + rows, v.nitems);
-                trx_txt(card, w - t.space_lg - trx_text_w(pos, t.caption), t.space_md + 6, pos, t.caption, t.muted);
+                g_qpos = trx_txt(card, w - t.space_lg - trx_text_w(pos, t.caption), t.space_md + 6, pos, t.caption, t.muted);
+                g_qposr = w - t.space_lg;
             }
         }
         if (v.kind == DK_MESSAGE) {
@@ -1358,11 +1418,13 @@ void ui_dialog_render(AppDlg &d)
             lv_obj_set_style_bg_opa(g_veil, LV_OPA_50, 0);
             lv_obj_move_to_index(g_veil, 0);
         }
-        if (!g_qcard || sig != g_qsig) {
+        if (!g_qcard || sig != g_qsig || (list_kind(v) && !dialog_rows_retext(v))) {
             if (g_qcard) {
                 lv_obj_delete(g_qcard);
             }
             g_qtxt = 0;
+            g_qrown = 0;
+            g_qpos = 0;
             g_qcard = question_card(top, v);
             g_qsig = sig;
             if (g_bcard) {
@@ -1374,7 +1436,8 @@ void ui_dialog_render(AppDlg &d)
     } else if (g_veil) {                                                                       // only the bar is left
         lv_obj_delete(g_veil);
         lv_obj_delete(g_qcard);
-        g_veil = g_qcard = g_qtxt = 0;
+        g_veil = g_qcard = g_qtxt = g_qpos = 0;
+        g_qrown = 0;
         g_qsig = 0;
     }
     if (v.bar) {                                                                               // the bar: below the question, or alone at the foot of the screen
@@ -1743,7 +1806,7 @@ void ui_overlay_closing(void)
     }
 }
 
-// the layer's global alpha from the fixed transparency (position 1 of 0, 25, 50, 75 % = 25 %)
+// the layer's global alpha from the fixed transparency (position 0 of 0, 25, 50, 75 % = opaque, alpha 255)
 static void apply_alpha(void)
 {
     const uint8_t a = (uint8_t)(255 - g_look_t * 64 + (g_look_t ? 1 : 0));

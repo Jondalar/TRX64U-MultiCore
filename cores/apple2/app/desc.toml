@@ -1,7 +1,10 @@
-# The Apple //e's data description (T239.3 D17): what coreapp/cores/apple2.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
+# The Apple //e's data description (T239.3 D17): what cores/apple2/app/lib/apple2.cc holds as tables and strings, as TOML. tools/descrec.py compiles it into the
 # description record (record 6 of the .cor, section layout in coreapp/src/descrec.h); the generic application builds the descriptor from it. What the record
 # cannot hold is code, and stays in the core's C++: init, release, warm_reset, the operations of register_ops, the content check of the System ROM, the floppy
-# and slot 7 write-back and the three functions of the mount slots. Register numbers are cores/apple2/rtl/trx/a2_regs.vhd (coreapp/cores/apple2_regs.h).
+# and slot 7 write-back and the three functions of the mount slots. The gateware's facts are in the core's TOML A, gateware.toml (cores/apple2/rtl/trx/a2_regs.vhd checked by tools/rtl_check.py): a register is
+# written as the name of its property, "block.property"; tools/descrec.py makes the numbers of them (api.md 6.14.20).
+
+toml_a = "gateware.toml"
 
 [core]
 id = "APL2"
@@ -27,13 +30,13 @@ y0 = 156
 fb_base = 0x01D00000
 fb_stride = 0x00100000
 nbuf = 4
-reg_latest = 0x0C0
-reg_seq = 0x0C1
-reg_fb_base = 0x0C4
-reg_fb_stride = 0x0C8
+reg_latest = "a2_video.fb_latest"
+reg_seq = "a2_video.frame_seq"
+reg_fb_base = "a2_video.fb_base"
+reg_fb_stride = "a2_video.fb_stride"
 
 [freeze]
-reg_status = 0x0A4
+reg_status = "a2_machine.status"
 mask = 0x02
 timeout_ms = 200
 
@@ -328,52 +331,52 @@ ext = ".hdv"
 # ---- the state block of the bug report (reads without side effects only)
 [[report_reg]]
 name = "ID"
-reg = 0x000
+reg = "ident.id"
 bytes = 4
 
 [[report_reg]]
 name = "CAPS2"
-reg = 0x005
+reg = "ident.caps2"
 bytes = 1
 
 [[report_reg]]
 name = "CTRL"
-reg = 0x0A0
+reg = "a2_machine.ctrl"
 bytes = 1
 
 [[report_reg]]
 name = "CFG"
-reg = 0x0A1
+reg = "a2_machine.cfg"
 bytes = 1
 
 [[report_reg]]
 name = "CAPS"
-reg = 0x0A2
+reg = "a2_machine.caps"
 bytes = 1
 
 [[report_reg]]
 name = "STATUS (b0 reset, b1 held, b2 cold)"
-reg = 0x0A4
+reg = "a2_machine.status"
 bytes = 1
 
 [[report_reg]]
 name = "FRAMES"
-reg = 0x0A8
+reg = "a2_machine.frames"
 bytes = 2
 
 [[report_reg]]
 name = "FB_LATEST"
-reg = 0x0C0
+reg = "a2_video.fb_latest"
 bytes = 1
 
 [[report_reg]]
 name = "FRAME_SEQ"
-reg = 0x0C1
+reg = "a2_video.frame_seq"
 bytes = 1
 
 [[report_reg]]
 name = "WIN_SEL"
-reg = 0x0D4
+reg = "a2_mem.win_sel"
 bytes = 1
 
 # ---- hotkeys (hk_defaults.h hk_typing): CTRL is a typing key on this machine, so the modifier is C= + CTRL, which it has no function for; then RESTORE menu, "+" / "-"

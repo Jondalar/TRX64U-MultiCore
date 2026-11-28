@@ -33,7 +33,7 @@
 //   0FA-0FB PEAK_OUT  R   the same for what snes_audio hands to the host's audio path (the cubic result, before x 128): equal to PEAK_DSP (resampling overshoot aside) = the core's sound
 //                         reaches the hand-over; PEAK_DSP > 0 with HANDS stuck = the host's frame requests do not arrive; both 0 = the core makes no sound
 //   0FC-0FD HANDS     R   16 bit, free running: pairs handed over to the host (one per host audio frame taken, 48 kHz)
-//   100-13F IPL       W   the S-SMP's 64 byte boot ROM (the application's spc_ipl table, coreapp/cores/snes.cc), byte n at 100+n; written while CTRL.b0 holds the reset. The write
+//   100-13F IPL       W   the S-SMP's 64 byte boot ROM (the application's spc_ipl table, cores/snes/app/lib/snes.cc), byte n at 100+n; written while CTRL.b0 holds the reset. The write
 //                         strobe to the machine stays high for 8 clocks so that a machine tick (every 4th or 5th clock) is in it
 //   140       W   DSP-n firmware: any write rewinds the stream. 141 W: the next byte of the 8192 byte firmware (2048 x 3 byte program words, 1024 x 2 byte data words, low byte first,
 //                         ares/higan order); a word's last byte strobes it into the chip for 8 clocks. The application writes with 2 us between bytes while CTRL.b0 holds the reset
@@ -94,6 +94,47 @@ module snes_regs #(
     input  wire [15:0] pk_out,
     input  wire [15:0] hands
 );
+    // >>> generated from cores/snes/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_IRQ_IRQ_EN = 12'h010;
+    localparam [11:0] R_IRQ_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_DDR_CAL_CAL = 12'h020;
+    localparam [11:0] R_DDR_CAL_CAL_HI = 12'h024;
+    localparam [11:0] R_SN_CTRL_CTRL = 12'h0A0;
+    localparam [11:0] R_SN_CTRL_SYSTEM = 12'h0A1;
+    localparam [11:0] R_SN_CTRL_ROM_TYPE = 12'h0A2;
+    localparam [11:0] R_SN_STATUS_STATUS = 12'h0A4;
+    localparam [11:0] R_SN_FRAMES_FRAMES = 12'h0A8;
+    localparam [11:0] R_SN_ROMADDR_ROMADDR = 12'h0AC;
+    localparam [11:0] R_SN_STATS_MISS_ROM = 12'h0B0;
+    localparam [11:0] R_SN_STATS_MISS_WRAM = 12'h0B4;
+    localparam [11:0] R_SN_STATS_MISS_BS = 12'h0B8;
+    localparam [11:0] R_SN_STATS_STALL = 12'h0BC;
+    localparam [11:0] R_SN_FB_LATEST = 12'h0C0;
+    localparam [11:0] R_SN_FB_SEQ = 12'h0C1;
+    localparam [11:0] R_SN_FB_OVERRUNS = 12'h0C2;
+    localparam [11:0] R_SN_FB_BASE = 12'h0C4;
+    localparam [11:0] R_SN_FB_STRIDE = 12'h0C8;
+    localparam [11:0] R_SN_CART_CART_BASE = 12'h0D0;
+    localparam [11:0] R_SN_CART_ROM_MASK = 12'h0D8;
+    localparam [11:0] R_SN_CART_ROM_MASK_HI = 12'h0DA;
+    localparam [11:0] R_SN_CART_RAM_MASK = 12'h0DC;
+    localparam [11:0] R_SN_CART_RAM_MASK_HI = 12'h0DE;
+    localparam [11:0] R_SN_RTC_TIME = 12'h0E0;
+    localparam [11:0] R_SN_RTC_TGL = 12'h0E8;
+    localparam [11:0] R_SN_WR_WRITES = 12'h0F0;
+    localparam [11:0] R_SN_PAD_PAD1 = 12'h0F4;
+    localparam [11:0] R_SN_PAD_PAD2 = 12'h0F6;
+    localparam [11:0] R_SN_PEAK_PEAK_DSP = 12'h0F8;
+    localparam [11:0] R_SN_PEAK_PEAK_OUT = 12'h0FA;
+    localparam [11:0] R_SN_PEAK_HANDS = 12'h0FC;
+    localparam [11:0] R_SN_IPL_IPL = 12'h100;
+    localparam [11:0] R_SN_DSPFW_REWIND = 12'h140;
+    localparam [11:0] R_SN_DSPFW_DATA = 12'h141;
+    // <<< generated
     reg [7:0]  ctrl_r = 8'h00;
     reg [7:0]  sys_r = 8'h00;
     reg [7:0]  type_r = 8'h00;
@@ -147,7 +188,7 @@ module snes_regs #(
     assign fw_a = fw_ar;
     assign fw_d = fw_dr;
     assign ack = ack_r;
-    assign pk_clr = we & ~win & (page == 4'h0) & (off == 12'h0F8);
+    assign pk_clr = we & ~win & (page == 4'h0) & (off == R_SN_PEAK_PEAK_DSP);
     assign irq = |(irq_en & cause);
     assign rdata = q_p6 ? px_rdata : q;
 
@@ -164,44 +205,44 @@ module snes_regs #(
 
         if (we && !win && page == 4'h0) begin
             case (off)
-                12'h010: irq_en <= wdata;
-                12'h014: cause <= (cause & ~wdata) | ev;
-                12'h0A0: ctrl_r <= wdata;
-                12'h0A1: sys_r <= wdata;
-                12'h0A2: type_r <= wdata;
-                12'h0D0: cbase_r[7:0] <= wdata;
-                12'h0D1: cbase_r[15:8] <= wdata;
-                12'h0D2: cbase_r[23:16] <= wdata;
-                12'h0D3: cbase_r[31:24] <= wdata;
-                12'h0D8: rmask_r[7:0] <= wdata;
-                12'h0D9: rmask_r[15:8] <= wdata;
-                12'h0DA: rmask_r[23:16] <= wdata;
-                12'h0DC: bmask_r[7:0] <= wdata;
-                12'h0DD: bmask_r[15:8] <= wdata;
-                12'h0DE: bmask_r[23:16] <= wdata;
-                12'h0C4: base_r[7:0] <= wdata;
-                12'h0C5: base_r[15:8] <= wdata;
-                12'h0C6: base_r[23:16] <= wdata;
-                12'h0C7: base_r[31:24] <= wdata;
-                12'h0C8: stride_r[7:0] <= wdata;
-                12'h0C9: stride_r[15:8] <= wdata;
-                12'h0CA: stride_r[23:16] <= wdata;
-                12'h0CB: stride_r[31:24] <= wdata;
-                12'h0E0: rtc_r[7:0] <= wdata;
-                12'h0E1: rtc_r[15:8] <= wdata;
-                12'h0E2: rtc_r[23:16] <= wdata;
-                12'h0E3: rtc_r[31:24] <= wdata;
-                12'h0E4: rtc_r[39:32] <= wdata;
-                12'h0E5: rtc_r[47:40] <= wdata;
-                12'h0E6: rtc_r[55:48] <= wdata;
-                12'h0E7: rtc_r[63:56] <= wdata;
-                12'h0E8: rtct_r <= wdata[0];
-                12'h0F4: pad1_lo <= wdata;
-                12'h0F5: pad1_r <= {wdata, pad1_lo};
-                12'h0F6: pad2_lo <= wdata;
-                12'h0F7: pad2_r <= {wdata, pad2_lo};
-                12'h140: begin fw_i <= 14'd0; fw_ph <= 2'd0; fw_wa <= 11'd0; end
-                12'h141: if (fw_i < 14'd8192) begin
+                R_IRQ_IRQ_EN: irq_en <= wdata;
+                R_IRQ_IRQ_CAUSE: cause <= (cause & ~wdata) | ev;
+                R_SN_CTRL_CTRL: ctrl_r <= wdata;
+                R_SN_CTRL_SYSTEM: sys_r <= wdata;
+                R_SN_CTRL_ROM_TYPE: type_r <= wdata;
+                R_SN_CART_CART_BASE: cbase_r[7:0] <= wdata;
+                R_SN_CART_CART_BASE + 12'd1: cbase_r[15:8] <= wdata;
+                R_SN_CART_CART_BASE + 12'd2: cbase_r[23:16] <= wdata;
+                R_SN_CART_CART_BASE + 12'd3: cbase_r[31:24] <= wdata;
+                R_SN_CART_ROM_MASK: rmask_r[7:0] <= wdata;
+                R_SN_CART_ROM_MASK + 12'd1: rmask_r[15:8] <= wdata;
+                R_SN_CART_ROM_MASK_HI: rmask_r[23:16] <= wdata;
+                R_SN_CART_RAM_MASK: bmask_r[7:0] <= wdata;
+                R_SN_CART_RAM_MASK + 12'd1: bmask_r[15:8] <= wdata;
+                R_SN_CART_RAM_MASK_HI: bmask_r[23:16] <= wdata;
+                R_SN_FB_BASE: base_r[7:0] <= wdata;
+                R_SN_FB_BASE + 12'd1: base_r[15:8] <= wdata;
+                R_SN_FB_BASE + 12'd2: base_r[23:16] <= wdata;
+                R_SN_FB_BASE + 12'd3: base_r[31:24] <= wdata;
+                R_SN_FB_STRIDE: stride_r[7:0] <= wdata;
+                R_SN_FB_STRIDE + 12'd1: stride_r[15:8] <= wdata;
+                R_SN_FB_STRIDE + 12'd2: stride_r[23:16] <= wdata;
+                R_SN_FB_STRIDE + 12'd3: stride_r[31:24] <= wdata;
+                R_SN_RTC_TIME: rtc_r[7:0] <= wdata;
+                R_SN_RTC_TIME + 12'd1: rtc_r[15:8] <= wdata;
+                R_SN_RTC_TIME + 12'd2: rtc_r[23:16] <= wdata;
+                R_SN_RTC_TIME + 12'd3: rtc_r[31:24] <= wdata;
+                R_SN_RTC_TIME + 12'd4: rtc_r[39:32] <= wdata;
+                R_SN_RTC_TIME + 12'd5: rtc_r[47:40] <= wdata;
+                R_SN_RTC_TIME + 12'd6: rtc_r[55:48] <= wdata;
+                R_SN_RTC_TIME + 12'd7: rtc_r[63:56] <= wdata;
+                R_SN_RTC_TGL: rtct_r <= wdata[0];
+                R_SN_PAD_PAD1: pad1_lo <= wdata;
+                R_SN_PAD_PAD1 + 12'd1: pad1_r <= {wdata, pad1_lo};
+                R_SN_PAD_PAD2: pad2_lo <= wdata;
+                R_SN_PAD_PAD2 + 12'd1: pad2_r <= {wdata, pad2_lo};
+                R_SN_DSPFW_REWIND: begin fw_i <= 14'd0; fw_ph <= 2'd0; fw_wa <= 11'd0; end
+                R_SN_DSPFW_DATA: if (fw_i < 14'd8192) begin
                     fw_i <= fw_i + 14'd1;
                     if (fw_i < 14'd6144) begin                       // program: 3 bytes
                         if (fw_ph == 2'd0) begin fw_b0 <= wdata; fw_ph <= 2'd1; end
@@ -212,102 +253,102 @@ module snes_regs #(
                         else begin fw_dr <= {8'd0, wdata, fw_b0}; fw_ar <= fw_wa; fw_s <= 1'b1; fw_c <= 4'd8; fw_wa <= fw_wa + 11'd1; fw_ph <= 2'd0; end
                     end
                 end
-                default: if (off[11:6] == 6'b0001_00) begin ipl_a <= off[5:0]; ipl_d <= wdata; ipl_c <= 4'd8; end
+                default: if (off[11:6] == R_SN_IPL_IPL >> 6) begin ipl_a <= off[5:0]; ipl_d <= wdata; ipl_c <= 4'd8; end
             endcase
         end
 
         q <= 8'h00;
         if (!win && page == 4'h0) begin
             case (off)
-                12'h000: q <= id[7:0];
-                12'h001: q <= id[15:8];
-                12'h002: q <= id[23:16];
-                12'h003: q <= id[31:24];
-                12'h004: q <= 8'hC0;
-                12'h005: q <= 8'h02;
-                12'h008: q <= build[7:0];
-                12'h009: q <= build[15:8];
-                12'h00A: q <= build[23:16];
-                12'h00B: q <= build[31:24];
-                12'h010: q <= irq_en;
-                12'h014: q <= cause;
-                12'h020: q <= ddr_cal[7:0];
-                12'h021: q <= ddr_cal[15:8];
-                12'h022: q <= ddr_cal[23:16];
-                12'h023: q <= ddr_cal[31:24];
-                12'h024: q <= ddr_cal[39:32];
-                12'h025: q <= ddr_cal[47:40];
-                12'h026: q <= ddr_cal[55:48];
-                12'h027: q <= ddr_cal[63:56];
-                12'h0A0: q <= ctrl_r;
-                12'h0A1: q <= sys_r;
-                12'h0A2: q <= type_r;
-                12'h0A4: q <= status;
-                12'h0A8: q <= frames[7:0];
-                12'h0A9: q <= frames[15:8];
-                12'h0AC: q <= romaddr[7:0];
-                12'h0AD: q <= romaddr[15:8];
-                12'h0B0: q <= st_miss_rom[7:0];
-                12'h0B1: q <= st_miss_rom[15:8];
-                12'h0B2: q <= st_miss_rom[23:16];
-                12'h0B3: q <= st_miss_rom[31:24];
-                12'h0B4: q <= st_miss_wram[7:0];
-                12'h0B5: q <= st_miss_wram[15:8];
-                12'h0B6: q <= st_miss_wram[23:16];
-                12'h0B7: q <= st_miss_wram[31:24];
-                12'h0B8: q <= st_miss_bs[7:0];
-                12'h0B9: q <= st_miss_bs[15:8];
-                12'h0BA: q <= st_miss_bs[23:16];
-                12'h0BB: q <= st_miss_bs[31:24];
-                12'h0BC: q <= st_stall[7:0];
-                12'h0BD: q <= st_stall[15:8];
-                12'h0BE: q <= st_stall[23:16];
-                12'h0BF: q <= st_stall[31:24];
-                12'h0C0: q <= fb_latest;
-                12'h0C1: q <= fb_seq;
-                12'h0C2: q <= fb_over[7:0];
-                12'h0C3: q <= fb_over[15:8];
-                12'h0C4: q <= base_r[7:0];
-                12'h0C5: q <= base_r[15:8];
-                12'h0C6: q <= base_r[23:16];
-                12'h0C7: q <= base_r[31:24];
-                12'h0C8: q <= stride_r[7:0];
-                12'h0C9: q <= stride_r[15:8];
-                12'h0CA: q <= stride_r[23:16];
-                12'h0CB: q <= stride_r[31:24];
-                12'h0D0: q <= cbase_r[7:0];
-                12'h0D1: q <= cbase_r[15:8];
-                12'h0D2: q <= cbase_r[23:16];
-                12'h0D3: q <= cbase_r[31:24];
-                12'h0D8: q <= rmask_r[7:0];
-                12'h0D9: q <= rmask_r[15:8];
-                12'h0DA: q <= rmask_r[23:16];
-                12'h0DC: q <= bmask_r[7:0];
-                12'h0DD: q <= bmask_r[15:8];
-                12'h0DE: q <= bmask_r[23:16];
-                12'h0E0: q <= rtc_r[7:0];
-                12'h0E1: q <= rtc_r[15:8];
-                12'h0E2: q <= rtc_r[23:16];
-                12'h0E3: q <= rtc_r[31:24];
-                12'h0E4: q <= rtc_r[39:32];
-                12'h0E5: q <= rtc_r[47:40];
-                12'h0E6: q <= rtc_r[55:48];
-                12'h0E7: q <= rtc_r[63:56];
-                12'h0E8: q <= {7'd0, rtct_r};
-                12'h0F0: q <= st_wr[7:0];
-                12'h0F1: q <= st_wr[15:8];
-                12'h0F2: q <= st_wr[23:16];
-                12'h0F3: q <= st_wr[31:24];
-                12'h0F4: q <= pad1_r[7:0];
-                12'h0F5: q <= pad1_r[15:8];
-                12'h0F6: q <= pad2_r[7:0];
-                12'h0F7: q <= pad2_r[15:8];
-                12'h0F8: q <= pk_dsp[7:0];
-                12'h0F9: q <= pk_dsp[15:8];
-                12'h0FA: q <= pk_out[7:0];
-                12'h0FB: q <= pk_out[15:8];
-                12'h0FC: q <= hands[7:0];
-                12'h0FD: q <= hands[15:8];
+                R_IDENT_ID: q <= id[7:0];
+                R_IDENT_ID + 12'd1: q <= id[15:8];
+                R_IDENT_ID + 12'd2: q <= id[23:16];
+                R_IDENT_ID + 12'd3: q <= id[31:24];
+                R_IDENT_CAPS: q <= 8'hC0;
+                R_IDENT_CAPS2: q <= 8'h02;
+                R_IDENT_BUILD: q <= build[7:0];
+                R_IDENT_BUILD + 12'd1: q <= build[15:8];
+                R_IDENT_BUILD + 12'd2: q <= build[23:16];
+                R_IDENT_BUILD + 12'd3: q <= build[31:24];
+                R_IRQ_IRQ_EN: q <= irq_en;
+                R_IRQ_IRQ_CAUSE: q <= cause;
+                R_DDR_CAL_CAL: q <= ddr_cal[7:0];
+                R_DDR_CAL_CAL + 12'd1: q <= ddr_cal[15:8];
+                R_DDR_CAL_CAL + 12'd2: q <= ddr_cal[23:16];
+                R_DDR_CAL_CAL + 12'd3: q <= ddr_cal[31:24];
+                R_DDR_CAL_CAL_HI: q <= ddr_cal[39:32];
+                R_DDR_CAL_CAL_HI + 12'd1: q <= ddr_cal[47:40];
+                R_DDR_CAL_CAL_HI + 12'd2: q <= ddr_cal[55:48];
+                R_DDR_CAL_CAL_HI + 12'd3: q <= ddr_cal[63:56];
+                R_SN_CTRL_CTRL: q <= ctrl_r;
+                R_SN_CTRL_SYSTEM: q <= sys_r;
+                R_SN_CTRL_ROM_TYPE: q <= type_r;
+                R_SN_STATUS_STATUS: q <= status;
+                R_SN_FRAMES_FRAMES: q <= frames[7:0];
+                R_SN_FRAMES_FRAMES + 12'd1: q <= frames[15:8];
+                R_SN_ROMADDR_ROMADDR: q <= romaddr[7:0];
+                R_SN_ROMADDR_ROMADDR + 12'd1: q <= romaddr[15:8];
+                R_SN_STATS_MISS_ROM: q <= st_miss_rom[7:0];
+                R_SN_STATS_MISS_ROM + 12'd1: q <= st_miss_rom[15:8];
+                R_SN_STATS_MISS_ROM + 12'd2: q <= st_miss_rom[23:16];
+                R_SN_STATS_MISS_ROM + 12'd3: q <= st_miss_rom[31:24];
+                R_SN_STATS_MISS_WRAM: q <= st_miss_wram[7:0];
+                R_SN_STATS_MISS_WRAM + 12'd1: q <= st_miss_wram[15:8];
+                R_SN_STATS_MISS_WRAM + 12'd2: q <= st_miss_wram[23:16];
+                R_SN_STATS_MISS_WRAM + 12'd3: q <= st_miss_wram[31:24];
+                R_SN_STATS_MISS_BS: q <= st_miss_bs[7:0];
+                R_SN_STATS_MISS_BS + 12'd1: q <= st_miss_bs[15:8];
+                R_SN_STATS_MISS_BS + 12'd2: q <= st_miss_bs[23:16];
+                R_SN_STATS_MISS_BS + 12'd3: q <= st_miss_bs[31:24];
+                R_SN_STATS_STALL: q <= st_stall[7:0];
+                R_SN_STATS_STALL + 12'd1: q <= st_stall[15:8];
+                R_SN_STATS_STALL + 12'd2: q <= st_stall[23:16];
+                R_SN_STATS_STALL + 12'd3: q <= st_stall[31:24];
+                R_SN_FB_LATEST: q <= fb_latest;
+                R_SN_FB_SEQ: q <= fb_seq;
+                R_SN_FB_OVERRUNS: q <= fb_over[7:0];
+                R_SN_FB_OVERRUNS + 12'd1: q <= fb_over[15:8];
+                R_SN_FB_BASE: q <= base_r[7:0];
+                R_SN_FB_BASE + 12'd1: q <= base_r[15:8];
+                R_SN_FB_BASE + 12'd2: q <= base_r[23:16];
+                R_SN_FB_BASE + 12'd3: q <= base_r[31:24];
+                R_SN_FB_STRIDE: q <= stride_r[7:0];
+                R_SN_FB_STRIDE + 12'd1: q <= stride_r[15:8];
+                R_SN_FB_STRIDE + 12'd2: q <= stride_r[23:16];
+                R_SN_FB_STRIDE + 12'd3: q <= stride_r[31:24];
+                R_SN_CART_CART_BASE: q <= cbase_r[7:0];
+                R_SN_CART_CART_BASE + 12'd1: q <= cbase_r[15:8];
+                R_SN_CART_CART_BASE + 12'd2: q <= cbase_r[23:16];
+                R_SN_CART_CART_BASE + 12'd3: q <= cbase_r[31:24];
+                R_SN_CART_ROM_MASK: q <= rmask_r[7:0];
+                R_SN_CART_ROM_MASK + 12'd1: q <= rmask_r[15:8];
+                R_SN_CART_ROM_MASK_HI: q <= rmask_r[23:16];
+                R_SN_CART_RAM_MASK: q <= bmask_r[7:0];
+                R_SN_CART_RAM_MASK + 12'd1: q <= bmask_r[15:8];
+                R_SN_CART_RAM_MASK_HI: q <= bmask_r[23:16];
+                R_SN_RTC_TIME: q <= rtc_r[7:0];
+                R_SN_RTC_TIME + 12'd1: q <= rtc_r[15:8];
+                R_SN_RTC_TIME + 12'd2: q <= rtc_r[23:16];
+                R_SN_RTC_TIME + 12'd3: q <= rtc_r[31:24];
+                R_SN_RTC_TIME + 12'd4: q <= rtc_r[39:32];
+                R_SN_RTC_TIME + 12'd5: q <= rtc_r[47:40];
+                R_SN_RTC_TIME + 12'd6: q <= rtc_r[55:48];
+                R_SN_RTC_TIME + 12'd7: q <= rtc_r[63:56];
+                R_SN_RTC_TGL: q <= {7'd0, rtct_r};
+                R_SN_WR_WRITES: q <= st_wr[7:0];
+                R_SN_WR_WRITES + 12'd1: q <= st_wr[15:8];
+                R_SN_WR_WRITES + 12'd2: q <= st_wr[23:16];
+                R_SN_WR_WRITES + 12'd3: q <= st_wr[31:24];
+                R_SN_PAD_PAD1: q <= pad1_r[7:0];
+                R_SN_PAD_PAD1 + 12'd1: q <= pad1_r[15:8];
+                R_SN_PAD_PAD2: q <= pad2_r[7:0];
+                R_SN_PAD_PAD2 + 12'd1: q <= pad2_r[15:8];
+                R_SN_PEAK_PEAK_DSP: q <= pk_dsp[7:0];
+                R_SN_PEAK_PEAK_DSP + 12'd1: q <= pk_dsp[15:8];
+                R_SN_PEAK_PEAK_OUT: q <= pk_out[7:0];
+                R_SN_PEAK_PEAK_OUT + 12'd1: q <= pk_out[15:8];
+                R_SN_PEAK_HANDS: q <= hands[7:0];
+                R_SN_PEAK_HANDS + 12'd1: q <= hands[15:8];
                 default: ;
             endcase
         end

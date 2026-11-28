@@ -2,7 +2,7 @@
 # T175 / T260 co-check (spec S2 + the register assumptions of the application): the step words the diag APPLICATION (cores/diag/app/lib, engine v2) compiles out of every shipped example test
 # (cores/diag/sd/tests/*.toml, pins by name against the table of the model engine = cores/diag/rtl/pins.toml) run on the real probe engine v2 (cores/diag/rtl) in iverilog behind its register
 # block, wired as tb_probe.v wires it, against a model of the plugged peripherals (models/<id>.hex: the ten joystick pins, the paddle comparators, PADDLE_DIS = pin 67); the engine's STATUS,
-# the FIFO words (popped at every wait, as the application does) and the PCs it waited at are written to a file and decoded by the application's own runner (tests/coreapp/diag_co.cc replay
+# the FIFO words (popped at every wait, as the application does) and the PCs it waited at are written to a file and decoded by the application's own runner (cores/diag/app/tests/diag_co.cc replay
 # -> diag_run_file), and the result file it writes is compared with what the model must have produced (models/<id>.expect, check.py). So the compile (op codes, field layout, us -> clocks,
 # loop body, the 5 word SAMPLE), the register protocol (ABORT, CLEAR, CAP RESET, STEP_ADDR = 0, the word write order, RUN, STATUS, PC at WAIT_USER, GO, FIFO pop on byte 3) and the decode
 # meet the RTL here, not a model.
@@ -24,7 +24,7 @@ diag_drv_dir "$out/tab" || { echo "FAIL co: the driver table was not generated";
 flow() {
   tag=$1; app=$2; probe=$3; regs=$4; tests=$5; incx=$6
   d=$out/$tag; mkdir -p "$d"; : > "$d/log"
-  if ! { c++ -w -std=gnu++11 -DVIDEOMODE_NO_BOARD=1 $incx $INC -o "$d/diag_co" "$root/tests/coreapp/diag_co.cc" $app &&
+  if ! { c++ -w -std=gnu++11 -DVIDEOMODE_NO_BOARD=1 $incx $INC -o "$d/diag_co" "$root/cores/diag/app/tests/diag_co.cc" $app &&
          iverilog -g2012 -I "$rtl" -o "$d/tb.vvp" "$here/tb_co.v" "$regs" "$probe" "$rtl/diag_pinrom.v"; } > "$d/build.log" 2>&1; then
     echo "FAIL $tag: build" >> "$d/log"; cat "$d/build.log" >> "$d/log"; return 1
   fi

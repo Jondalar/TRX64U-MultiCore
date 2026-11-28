@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The operations and states the real application image exports, as the golden list tests/coreapp/golden/ops_amiga1200.txt holds them (the ABI between a
+"""The operations and states the real application image exports, as the golden list cores/amiga1200/app/tests/golden/ops_amiga1200.txt holds them (the ABI between a
 menu TOML and the C++: tools/descrec.py checks every name and binding against that list).
 
   export.py              print the list from a ue2emu run of the image (GET /v1/ops, GET /v1/state)
-  export.py --update     write tests/coreapp/golden/ops_amiga1200.txt
+  export.py --update     write cores/amiga1200/app/tests/golden/ops_amiga1200.txt
   export.py --core NAME [--update]    the same for another core of emu.CORES (the golden is written for the Amiga 1200 only)
 
 Line format (the same as tests/coreapp/ops_export.cc): `op<TAB>name<TAB>arg:type:lo:hi:maxlen:label|label ...` and `state<TAB>name`.
@@ -15,7 +15,7 @@ import urllib.request
 
 import emu
 
-GOLDEN_A1200 = os.path.join(emu.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")
+GOLDEN_A1200 = os.path.join(emu.ROOT, "cores", "amiga1200", "app", "tests", "golden", "ops_amiga1200.txt")
 
 
 def _get(e, path):

@@ -1,14 +1,14 @@
 # The Commodore 264 core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/vc20/app/ue2emu.toml). Registers from
 # cores/c264/rtl/trx/c264_regs.v (cores/c264/app/gateware.toml); layer2_c264.v builds it with ID_TRX2 0.
 name = "c264"
-id = "C264"                  # c264_regs.v:101
+id = "C264"                  # c264_regs.v:126
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [regs]
-0x0A0 = 0x00                 # CTRL (c264_regs.v:64, reset 0x00); the app's init sets b0 HOLD
-0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (c264_regs.v:69, its reset value)
+0x0A0 = 0x00                 # CTRL (c264_regs.v:89, reset 0x00); the app's init sets b0 HOLD
+0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (c264_regs.v:94, its reset value)
 0x0C7 = 0x01
-0x0CA = 0x10                 # FB_STRIDE 0x00100000 (c264_regs.v:70)
+0x0CA = 0x10                 # FB_STRIDE 0x00100000 (c264_regs.v:95)
 
 [handover]
 core = "Commodore 264 (C16, Plus/4)"   # the manifest's name

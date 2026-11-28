@@ -57,6 +57,34 @@ module c64scpu_regs (
     input  wire [31:0] rom_hits,
     input  wire [31:0] rom_misses
 );
+    // >>> generated from cores/c64scpu/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_PAGE_ID_ID = 12'h000;
+    localparam [11:0] R_PAGE_ID_CAPS = 12'h004;
+    localparam [11:0] R_MACHINE_JOY_SWAP = 12'h024;
+    localparam [11:0] R_STATUS_STATUS = 12'h030;
+    localparam [11:0] R_ROM_CTRL = 12'h040;
+    localparam [11:0] R_ROM_HITS = 12'h044;
+    localparam [11:0] R_ROM_MISSES = 12'h048;
+    localparam [11:0] R_ROM_BASE = 12'h050;
+    localparam [11:0] R_ROM_SROM_BASE = 12'h054;
+    localparam [11:0] R_ROM_SROM_LOG2 = 12'h058;
+    localparam [11:0] R_ROM_ROM_VALID = 12'h05C;
+    localparam [11:0] R_ROM_SW = 12'h060;
+    localparam [11:0] R_CACHE_DEV_CYC = 12'h064;
+    localparam [11:0] R_CACHE_CACHE_HITS = 12'h068;
+    localparam [11:0] R_CACHE_CACHE_MISSES = 12'h06C;
+    localparam [11:0] R_COLD_COLD = 12'h080;
+    localparam [11:0] R_CHR_ADDR = 12'h090;
+    localparam [11:0] R_CHR_DATA = 12'h092;
+    localparam [11:0] R_PERF_ROM_WAITS = 12'h0A0;
+    localparam [11:0] R_PERF_ROM_FILL_MAX = 12'h0A4;
+    localparam [11:0] R_PERF_FR_MIN = 12'h0B0;
+    localparam [11:0] R_PERF_FR_MIN_HI = 12'h0B2;
+    localparam [11:0] R_PERF_FR_MAX = 12'h0B4;
+    localparam [11:0] R_PERF_FR_MAX_HI = 12'h0B6;
+    localparam [11:0] R_PERF_DBG_CLR = 12'h0B8;
+    localparam [11:0] R_RAM_CNT_COUNT = 12'h0C0;
+    // <<< generated
     wire        sel  = !addr[16] && addr[15:12] == 4'hE;
     wire [11:0] off  = addr[11:0];
     reg  [7:0]  q = 8'd0;
@@ -102,7 +130,7 @@ module c64scpu_regs (
         rc_a <= ram_cnt;      rc_b <= rc_a; if (rc_a == rc_b) rc_q <= rc_b;
         cw_we <= 1'b0;
         if (cw_we) ca <= ca + 12'd1;
-        if (re && sel && off == 12'h092) ca <= ca + 12'd1;
+        if (re && sel && off == R_CHR_DATA) ca <= ca + 12'd1;
         cb_a <= cold_busy;   cb_b <= cb_a; if (cb_a == cb_b) cb_q <= cb_b;
         if (cb_q) cseen <= 1'b1;
         if (cseen && !cb_q) begin cp <= 1'b0; cseen <= 1'b0; end
@@ -111,16 +139,16 @@ module c64scpu_regs (
 
         if (we && sel) begin
             case (off)
-                12'h024: joy_r <= wdata[0];
-                12'h040: if (wdata[0]) rom_flush_tgl <= ~rom_flush_tgl;
-                12'h058: lg_r <= wdata[4:0];
-                12'h05C: rv_r <= wdata[0];
-                12'h060: sw_r <= wdata[1:0];
-                12'h090: ca[7:0] <= wdata;
-                12'h091: ca[11:8] <= wdata[3:0];
-                12'h092: begin cw_we <= 1'b1; cw_d <= wdata; end
-                12'h0B8: dbg_clr_tgl <= ~dbg_clr_tgl;
-                12'h080: if (wdata[0]) begin
+                R_MACHINE_JOY_SWAP: joy_r <= wdata[0];
+                R_ROM_CTRL: if (wdata[0]) rom_flush_tgl <= ~rom_flush_tgl;
+                R_ROM_SROM_LOG2: lg_r <= wdata[4:0];
+                R_ROM_ROM_VALID: rv_r <= wdata[0];
+                R_ROM_SW: sw_r <= wdata[1:0];
+                R_CHR_ADDR: ca[7:0] <= wdata;
+                R_CHR_ADDR + 12'd1: ca[11:8] <= wdata[3:0];
+                R_CHR_DATA: begin cw_we <= 1'b1; cw_d <= wdata; end
+                R_PERF_DBG_CLR: dbg_clr_tgl <= ~dbg_clr_tgl;
+                R_COLD_COLD: if (wdata[0]) begin
                     cold_tgl <= ~cold_tgl;
                     cp <= 1'b1; cseen <= 1'b0;
                     // the machine settings of this page take their power-on values with the machine
@@ -134,57 +162,57 @@ module c64scpu_regs (
         q <= 8'h00;
         if (sel) begin
             case (off)
-                12'h000: q <= "S";
-                12'h001: q <= "C";
-                12'h002: q <= "P";
-                12'h003: q <= "U";
-                12'h004: q <= 8'h01;
-                12'h024: q <= {7'd0, joy_r};
-                12'h030: q <= st_q;
-                12'h040: q <= {7'd0, bz_q};
-                12'h044: q <= h_q[7:0];
-                12'h045: q <= h_q[15:8];
-                12'h046: q <= h_q[23:16];
-                12'h047: q <= h_q[31:24];
-                12'h048: q <= m_q[7:0];
-                12'h049: q <= m_q[15:8];
-                12'h04A: q <= m_q[23:16];
-                12'h04B: q <= m_q[31:24];
-                12'h050: q <= 8'h00;
-                12'h051: q <= 8'h00;
-                12'h052: q <= 8'hC0;
-                12'h053: q <= 8'h01;
-                12'h054: q <= 8'h00;
-                12'h055: q <= 8'h00;
-                12'h056: q <= 8'h08;
-                12'h057: q <= 8'h03;
-                12'h058: q <= {3'd0, lg_r};
-                12'h05C: q <= {7'd0, rv_r};
-                12'h060: q <= {6'd0, sw_r};
-                12'h064: q <= dv_q[7:0];   12'h065: q <= dv_q[15:8];  12'h066: q <= dv_q[23:16];  12'h067: q <= dv_q[31:24];
-                12'h068: q <= ch_q[7:0];   12'h069: q <= ch_q[15:8];  12'h06A: q <= ch_q[23:16];  12'h06B: q <= ch_q[31:24];
-                12'h06C: q <= cm_q[7:0];   12'h06D: q <= cm_q[15:8];  12'h06E: q <= cm_q[23:16];  12'h06F: q <= cm_q[31:24];
-                12'h080: q <= {7'd0, cp | cb_q};
-                12'h090: q <= ca[7:0];
-                12'h091: q <= {4'd0, ca[11:8]};
-                12'h092: q <= chr_q;
-                12'h0A0: q <= w_q[7:0];
-                12'h0A1: q <= w_q[15:8];
-                12'h0A2: q <= w_q[23:16];
-                12'h0A3: q <= w_q[31:24];
-                12'h0A4: q <= f_q[7:0];
-                12'h0A5: q <= f_q[15:8];
-                12'h0B0: q <= n_q1[7:0];
-                12'h0B1: q <= n_q1[15:8];
-                12'h0B2: q <= {4'd0, n_q1[19:16]};
-                12'h0B4: q <= x_q1[7:0];
-                12'h0B5: q <= x_q1[15:8];
-                12'h0B6: q <= {4'd0, x_q1[19:16]};
-                12'h0C0: q <= rc_q[7:0];   12'h0C1: q <= rc_q[15:8];
-                12'h0C2: q <= rc_q[23:16]; 12'h0C3: q <= rc_q[31:24];
-                12'h0C4: q <= rc_q[39:32]; 12'h0C5: q <= rc_q[47:40];
-                12'h0C6: q <= rc_q[55:48]; 12'h0C7: q <= rc_q[63:56];
-                12'h0C8: q <= rc_q[71:64]; 12'h0C9: q <= rc_q[79:72];
+                R_PAGE_ID_ID: q <= "S";
+                R_PAGE_ID_ID + 12'd1: q <= "C";
+                R_PAGE_ID_ID + 12'd2: q <= "P";
+                R_PAGE_ID_ID + 12'd3: q <= "U";
+                R_PAGE_ID_CAPS: q <= 8'h01;
+                R_MACHINE_JOY_SWAP: q <= {7'd0, joy_r};
+                R_STATUS_STATUS: q <= st_q;
+                R_ROM_CTRL: q <= {7'd0, bz_q};
+                R_ROM_HITS: q <= h_q[7:0];
+                R_ROM_HITS + 12'd1: q <= h_q[15:8];
+                R_ROM_HITS + 12'd2: q <= h_q[23:16];
+                R_ROM_HITS + 12'd3: q <= h_q[31:24];
+                R_ROM_MISSES: q <= m_q[7:0];
+                R_ROM_MISSES + 12'd1: q <= m_q[15:8];
+                R_ROM_MISSES + 12'd2: q <= m_q[23:16];
+                R_ROM_MISSES + 12'd3: q <= m_q[31:24];
+                R_ROM_BASE: q <= 8'h00;
+                R_ROM_BASE + 12'd1: q <= 8'h00;
+                R_ROM_BASE + 12'd2: q <= 8'hC0;
+                R_ROM_BASE + 12'd3: q <= 8'h01;
+                R_ROM_SROM_BASE: q <= 8'h00;
+                R_ROM_SROM_BASE + 12'd1: q <= 8'h00;
+                R_ROM_SROM_BASE + 12'd2: q <= 8'h08;
+                R_ROM_SROM_BASE + 12'd3: q <= 8'h03;
+                R_ROM_SROM_LOG2: q <= {3'd0, lg_r};
+                R_ROM_ROM_VALID: q <= {7'd0, rv_r};
+                R_ROM_SW: q <= {6'd0, sw_r};
+                R_CACHE_DEV_CYC: q <= dv_q[7:0];   R_CACHE_DEV_CYC + 12'd1: q <= dv_q[15:8];  R_CACHE_DEV_CYC + 12'd2: q <= dv_q[23:16];  R_CACHE_DEV_CYC + 12'd3: q <= dv_q[31:24];
+                R_CACHE_CACHE_HITS: q <= ch_q[7:0];   R_CACHE_CACHE_HITS + 12'd1: q <= ch_q[15:8];  R_CACHE_CACHE_HITS + 12'd2: q <= ch_q[23:16];  R_CACHE_CACHE_HITS + 12'd3: q <= ch_q[31:24];
+                R_CACHE_CACHE_MISSES: q <= cm_q[7:0];   R_CACHE_CACHE_MISSES + 12'd1: q <= cm_q[15:8];  R_CACHE_CACHE_MISSES + 12'd2: q <= cm_q[23:16];  R_CACHE_CACHE_MISSES + 12'd3: q <= cm_q[31:24];
+                R_COLD_COLD: q <= {7'd0, cp | cb_q};
+                R_CHR_ADDR: q <= ca[7:0];
+                R_CHR_ADDR + 12'd1: q <= {4'd0, ca[11:8]};
+                R_CHR_DATA: q <= chr_q;
+                R_PERF_ROM_WAITS: q <= w_q[7:0];
+                R_PERF_ROM_WAITS + 12'd1: q <= w_q[15:8];
+                R_PERF_ROM_WAITS + 12'd2: q <= w_q[23:16];
+                R_PERF_ROM_WAITS + 12'd3: q <= w_q[31:24];
+                R_PERF_ROM_FILL_MAX: q <= f_q[7:0];
+                R_PERF_ROM_FILL_MAX + 12'd1: q <= f_q[15:8];
+                R_PERF_FR_MIN: q <= n_q1[7:0];
+                R_PERF_FR_MIN + 12'd1: q <= n_q1[15:8];
+                R_PERF_FR_MIN_HI: q <= {4'd0, n_q1[19:16]};
+                R_PERF_FR_MAX: q <= x_q1[7:0];
+                R_PERF_FR_MAX + 12'd1: q <= x_q1[15:8];
+                R_PERF_FR_MAX_HI: q <= {4'd0, x_q1[19:16]};
+                R_RAM_CNT_COUNT: q <= rc_q[7:0];   R_RAM_CNT_COUNT + 12'd1: q <= rc_q[15:8];
+                R_RAM_CNT_COUNT + 12'd2: q <= rc_q[23:16]; R_RAM_CNT_COUNT + 12'd3: q <= rc_q[31:24];
+                R_RAM_CNT_COUNT + 12'd4: q <= rc_q[39:32]; R_RAM_CNT_COUNT + 12'd5: q <= rc_q[47:40];
+                R_RAM_CNT_COUNT + 12'd6: q <= rc_q[55:48]; R_RAM_CNT_COUNT + 12'd7: q <= rc_q[63:56];
+                R_RAM_CNT_COUNT + 12'd8: q <= rc_q[71:64]; R_RAM_CNT_COUNT + 12'd9: q <= rc_q[79:72];
                 default: ;
             endcase
         end

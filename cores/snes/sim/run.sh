@@ -90,8 +90,8 @@ both() { # both <program> <+MS> <settle frames>
   [ $ok = 1 ] && echo "SNES PASS $p: real == ref (wram $(line ${p}_real wram), vram $(line ${p}_real vram), aram $(line ${p}_real aram))"
   return $((1 - ok))
 }
-mk_spc_real() { # the application's real 64 boot ROM bytes (coreapp/cores/snes.cc spc_ipl) as a file for +IPL
-  python3 - "$root/coreapp/cores/snes.cc" "$here/build/spc_real.bin" <<'PY'
+mk_spc_real() { # the application's real 64 boot ROM bytes (cores/snes/app/lib/snes.cc spc_ipl) as a file for +IPL
+  python3 - "$root/cores/snes/app/lib/snes.cc" "$here/build/spc_real.bin" <<'PY'
 import re, sys
 m = re.search(r'spc_ipl\[SNES_IPL_BYTES\] = \{(.*?)\};', open(sys.argv[1]).read(), re.S)
 b = bytes(int(x, 16) for x in re.findall(r'0x([0-9A-F]{2})', m.group(1)))

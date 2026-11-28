@@ -1,14 +1,14 @@
 # The DDT Look Ma, No VIC core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/vc20/app/ue2emu.toml). Registers from
 # cores/ddt_mandel/trx/ddt_regs.v with the parameters of layer2_ddt_novic.v (cores/ddt_novic/app/gateware.toml).
 name = "ddt_novic"
-id = "DDTN"                  # layer2_ddt_novic.v:283 ID 32'h4E544444, ddt_regs.v:106-109
+id = "DDTN"                  # layer2_ddt_novic.v:283 ID 32'h4E544444, ddt_regs.v:127-109
 board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
 
 [regs]
-0x0A0 = 0x00                 # CTRL (ddt_regs.v:51, reset 0x00): the machine runs from power-up; the app's init sets b0 HOLD
-0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (ddt_regs.v:52, its reset value)
+0x0A0 = 0x00                 # CTRL (ddt_regs.v:72, reset 0x00): the machine runs from power-up; the app's init sets b0 HOLD
+0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (ddt_regs.v:73, its reset value)
 0x0C7 = 0x01
-0x0CA = 0x10                 # FB_STRIDE 0x00100000 (ddt_regs.v:52)
+0x0CA = 0x10                 # FB_STRIDE 0x00100000 (ddt_regs.v:73)
 
 [handover]
 core = "DDT Look Ma, No VIC"         # the manifest's name

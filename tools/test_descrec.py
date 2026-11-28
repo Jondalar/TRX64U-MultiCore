@@ -213,7 +213,7 @@ class Reader(unittest.TestCase):
 
 
 MENU = os.path.join(GOLD, "desc_test.toml")          # T239.3 P1-8: trx64u's menu is TRX64-Ultimate's; the fixture of the made-up core stands in for "a core's own menu"
-OPS = os.path.join(GOLD, "ops_amiga1200.txt")        # what the shared application exports as the A1200
+OPS = os.path.join(GOLD, "..", "..", "..", "cores", "amiga1200", "app", "tests", "golden", "ops_amiga1200.txt")   # what the A1200's application exports
 
 
 def menu_text():
@@ -495,7 +495,7 @@ class Restart(unittest.TestCase):
 
 
 class AgainstTheApplication(unittest.TestCase):
-    """T104.2 D10: every name and binding of a menu is checked against what the application exports (tests/coreapp/golden/ops_amiga1200.txt)."""
+    """T104.2 D10: every name and binding of a menu is checked against what the application exports (cores/amiga1200/app/tests/golden/ops_amiga1200.txt)."""
 
     def check(self, text):
         ops, states = D.load_ops(ops_text())
@@ -1517,7 +1517,7 @@ class BaseRows(unittest.TestCase):
         self.assertNotIn("Overlay Transparency", [r["key"] for r in self.base()["cset"]])
 
     def test_the_rows_are_the_ones_the_application_exports(self):
-        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "tests", "coreapp", "golden", "ops_amiga1200.txt")],
+        r = subprocess.run([sys.executable, os.path.join(self.ROOT, "tools", "gen_base_ui.py"), "--check", "--ops", os.path.join(self.ROOT, "cores", "amiga1200", "app", "tests", "golden", "ops_amiga1200.txt")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

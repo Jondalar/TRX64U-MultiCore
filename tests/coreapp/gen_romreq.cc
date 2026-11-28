@@ -4,57 +4,7 @@
 //   gen_romreq > host-app/software/hostapp/romreq_table.inc
 #include <stdio.h>
 #include <string.h>
-#ifdef TEST_APP_VC20
-// the VIC-20's app is its own build (run.sh vc20app): its table is its core only, its rows are the part of the host's table the shared table does not have
-#include "cores.h"
-const CoreDesc *const core_table[] = { &vc20_desc, 0 };
-#elif defined(TEST_APP_A1200)
-// the Amiga 1200's app is its own build (run.sh a12app): its table is its core only
-#include "cores.h"
-const CoreDesc *const core_table[] = { &amiga1200_desc, 0 };
-#elif defined(TEST_APP_ATARI800)
-// the Atari 800 XL's app is its own build (run.sh a8app): its table is its core only
-#include "cores.h"
-extern const CoreDesc atari800_desc;                // cores.h lists the shared app's cores (cores/atari800/app/lib holds this one)
-const CoreDesc *const core_table[] = { &atari800_desc, 0 };
-#elif defined(TEST_APP_C264)
-// the Commodore 264's app is its own build (run.sh c264app): its table is its core only
-#include "cores.h"
-extern const CoreDesc c264_desc;                // no shared header declares it (cores/c264/app/lib holds this one)
-const CoreDesc *const core_table[] = { &c264_desc, 0 };
-#elif defined(TEST_APP_NEOGEO)
-// the Neo Geo's app is its own build (run.sh neogeoapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc neogeo_desc;              // cores.h lists the shared app's cores; the Neo Geo is its own app (cores/neogeo/app/lib)
-const CoreDesc *const core_table[] = { &neogeo_desc, 0 };
-#elif defined(TEST_APP_AMIGA)
-// the Amiga 500's app is its own build (run.sh amigaapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc amiga_desc;               // cores.h lists the shared app's cores (cores/amiga/app/lib holds this one)
-const CoreDesc *const core_table[] = { &amiga_desc, 0 };
-#elif defined(TEST_APP_ZX)
-// the ZX Spectrum's app is its own build (run.sh zxapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc zx_desc;                  // cores.h lists the shared app's cores (cores/zx/app/lib holds this one)
-const CoreDesc *const core_table[] = { &zx_desc, 0 };
-#elif defined(TEST_APP_CPC)
-// the CPC's app is its own build (run.sh cpcapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc cpc_desc;                 // cores.h lists the shared app's cores (cores/cpc/app/lib holds this one)
-const CoreDesc *const core_table[] = { &cpc_desc, 0 };
-#elif defined(TEST_APP_PET)
-// the PET's app is its own build (run.sh petapp): its table is its core only
-#include "cores.h"
-extern const CoreDesc pet_desc;                 // cores.h lists the shared app's cores (cores/pet/app/lib holds this one)
-const CoreDesc *const core_table[] = { &pet_desc, 0 };
-#elif defined(TEST_APP_C128)
-// the C128's app is its own build (run.sh c128app): its table is its core only
-#include "cores.h"
-extern const CoreDesc c128_desc;                // cores.h lists the shared app's cores (cores/c128/app/lib holds this one)
-const CoreDesc *const core_table[] = { &c128_desc, 0 };
-#else
 #include "table.cc"
-#endif
 #include "romset.h"
 
 static void emit(const char *core, const char *folder, const char *role, const char *names, const uint32_t *sizes, int flags, int set)
@@ -98,11 +48,6 @@ int main()
         if (d->romset) {
             emit(d->cor_name, d->folder, d->romset->role, d->romset->ext, d->romset->sizes, 1 | 4, 0);
         }
-#ifdef TEST_APP_NEOGEO                                  // the TRX64U rows follow the Neo Geo's: only the Neo Geo's app (run.sh neogeoapp) emits them
-        if (!strcmp(d->folder, "neogeo")) {
-            emit_trx64u();
-        }
-#endif
     }
     return 0;
 }

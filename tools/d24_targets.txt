@@ -1,36 +1,18 @@
 # T239.3 S6: the target of every file of the D24 ledger (tools/d24_ledger.txt), read from the code. tools/check_d24.py reads it: a ledger file without a line here is red.
 # Line: <path> <target> <reason: a few words>. Targets: data (tables that are TOML, register maps: D8), core-library (one core's own code: hooks and its formats, D9),
 # shared-library (code several cores use, kept here: D10, D12), ultimate-repo (only the D12 list), generic-module (code that belongs to the generic app for every core).
-coreapp/cores/apple2.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/apple2_disk.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_disk.h core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_hdd.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_nib.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_nib.h core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_regs.h data register map (D8)
-coreapp/cores/apple2_woz.cc core-library the core's own file format or engine (D9)
-coreapp/cores/apple2_woz.h core-library the core's own file format or engine (D9)
 coreapp/cores/c64_cart.cc shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart.h shared-library C64 cartridges (D12)
 coreapp/cores/c64_cart_desc.h shared-library cartridge library's types
 coreapp/cores/c64_go.cc shared-library part of the cbmrun library (P3-1; P1-8: c64_go stays here)
 coreapp/cores/c64_go.h shared-library part of the cbmrun library (P3-1; P1-8: c64_go stays here)
 coreapp/cores/c64_regs.h data register map (D8)
-coreapp/cores/c64scpu.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/c64scpu_prg.h core-library SuperCPU program start
-coreapp/cores/c64scpu_regs.h data register map (D8)
 coreapp/cores/cbm1541.cc shared-library drive library (D15)
 coreapp/cores/cbm1541.h shared-library drive library (D15)
 coreapp/cores/cbm1541_desc.h shared-library drive library's pieces, own record P5
 coreapp/cores/cbm_run.cc shared-library Run PRG of five cores
 coreapp/cores/cbm_run.h shared-library Run PRG of five cores
 coreapp/cores/cores.h data core table, goes with compiled-in descriptors
-coreapp/cores/drive_rom_pick.h shared-library JiffyDOS ROM pick of three cores
-coreapp/cores/hk_defaults.h data default hotkeys, now [hotkeys] TOML
-coreapp/cores/snes.cc core-library hooks; its tables are desc.toml (D8, D9)
-coreapp/cores/snes_regs.h data register map (D8)
-coreapp/cores/snes_rom.cc core-library the core's own file format or engine (D9)
-coreapp/cores/snes_rom.h core-library the core's own file format or engine (D9)
 coreapp/src/amiga_ffs.cc core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/amiga_ffs.h core-library Amiga FFS format, Amiga only (D9)
 coreapp/src/t64.cc shared-library C64 T64 lister, stays here (D12; TRX64-Ultimate takes only its T64 loading)

@@ -143,7 +143,7 @@ static void search(void)
     if (try_flash_file("/Flash/trx/hostrecovery.app", M_FLASH_COPY) || try_flash_file("/Flash/trx/hostrecovery.new", M_FLASH_NEW)) {
         return;
     }
-    if (stage_file("/SD/hostrecovery.app", &total)) {
+    if (stage_file("/SD/hostrecovery.bin", &total)) {
         start_stage(M_SD, total);
         return;
     }
@@ -156,7 +156,7 @@ static void search(void)
             const char *n = infos[i]->lfname;
             if (n && !strncasecmp(n, "Usb", 3)) {
                 char path[64];
-                snprintf(path, sizeof(path), "/%s/hostrecovery.app", n);
+                snprintf(path, sizeof(path), "/%s/hostrecovery.bin", n);
                 if (stage_file(path, &total)) {
                     for (int k = 0; k < infos.get_elements(); k++) {
                         delete infos[k];
@@ -175,7 +175,7 @@ static void search(void)
 extern "C" void ultimate_main(void *)
 {
     puts("\n*** TRX64 host recovery program ***");
-    puts("The application in the flash is not the host's own. Looking for hostrecovery.app: the flash drive, the SD card, the USB sticks.");
+    puts("The application in the flash is not the host's own. Looking for it: the copy in the flash, then hostrecovery.bin on the SD card and the USB sticks.");
     Flash *fl = get_flash();
     if (fl) {
         BlockDevice *blk = new FlashRo(fl);
@@ -194,7 +194,7 @@ extern "C" void ultimate_main(void *)
         vTaskDelay(pdMS_TO_TICKS(SEARCH_MS));
         waited += SEARCH_MS;
         if (waited % 5000 == 0) {
-            puts("recovery: no hostrecovery.app found. Copy it to the root of a USB stick or the SD card (it is in the release), or load the host over JTAG.");
+            puts("recovery: no hostrecovery.bin found. Copy it to the root of a USB stick or the SD card (it is in the release), or load the host over JTAG.");
         }
     }
 }

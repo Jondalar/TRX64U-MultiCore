@@ -65,44 +65,6 @@ int main(int argc, char **argv)
     CHECK(argc == 3);
     char why[240];
 
-#ifdef TEST_APP_A1200                    // the A1200's app (run.sh a12app): its own tables against its record
-    // ---- 1. the Amiga 1200's tables, from the record, against amiga1200_desc
-    {
-        Bytes rec = slurp(argv[1]);
-        DescRecord *d = new DescRecord;
-        CHECK_EQ(parse(rec, d, why, sizeof(why)), 0);
-        if (g_fails) {
-            printf("%s\n", why);
-        }
-        DescCode hooks;
-        memset(&hooks, 0, sizeof(hooks));
-        hooks.init = amiga1200_desc.init; hooks.release = amiga1200_desc.release; hooks.register_ops = amiga1200_desc.register_ops;
-        hooks.romset_version = amiga1200_desc.romset->version;
-        hooks.romset_pick = amiga1200_desc.romset->pick;
-        CoreDesc got;
-        CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), 0);
-        g_fields = 0;
-        compare_tables(amiga1200_desc, got);
-        printf("descsec: Amiga 1200 tables: %d fields compared with amiga1200_desc\n", g_fields);
-        CHECK(g_fields > 150);
-        CHECK(got.romset->version == amiga1200_desc.romset->version && got.romset->pick == amiga1200_desc.romset->pick);
-        CHECK(got.id_shared && got.id_feat_mask == amiga1200_desc.id_feat_mask);
-        // the pad's identity hook goes onto the record's pad
-        hooks.pad_id_loaded = pad_a;
-        CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), 0);
-        CHECK(got.pad != 0 && got.pad->id_loaded == pad_a);
-        // the record names the ROM set's two functions; a core whose code has none is refused by section
-        hooks.romset_pick = 0;
-        CHECK_EQ(descrec_core(d, &hooks, &got, why, sizeof(why)), -1);
-        CHECK(strstr(why, "section rom set") != 0);
-        // the record's ROM set gets its own labels: Auto's text first, "-" behind
-        CHECK_STR(d->sec->romset_labels.text[0], amiga1200_desc.romset->auto_label);
-        CHECK_STR(d->sec->romset_labels.text[1], "-");
-        CHECK(d->sec->romset.labels == &d->sec->romset_labels);
-    }
-
-#endif
-#ifndef TEST_APP_A1200                   // sections 2 and 3 are the shared reader's: the shared app runs them
     // ---- 2. what no descriptor has together
     {
         Bytes rec = slurp(argv[2]);
@@ -247,6 +209,5 @@ int main(int argc, char **argv)
             CHECK(strstr(why, "section roms") != 0);
         }
     }
-#endif
     DONE("descsec");
 }

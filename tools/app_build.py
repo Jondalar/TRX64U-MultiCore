@@ -190,20 +190,26 @@ def sized(incdirs, sources):
 
 def cmd_pack_base(base_dir, out, shared_tomlb):
     """What the package carries of the base (tools/sdk_pack.sh): the archives of the build's `make sdkbase` directory, the sources that depend on the core and the sources of the
-    shared libraries (TOML B of the shared app) at their repository paths under base/src/, and every header they reach under base/inc/. The include path (base/incdirs.txt) is the
+    shared libraries (TOML B of the shared app) at their repository paths under base/src/, and every header they reach and every header a shared library names under base/inc/. The include path (base/incdirs.txt) is the
     build's, as repository paths, in the build's order."""
     import shutil
     import libtab
     root = os.path.realpath(open(os.path.join(base_dir, "root.txt")).read().strip())
     incdirs = read_incdirs(os.path.join(base_dir, "incdirs.txt"))
     sized_real = [l.strip() for l in open(os.path.join(base_dir, "sized.real")) if l.strip()]
-    libsrc = []
+    libsrc, libhdr = [], []
     for lib in libtab.load(shared_tomlb):
         for f in lib["sources"]:
             p = libtab.find_file(root, f)
             if not p:
                 raise BuildError("the library source %s of %s is in none of %s" % (f, shared_tomlb, ", ".join(libtab.SRC_DIRS)))
             libsrc.append(os.path.realpath(p))
+        # a header the library names is part of it even when no source of the base includes it (cbm1541_desc.h: only the cores' own apps include it, T239 D17)
+        for f in lib.get("headers", []):
+            p = libtab.find_file(root, f)
+            if not p:
+                raise BuildError("the library header %s of %s is in none of %s" % (f, shared_tomlb, ", ".join(libtab.SRC_DIRS)))
+            libhdr.append(os.path.realpath(p))
 
     def rel(p):
         r = os.path.relpath(os.path.realpath(p), root)
@@ -214,6 +220,8 @@ def cmd_pack_base(base_dir, out, shared_tomlb):
         if s not in srcs:
             srcs.append(s)
             hdrs |= headers_of(s, incdirs)
+    for h in libhdr:
+        hdrs |= {h} | headers_of(h, incdirs)
     for d in ("src", "inc", "lib"):
         shutil.rmtree(os.path.join(out, "base" if d != "lib" else "", d), ignore_errors=True)
     names = []

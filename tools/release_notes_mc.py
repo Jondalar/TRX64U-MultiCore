@@ -78,7 +78,7 @@ CORES = [
     dict(id="snes", match=("super nintendo",), title="Super Nintendo", folder="snes",
          files="none: the S-SMP's 64 byte boot ROM is embedded in the application",
          needed="nothing",
-         sources="coreapp/cores/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
+         sources="cores/snes/app/lib/snes.cc (spc_ipl); cores/snes/rtl/NOTICE"),
     dict(id="nes", match=("nintendo",), title="Nintendo Entertainment System", folder="nes",
          files="none", needed="nothing",
          sources="cores/nes/app/lib/nes.cc:139-160 (no ROM list in the descriptor)"),
@@ -88,7 +88,7 @@ CORES = [
     dict(id="apple2", match=("apple",), title="Apple IIe", folder="apple2",
          files="`apple2e.rom` 16,384, `apple2e-video.rom` 8,192, `diskii.rom` 256 bytes",
          needed="the first two; the third for any floppy",
-         sources="coreapp/cores/apple2.cc:88-91,122-126; coreapp/cores/apple2_regs.h:49-51"),
+         sources="cores/apple2/app/lib/apple2.cc (roms); cores/apple2/app/desc.toml"),
     dict(id="zxnext", match=("spectrum next",), title="ZX Spectrum Next", folder="zxnext",
          files="`next.img`: a whole SD card image (FAT, MBR) with the Next's system files on it (any size the machine reads; it is written back)",
          needed="the image; without it the machine's boot ROM shows its own error",
@@ -378,8 +378,8 @@ def render(a, cors, bit_len, alen, dest):
     w("| `%s.ue2` | the same package without the pre-header, for a machine that still runs Gideon's |" % a.name)
     if getattr(a, "txu", ""):
         w("| `%s` | the same host as an update for a board that already runs a TRX64 MultiCore host (section 3a) |" % a.txu)
-    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
-        w("| `hostrecovery.app` | the host's own application, for the recovery: copy it to the **root** of a USB stick or the SD card (section 4) |")
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.bin")):    # T265 S10
+        w("| `hostrecovery.bin` | the host's own application, for the recovery: copy it to the **root** of a USB stick or the SD card (section 4) |")
     for f, m in cors:
         if m.get("kind") == "large":     # T115 7: a whole bitstream, started on its own (the host reloads itself after it)
             w("| `%s` | %s %s, **large core**: a full bitstream of %s bytes + its application %s bytes |"
@@ -452,8 +452,8 @@ def render(a, cors, bit_len, alen, dest):
     w("")
     w("Prepare the stick (or the SD card) on the PC like this:")
     w("")
-    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
-        w("**Copy `hostrecovery.app` to the root of the stick or the SD card** (not into a folder: the zip has a top folder, take the file out of it). If another firmware's updater ever")
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.bin")):    # T265 S10
+        w("**Copy `hostrecovery.bin` to the root of the stick or the SD card** (not into a folder: the zip has a top folder, take the file out of it). If another firmware's updater ever")
         w("replaces the host in the flash, the board repairs itself from this file (or from its copy on the board's own drive) at the next power-on; without it a USB-Blaster is the way back.")
         w("")
     w("```")
@@ -587,9 +587,9 @@ def render(a, cors, bit_len, alen, dest):
     w("## 9. Known problems")
     w("")
     w("- Every core except TRX64 is experimental: expect rough edges.")
-    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.app")):    # T265 S10
+    if os.path.exists(os.path.join(a.cor_dir, "hostrecovery.bin")):    # T265 S10
         w("- The board stays dark after an updater of another firmware (for example a firmware's own flash patch run inside a started firmware): the host recovery starts by itself at the next")
-        w("  power-on, from its copy on the board's drive, the SD card or a USB stick. Put `hostrecovery.app` in the root of a stick or the SD card, switch the power off and on, and wait")
+        w("  power-on, from its copy on the board's drive, the SD card or a USB stick. Put `hostrecovery.bin` in the root of a stick or the SD card, switch the power off and on, and wait")
         w("  about a minute. The host menu then says that it repaired the flash.")
     for c in present:
         if c["id"] in KNOWN:

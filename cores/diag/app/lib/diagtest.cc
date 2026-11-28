@@ -2577,6 +2577,22 @@ static int run_avtest(DiagEnv *env, const AvTest &t, DiagOutcome *out)
         fixed_b[1] |= k == AVK_BEND;
         fixed_b[2] |= k == AVK_BLANK;
     }
+    if (!fixed_std) {                                  // T259 D16-bis: no [base]/[sweep]/preset names the standard, so the tester says which one the TV shows
+        const char *items[16];
+        int ni = AK(AVK_STD).n < 16 ? AK(AVK_STD).n : 16, pk = 0;
+        for (int c = 0; c < ni; c++) {
+            items[c] = AK(AVK_STD).names[c];
+        }
+        char ctitle[DT_STR + 8];
+        snprintf(ctitle, sizeof(ctitle), "%s", t.name[0] ? t.name : t.id);
+        int a = env->ui->choice(ctitle, "Which standard is the TV set to?", 1, 1, 0, items, ni, &pk);
+        if (a != DUI_CONTINUE || pk < 0 || pk >= ni) {
+            snprintf(out->msg, sizeof(out->msg), "%s: stopped at the choice of the standard", t.id);
+            return -1;
+        }
+        base[AVK_STD] = cur[AVK_STD] = pk;
+        fixed_std = true;
+    }
     // Both files get their header first (a card that refuses writes says so before the walk starts); the rest is appended as the walk goes, so no walk is too long for a buffer.
     static char hb_t[4096], hb_x[1024], wb_t[4096], wb_x[4096];
     Out h = { hb_t, sizeof(hb_t), 0, false, 0, 0 };

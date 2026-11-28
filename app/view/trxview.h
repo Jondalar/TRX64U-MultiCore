@@ -28,7 +28,7 @@ struct TrxTheme {
 };
 
 // T164 D10a: the canvas the view is laid out on. 960 x 540 (trx_compact() false), or the mode's own size when the mode is narrower than 960
-// (trx_canvas_for in trxcanvas.h): then the shell has a narrower rail and thinner bars and every caller lays out for the width it is given
+// (576p: 720 x 540, T259 D17; trx_canvas_for in trxcanvas.h): then the shell has a narrower rail and thinner bars and every caller lays out for the width it is given
 // (trx_canvas_w / _h). The caller builds the frame again after a change (trx_shell_forget()).
 void trx_canvas_set(int w, int h);
 int trx_canvas_w(void);
@@ -248,7 +248,7 @@ lv_obj_t *trx_pbar(lv_obj_t *par, int x, int y, int w, int h, uint32_t track, ui
 void trx_pbar_set(lv_obj_t *bar, int value, int range);
 
 // T167: the parent of every panel drawn over the screen (progress pages, questions, the splash). Not lv_layer_top(): see trxview.cc.
-// trx_overlay_gen() moves whenever the container was made again (a frame rebuild with lv_obj_clean(scr) deletes it with its panels).
+// trx_overlay_gen() moves when the container is deleted (a frame rebuild with lv_obj_clean(scr) deletes it with its panels) and when it is made again.
 lv_obj_t *trx_overlay(void);
 uint32_t trx_overlay_gen(void);
 

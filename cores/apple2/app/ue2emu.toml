@@ -1,0 +1,22 @@
+# The Apple //e core of TRX64U-MultiCore as the core application sees it in ue2emu (the layout of cores/pet/app/ue2emu.toml). Registers from
+# cores/apple2/rtl/trx/a2_regs.vhd (cores/apple2/app/gateware.toml). Read by step 12 of the matrix (tools/ue2emu_core.py profile, T239.5 D13).
+name = "apple2"
+id = "APL2"                  # a2_regs.vhd:309-312 (0x41 0x50 0x4C 0x32)
+board = "multicore"          # the ICAP loader answers 0x7A: the multicore profile, "Return to host menu"
+
+[regs]
+0x005 = 0x06                 # CAPS2 (a2_regs.vhd:314): b1 BUILD, b2 the bit level Disk II engine and the slot 7 card (the app refuses a mount without b2)
+0x0A0 = 0x00                 # CTRL (a2_regs.vhd:156, reset 0x00); the app's init sets b0 HOLD
+0x0A2 = 0x01                 # CAPS (a2_regs.vhd:159, reset 1: CAPS LOCK on)
+0x0C6 = 0xD0                 # FB_BASE 0x01D00000 (a2_regs.vhd:161, its reset value, little endian)
+0x0C7 = 0x01
+0x0CA = 0x10                 # FB_STRIDE 0x00100000 (a2_regs.vhd:162)
+
+[handover]
+core = "Apple IIe"           # the manifest's name
+id = "apple2"                # core.toml id
+path = "/Usb0/cores/apple2.cor"
+video = "1080p"
+
+[round]
+ends = "rompage"             # the app waits on its ROM page: check_sysrom (apple2.cc) wants the monitor's RESET vector $FA62 at $3FFC, which the zero-filled stand-in has not (step 12 ends there, tests/coreapp/emu/core_round.sh)

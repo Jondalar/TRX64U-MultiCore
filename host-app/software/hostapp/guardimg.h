@@ -1,4 +1,4 @@
-// T265 P2: what the recovery program takes for a host application (hostrecovery.app): header-only and free of every dependency, so the recovery program
+// T265 P2: what the recovery program takes for a host application (hostrecovery.bin from a stick or the SD card, or the flash copy /Flash/trx/hostrecovery.app): header-only and free of every dependency, so the recovery program
 // (host-app/software/hostrecovery/recovery.cc) and tests/hostapp/test_guard.cc run the very same rule. The rule is the one fw_image_seal_parts takes from the boot
 // ROM (tools/trx_pkg.py check_app_record) plus: the file is exactly the record and its data padded to 4, nothing behind it.
 #ifndef HOST_GUARDIMG_H

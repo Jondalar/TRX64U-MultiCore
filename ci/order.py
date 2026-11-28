@@ -4,7 +4,8 @@
   ci/order.py
     env  PLAN_JSON_FILE   the run's plan.json (checked to be one)
          WORK_ORDER_OUT   where work-order.json goes
-         GITHUB_OUTPUT    gets `missing=true|false` (optional)
+         GITHUB_OUTPUT    gets `missing=true|false`, host_missing=true|false (HOST_BITS=true and an entry of the target host is missing), bits_missing=[core ids whose entries
+                     (CORES, a JSON list) are not all published] (T239.5 D28: the jobs that wait at the environment bitstreams) (optional)
          CHILDREN         JSON list of the children the plan asked for (the step `children` output); COR_TARGETS the JSON list of the cor child's targets.
                           Without CHILDREN every entry is needed.
          GH_TOKEN         optional: only lifts the rate limit of the read (the builds repository is public)
@@ -105,6 +106,28 @@ def needed(names, children, cor_targets, ref):
     return [n for n in names if group_of(n) in want]
 
 
+def import_names():
+    """The imports the job collect fetches beside the entries (ci/fetch_bits.py entry_names takes the same list); ORDER_IMPORTS: a file with the names (tests)."""
+    if os.environ.get("ORDER_IMPORTS") is not None:
+        return [l.strip() for l in open(os.environ["ORDER_IMPORTS"]).read().splitlines() if l.strip()]
+    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "imports.py"), "names"], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise OrderError("ci/imports.py names failed: " + r.stderr.strip()[-300:])
+    return [l.strip() for l in r.stdout.splitlines() if l.strip()]
+
+
+def job_missing(names, gone, ref, cores, host_job):
+    """T239.5 D28: (host_missing, bits_missing). The job host-bits fetches the entries of the target host, the job bits of a core those of core:<id> (large:<id> for a core
+    with a mono entry); a job waits at the environment bitstreams only when one of them is not published. The same rule as the work order: `gone` is its test."""
+    host = host_job and any(gone(n) for n in needed(names, ["cor"], ["host"], ref))
+    bits = []
+    for c in cores:
+        t = ("large:" if any(group_of(n) == "mono-" + c for n in names) else "core:") + c
+        if any(gone(n) for n in needed(names, ["cor"], [t], ref)):
+            bits.append(c)
+    return host, bits
+
+
 def lane_of(entry, ref):
     g = group_of(entry)
     if g in ("host", "aux") or g == "core-" + ref:
@@ -156,9 +179,17 @@ def main():
     children = json.loads(children) if children else None
     cors = json.loads(os.environ.get("COR_TARGETS") or "[]")
     ref = reference_core()
-    names = needed(entry_names(), children, cors, ref)
+    every = entry_names()
+    names = needed(every, children, cors, ref)
     rel = Releases(os.environ.get("BUILDS_API", "https://api.github.com"), repo, os.environ.get("GH_TOKEN", ""))
-    missing = [n for n in names if not rel.published("bit-" + n)]
+    known = {}
+
+    def gone(n):
+        if n not in known:
+            known[n] = not rel.published("bit-" + n)
+        return known[n]
+
+    missing = [n for n in names if gone(n)]
     lanes = []
     for n in missing:
         ln = lane_of(n, ref)
@@ -169,6 +200,13 @@ def main():
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write("missing=%s\n" % ("true" if missing else "false"))
+            # T239.5 D28: which bitstream jobs wait for the builder: the job's own entries (what it fetches) are not all published
+            host_missing, bits_missing = job_missing(every, gone, ref, json.loads(os.environ.get("CORES") or "[]"), os.environ.get("HOST_BITS") == "true")
+            f.write("host_missing=%s\n" % ("true" if host_missing else "false"))
+            f.write("bits_missing=%s\n" % json.dumps(bits_missing, separators=(",", ":")))
+            # the job collect also fetches the imports (trx64u.cor, trx64g.cor: release/imports/*.pin, ci/imports.py), which the work order does not name;
+            # it waits for the builder when one of its entries or one import is not published
+            f.write("collect_missing=%s\n" % ("true" if missing or any(gone(n) for n in import_names()) else "false"))
     return 0
 
 

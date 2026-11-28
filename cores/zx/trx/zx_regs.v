@@ -81,6 +81,47 @@ module zx_regs #(
     output wire [31:0] fb_base,
     output wire [31:0] fb_stride
 );
+    // >>> generated from cores/zx/app/gateware.toml (T264 S2): do not edit, `tools/toml_a_gen.py gen` rewrites it
+    localparam [11:0] R_IDENT_ID = 12'h000;
+    localparam [11:0] R_IDENT_CAPS = 12'h004;
+    localparam [11:0] R_IDENT_CAPS2 = 12'h005;
+    localparam [11:0] R_IDENT_CONTRACT = 12'h006;
+    localparam [11:0] R_IDENT_BUILD = 12'h008;
+    localparam [11:0] R_IRQ_IRQ_EN = 12'h010;
+    localparam [11:0] R_IRQ_IRQ_CAUSE = 12'h014;
+    localparam [11:0] R_DDR_CAL_DDR_CAL0 = 12'h020;
+    localparam [11:0] R_DDR_CAL_DDR_CAL1 = 12'h024;
+    localparam [11:0] R_GEOM_FRAME_CLKS = 12'h030;
+    localparam [11:0] R_GEOM_RSVD34 = 12'h034;
+    localparam [11:0] R_GEOM_LINES = 12'h035;
+    localparam [11:0] R_GEOM_PIX_W = 12'h037;
+    localparam [11:0] R_MACHINE_CTRL = 12'h0A0;
+    localparam [11:0] R_MACHINE_MODEL = 12'h0A1;
+    localparam [11:0] R_MACHINE_JOY1 = 12'h0A2;
+    localparam [11:0] R_MACHINE_JOY2 = 12'h0A3;
+    localparam [11:0] R_MACHINE_STATUS = 12'h0A4;
+    localparam [11:0] R_MACHINE_SNAP_GO = 12'h0A5;
+    localparam [11:0] R_MACHINE_FRAMES = 12'h0A8;
+    localparam [11:0] R_MACHINE_CPUADDR = 12'h0AC;
+    localparam [11:0] R_VIDEO_FB_LATEST = 12'h0C0;
+    localparam [11:0] R_VIDEO_FRAME_SEQ = 12'h0C1;
+    localparam [11:0] R_VIDEO_FB_OVERRUNS = 12'h0C2;
+    localparam [11:0] R_VIDEO_FB_BASE = 12'h0C4;
+    localparam [11:0] R_VIDEO_FB_STRIDE = 12'h0C8;
+    localparam [11:0] R_WIN_WIN_PAGE = 12'h0D4;
+    localparam [11:0] R_SNAP_DIR = 12'h100;
+    localparam [11:0] R_SNAP_P7FFD = 12'h11B;
+    localparam [11:0] R_SNAP_BORDER = 12'h11C;
+    localparam [11:0] R_SNAP_AY = 12'h120;
+    localparam [11:0] R_SNAP_AY_SEL = 12'h130;
+    localparam [11:0] R_TAPE_CTRL = 12'h140;
+    localparam [11:0] R_TAPE_BASE = 12'h144;
+    localparam [11:0] R_TAPE_POS = 12'h148;
+    localparam [11:0] R_TAPE_SEEK = 12'h14C;
+    localparam [11:0] R_TAPE_STATUS = 12'h150;
+    localparam [11:0] R_TAPE_UNDERRUN = 12'h151;
+    localparam [11:0] R_INJECT_KEYS = 12'h160;
+    // <<< generated
     reg [7:0]  ctrl_r = 8'h00, model_r = 8'h00, j1_r = 8'h00, j2_r = 8'h00;
     reg [2:0]  page_r = 3'b000;
     reg        snap_t = 1'b0;
@@ -142,39 +183,39 @@ module zx_regs #(
 
         if (we && !win && page == 4'h0) begin
             case (off)
-                12'h010: irq_en <= wdata;
-                12'h014: cause <= (cause & ~wdata) | ev;
-                12'h0A0: ctrl_r <= wdata;
-                12'h0A1: model_r <= wdata;
-                12'h0A2: j1_r <= wdata;
-                12'h0A3: j2_r <= wdata;
-                12'h0A5: snap_t <= ~snap_t;
-                12'h0C4: fbb_r[7:0] <= wdata;
-                12'h0C5: fbb_r[15:8] <= wdata;
-                12'h0C6: fbb_r[23:16] <= wdata;
-                12'h0C7: fbb_r[31:24] <= wdata;
-                12'h0C8: fbs_r[7:0] <= wdata;
-                12'h0C9: fbs_r[15:8] <= wdata;
-                12'h0CA: fbs_r[23:16] <= wdata;
-                12'h0CB: fbs_r[31:24] <= wdata;
-                12'h0D4: page_r <= wdata[2:0];
-                12'h11B: p7_r <= wdata;
-                12'h11C: bord_r <= wdata;
-                12'h130: aysel_r <= wdata;
-                12'h140: tctrl_r <= wdata;
-                12'h144: tbase_r[7:0] <= wdata;
-                12'h145: tbase_r[15:8] <= wdata;
-                12'h146: tbase_r[23:16] <= wdata;
-                12'h147: tbase_r[31:24] <= wdata;
-                12'h148: tpos_r[7:0] <= wdata;
-                12'h149: tpos_r[15:8] <= wdata;
-                12'h14A: tpos_r[23:16] <= wdata;
-                12'h14B: tpos_r[31:24] <= wdata;
-                12'h14C: tseek_t <= ~tseek_t;
+                R_IRQ_IRQ_EN: irq_en <= wdata;
+                R_IRQ_IRQ_CAUSE: cause <= (cause & ~wdata) | ev;
+                R_MACHINE_CTRL: ctrl_r <= wdata;
+                R_MACHINE_MODEL: model_r <= wdata;
+                R_MACHINE_JOY1: j1_r <= wdata;
+                R_MACHINE_JOY2: j2_r <= wdata;
+                R_MACHINE_SNAP_GO: snap_t <= ~snap_t;
+                R_VIDEO_FB_BASE: fbb_r[7:0] <= wdata;
+                R_VIDEO_FB_BASE + 12'd1: fbb_r[15:8] <= wdata;
+                R_VIDEO_FB_BASE + 12'd2: fbb_r[23:16] <= wdata;
+                R_VIDEO_FB_BASE + 12'd3: fbb_r[31:24] <= wdata;
+                R_VIDEO_FB_STRIDE: fbs_r[7:0] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd1: fbs_r[15:8] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd2: fbs_r[23:16] <= wdata;
+                R_VIDEO_FB_STRIDE + 12'd3: fbs_r[31:24] <= wdata;
+                R_WIN_WIN_PAGE: page_r <= wdata[2:0];
+                R_SNAP_P7FFD: p7_r <= wdata;
+                R_SNAP_BORDER: bord_r <= wdata;
+                R_SNAP_AY_SEL: aysel_r <= wdata;
+                R_TAPE_CTRL: tctrl_r <= wdata;
+                R_TAPE_BASE: tbase_r[7:0] <= wdata;
+                R_TAPE_BASE + 12'd1: tbase_r[15:8] <= wdata;
+                R_TAPE_BASE + 12'd2: tbase_r[23:16] <= wdata;
+                R_TAPE_BASE + 12'd3: tbase_r[31:24] <= wdata;
+                R_TAPE_POS: tpos_r[7:0] <= wdata;
+                R_TAPE_POS + 12'd1: tpos_r[15:8] <= wdata;
+                R_TAPE_POS + 12'd2: tpos_r[23:16] <= wdata;
+                R_TAPE_POS + 12'd3: tpos_r[31:24] <= wdata;
+                R_TAPE_SEEK: tseek_t <= ~tseek_t;
                 default: begin
-                    if (off >= 12'h100 && off < 12'h11B) dir_r[8 * (off - 12'h100) +: 8] <= wdata;
-                    if (off >= 12'h120 && off < 12'h130) ay_r[8 * (off - 12'h120) +: 8] <= wdata;
-                    if (off >= 12'h160 && off < 12'h165) inj_r[8 * (off - 12'h160) +: 8] <= wdata;
+                    if (off >= R_SNAP_DIR && off < R_SNAP_DIR + 12'd27) dir_r[8 * (off - R_SNAP_DIR) +: 8] <= wdata;
+                    if (off >= R_SNAP_AY && off < R_SNAP_AY + 12'd16) ay_r[8 * (off - R_SNAP_AY) +: 8] <= wdata;
+                    if (off >= R_INJECT_KEYS && off < R_INJECT_KEYS + 12'd5) inj_r[8 * (off - R_INJECT_KEYS) +: 8] <= wdata;
                 end
             endcase
         end
@@ -182,76 +223,76 @@ module zx_regs #(
         q <= 8'h00;
         if (!win && page == 4'h0) begin
             case (off)
-                12'h000: q <= id[7:0];
-                12'h001: q <= id[15:8];
-                12'h002: q <= id[23:16];
-                12'h003: q <= id[31:24];
-                12'h004: q <= 8'hC0;
-                12'h005: q <= 8'h02;
-                12'h006: q <= 8'd2;
-                12'h008: q <= build[7:0];
-                12'h009: q <= build[15:8];
-                12'h00A: q <= build[23:16];
-                12'h00B: q <= build[31:24];
-                12'h010: q <= irq_en;
-                12'h014: q <= cause;
-                12'h020: q <= ddr_cal[7:0];
-                12'h021: q <= ddr_cal[15:8];
-                12'h022: q <= ddr_cal[23:16];
-                12'h023: q <= ddr_cal[31:24];
-                12'h024: q <= ddr_cal[39:32];
-                12'h025: q <= ddr_cal[47:40];
-                12'h026: q <= ddr_cal[55:48];
-                12'h027: q <= ddr_cal[63:56];
-                12'h030: q <= 8'h00;          // 628,992 = 0x99900
-                12'h031: q <= 8'h99;
-                12'h032: q <= 8'h09;
-                12'h033: q <= 8'h00;
-                12'h034: q <= 8'd0;
-                12'h035: q <= 8'h18;          // 280 lines in the frame buffer
-                12'h036: q <= 8'h01;
-                12'h037: q <= 8'h58;          // 344 picture pixels per line
-                12'h038: q <= 8'h01;
-                12'h0A0: q <= ctrl_r;
-                12'h0A1: q <= model_r;
-                12'h0A2: q <= j1_r;
-                12'h0A3: q <= j2_r;
-                12'h0A4: q <= status;
-                12'h0A8: q <= frames[7:0];
-                12'h0A9: q <= frames[15:8];
-                12'h0AC: q <= cpuaddr[7:0];
-                12'h0AD: q <= cpuaddr[15:8];
-                12'h0C0: q <= l_q;
-                12'h0C1: q <= n_q;
-                12'h0C2: q <= o_q[7:0];
-                12'h0C3: q <= o_q[15:8];
-                12'h0C4: q <= fbb_r[7:0];
-                12'h0C5: q <= fbb_r[15:8];
-                12'h0C6: q <= fbb_r[23:16];
-                12'h0C7: q <= fbb_r[31:24];
-                12'h0C8: q <= fbs_r[7:0];
-                12'h0C9: q <= fbs_r[15:8];
-                12'h0CA: q <= fbs_r[23:16];
-                12'h0CB: q <= fbs_r[31:24];
-                12'h0D4: q <= {5'd0, page_r};
-                12'h11B: q <= p7_r;
-                12'h11C: q <= bord_r;
-                12'h130: q <= aysel_r;
-                12'h140: q <= tctrl_r;
-                12'h144: q <= tbase_r[7:0];
-                12'h145: q <= tbase_r[15:8];
-                12'h146: q <= tbase_r[23:16];
-                12'h147: q <= tbase_r[31:24];
-                12'h148: q <= tape_pos[7:0];
-                12'h149: q <= tape_pos[15:8];
-                12'h14A: q <= tape_pos[23:16];
-                12'h14B: q <= {7'd0, tape_pos[24]};
-                12'h150: q <= {4'd0, tape_stat};
-                12'h151: q <= tape_under;
+                R_IDENT_ID: q <= id[7:0];
+                R_IDENT_ID + 12'd1: q <= id[15:8];
+                R_IDENT_ID + 12'd2: q <= id[23:16];
+                R_IDENT_ID + 12'd3: q <= id[31:24];
+                R_IDENT_CAPS: q <= 8'hC0;
+                R_IDENT_CAPS2: q <= 8'h02;
+                R_IDENT_CONTRACT: q <= 8'd2;
+                R_IDENT_BUILD: q <= build[7:0];
+                R_IDENT_BUILD + 12'd1: q <= build[15:8];
+                R_IDENT_BUILD + 12'd2: q <= build[23:16];
+                R_IDENT_BUILD + 12'd3: q <= build[31:24];
+                R_IRQ_IRQ_EN: q <= irq_en;
+                R_IRQ_IRQ_CAUSE: q <= cause;
+                R_DDR_CAL_DDR_CAL0: q <= ddr_cal[7:0];
+                R_DDR_CAL_DDR_CAL0 + 12'd1: q <= ddr_cal[15:8];
+                R_DDR_CAL_DDR_CAL0 + 12'd2: q <= ddr_cal[23:16];
+                R_DDR_CAL_DDR_CAL0 + 12'd3: q <= ddr_cal[31:24];
+                R_DDR_CAL_DDR_CAL1: q <= ddr_cal[39:32];
+                R_DDR_CAL_DDR_CAL1 + 12'd1: q <= ddr_cal[47:40];
+                R_DDR_CAL_DDR_CAL1 + 12'd2: q <= ddr_cal[55:48];
+                R_DDR_CAL_DDR_CAL1 + 12'd3: q <= ddr_cal[63:56];
+                R_GEOM_FRAME_CLKS: q <= 8'h00;          // 628,992 = 0x99900
+                R_GEOM_FRAME_CLKS + 12'd1: q <= 8'h99;
+                R_GEOM_FRAME_CLKS + 12'd2: q <= 8'h09;
+                R_GEOM_FRAME_CLKS + 12'd3: q <= 8'h00;
+                R_GEOM_RSVD34: q <= 8'd0;
+                R_GEOM_LINES: q <= 8'h18;          // 280 lines in the frame buffer
+                R_GEOM_LINES + 12'd1: q <= 8'h01;
+                R_GEOM_PIX_W: q <= 8'h58;          // 344 picture pixels per line
+                R_GEOM_PIX_W + 12'd1: q <= 8'h01;
+                R_MACHINE_CTRL: q <= ctrl_r;
+                R_MACHINE_MODEL: q <= model_r;
+                R_MACHINE_JOY1: q <= j1_r;
+                R_MACHINE_JOY2: q <= j2_r;
+                R_MACHINE_STATUS: q <= status;
+                R_MACHINE_FRAMES: q <= frames[7:0];
+                R_MACHINE_FRAMES + 12'd1: q <= frames[15:8];
+                R_MACHINE_CPUADDR: q <= cpuaddr[7:0];
+                R_MACHINE_CPUADDR + 12'd1: q <= cpuaddr[15:8];
+                R_VIDEO_FB_LATEST: q <= l_q;
+                R_VIDEO_FRAME_SEQ: q <= n_q;
+                R_VIDEO_FB_OVERRUNS: q <= o_q[7:0];
+                R_VIDEO_FB_OVERRUNS + 12'd1: q <= o_q[15:8];
+                R_VIDEO_FB_BASE: q <= fbb_r[7:0];
+                R_VIDEO_FB_BASE + 12'd1: q <= fbb_r[15:8];
+                R_VIDEO_FB_BASE + 12'd2: q <= fbb_r[23:16];
+                R_VIDEO_FB_BASE + 12'd3: q <= fbb_r[31:24];
+                R_VIDEO_FB_STRIDE: q <= fbs_r[7:0];
+                R_VIDEO_FB_STRIDE + 12'd1: q <= fbs_r[15:8];
+                R_VIDEO_FB_STRIDE + 12'd2: q <= fbs_r[23:16];
+                R_VIDEO_FB_STRIDE + 12'd3: q <= fbs_r[31:24];
+                R_WIN_WIN_PAGE: q <= {5'd0, page_r};
+                R_SNAP_P7FFD: q <= p7_r;
+                R_SNAP_BORDER: q <= bord_r;
+                R_SNAP_AY_SEL: q <= aysel_r;
+                R_TAPE_CTRL: q <= tctrl_r;
+                R_TAPE_BASE: q <= tbase_r[7:0];
+                R_TAPE_BASE + 12'd1: q <= tbase_r[15:8];
+                R_TAPE_BASE + 12'd2: q <= tbase_r[23:16];
+                R_TAPE_BASE + 12'd3: q <= tbase_r[31:24];
+                R_TAPE_POS: q <= tape_pos[7:0];
+                R_TAPE_POS + 12'd1: q <= tape_pos[15:8];
+                R_TAPE_POS + 12'd2: q <= tape_pos[23:16];
+                R_TAPE_POS + 12'd3: q <= {7'd0, tape_pos[24]};
+                R_TAPE_STATUS: q <= {4'd0, tape_stat};
+                R_TAPE_UNDERRUN: q <= tape_under;
                 default: begin
-                    if (off >= 12'h100 && off < 12'h11B) q <= dir_r[8 * (off - 12'h100) +: 8];
-                    if (off >= 12'h120 && off < 12'h130) q <= ay_r[8 * (off - 12'h120) +: 8];
-                    if (off >= 12'h160 && off < 12'h165) q <= inj_r[8 * (off - 12'h160) +: 8];
+                    if (off >= R_SNAP_DIR && off < R_SNAP_DIR + 12'd27) q <= dir_r[8 * (off - R_SNAP_DIR) +: 8];
+                    if (off >= R_SNAP_AY && off < R_SNAP_AY + 12'd16) q <= ay_r[8 * (off - R_SNAP_AY) +: 8];
+                    if (off >= R_INJECT_KEYS && off < R_INJECT_KEYS + 12'd5) q <= inj_r[8 * (off - R_INJECT_KEYS) +: 8];
                 end
             endcase
         end

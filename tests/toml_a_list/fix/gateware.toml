@@ -1,0 +1,51 @@
+[io]
+iobase = 0x10000000
+u2p_io_base = 0x10100000
+
+[identity]
+id = "TFX1"
+block = "ident"
+
+[[block]]
+name = "ident"
+module = "tfx_regs"
+owner = "base"
+address = 0x101A0000
+size = 0x0C
+  [[block.property]]
+  name = "id"
+  offset = 0x0
+  width = 32
+  dir = "r"
+  [[block.property]]
+  name = "caps"
+  offset = 0x4
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "caps2"
+  offset = 0x5
+  width = 8
+  dir = "r"
+  [[block.property]]
+  name = "build"
+  offset = 0x8
+  width = 32
+  dir = "r"
+
+[[block]]
+name = "ctl"
+module = "tfx_regs"
+owner = "core"
+address = 0x101A0010
+size = 0x08
+  [[block.property]]
+  name = "mode"
+  offset = 0x0
+  width = 8
+  dir = "rw"
+  [[block.property]]
+  name = "base"
+  offset = 0x4
+  width = 32
+  dir = "rw"

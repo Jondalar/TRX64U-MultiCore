@@ -400,7 +400,7 @@ static void flash_configure(CoreIo *io, uint8_t cart_type, const char *path, con
     memset(&m, 0, sizeof(m));
     snprintf(m.path, sizeof(m.path), "%s", path);
     snprintf(m.name, sizeof(m.name), "%s", name);
-    m.write = wb_crt_write;
+    wb_crt_medium(&m);                                      // writer, snap and unsnap (T154 D6)
     m.user = &g_wbcrt;
     m.hold = flash_hold;
     wb_register(m);
@@ -811,6 +811,7 @@ void c64_cart_image_write(CoreCtx *c, uint32_t off, const uint8_t *src, uint32_t
     if (c64_cart_active() && off < g_image_max && n <= g_image_max - off) {       // the file's image never goes past the window the cartridge was inserted with
         c->io->ddr_write(g_img_base + off, src, n);
         c->io->wr(C64_CART_CMD, C64_CART_CMD_INVAL);                                  // the cartridge's cached lines of the image go (cmd.inval): every write drops them, no caller does it (D50)
+        wb_unmarked();                                                                // no change to write, but the file may differ from the image now (T154 D6)
     }
 }
 
