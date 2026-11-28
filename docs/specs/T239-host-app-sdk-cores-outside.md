@@ -12,7 +12,7 @@ repo already) and the other cores I do not know yet. Plus a registry for cores a
 **Depends on:** T192 and T213 (app layers, D24), T221 (SemVer per deliverable), T238 (support model), T100 D8 (releases on GitHub).
 **Milestone:** after release 0.2.0.
 
-Open (one line, as in the TODO table): A done 11-22; B: .3 on main 11-27, .5 the only pipeline (D22), .6 decided; D (.2), C (.4) decided, not built
+Open (one line, as in the TODO table): A done 11-22; B: .5 done 11-28, .3 open, .6 next; D (.2), C (.4) decided, parked
 
 ---
 
@@ -51,7 +51,7 @@ The children carry the scenarios. Order by D13 (Alex 2026-11-19: "machst Du eine
 | T239.2 | D | Every host gateware release publishes its static checkpoint and a core template, so DFX cores are built outside this repository | D2, D3; T239.1 | [T239.2](T239.2-platform-checkpoint.md) |
 | T239.3 | B | The app core has an API for sub-apps and libraries; trx64u and the drive libraries ride on it, and the SDK ships it | D9, D10; T239.1, T239.2 | [T239.3](T239.3-app-core-sdk.md) |
 | T239.4 | C | The host menu lists the central registry over HTTPS, installs a core or a host update from it, and refuses what does not check out | D3, D5-D9; T239.2, T239.3 | [T239.4](T239.4-registry-tls.md) |
-| T239.5 | B | Each core that moved to the SDK is built and tested on a lane of its own, from lint to delivery; since D22 the only pipeline | T239.3 | [T239.5](T239.5-core-pipeline.md) |
+| T239.5 | B | Each core that moved to the SDK is built and tested on a lane of its own, from lint to delivery; since D22 the only pipeline | T239.3 | [T239.5](done/T239.5-core-pipeline.md) |
 | T239.6 | B | The host app is built from the SDK like every core app: its own code is libraries of the host core | T239.3 D6, D10; T239.5 | [T239.6](T239.6-host-on-sdk.md) |
 
 Each child lists its open questions for Alex in its §3; none is built before they are answered. State 2026-11-19, evening: every
